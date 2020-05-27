@@ -62,9 +62,9 @@ for more information about setting environment for `ybsql` connections.
     found in this database.
 -   **[yb\_get\_seqeuence\_names](./yb_get_sequence_names.py):** List the
     sequence names found in this database.
--   **[yb\_ddl\_view](./yb_get_ddl_view.py):** Dump out the SQL/DDL that was
+-   **[yb\_ddl\_view](./yb_ddl_view.py):** Dump out the SQL/DDL that was
     used to create a view.
--   **[yb\_ddl\_sequence](./yb_get_ddl_sequence.py):** Dump out the SQL/DDL that
+-   **[yb\_ddl\_sequence](./yb_ddl_sequence.py):** Dump out the SQL/DDL that
     was used to create a sequence. 
 
 ### Other Files
@@ -72,9 +72,9 @@ for more information about setting environment for `ybsql` connections.
 -   **[yb\_ddl\_object](./yb_ddl_object.py):** Dump out the SQL/DDL that was
     used to create any database object.
     - This file is typically not executed directly, but it is relied upon by:
-      1.  [yb\_ddl\_sequence](./yb_get_ddl_sequence.py)
+      1.  [yb\_ddl\_sequence](./yb_ddl_sequence.py)
       2.  [yb\_ddl\_table](./yb_ddl_table.py)
-      3.  [yb\_ddl\_view](./yb_get_ddl_view.py)
+      3.  [yb\_ddl\_view](./yb_ddl_view.py)
 -   **[yb\_common](./yb_common.py):** Performs functions such as argument
     parsing, login verification, logging, and command execution that are common
     to all utilities in this project.
