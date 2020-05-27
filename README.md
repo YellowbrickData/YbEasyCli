@@ -7,9 +7,7 @@
 
 # YbEasyCli
 
-Yellowbrick Data utility scripts used to interact with a Yellowbrick instance
-through the command line
-
+An extensible collection of utility scripts used to interact with a Yellowbrick Data Warehouse instance through an easy command line interface.
 
 <a id="installation"></a>
 
