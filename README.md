@@ -1,0 +1,2 @@
+# YbEasyCli
+Easy CLI
