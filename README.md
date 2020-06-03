@@ -59,7 +59,7 @@ for more information about setting environment for `ybsql` connections.
     specified view exists.
 -   **[yb\_get\_view\_names](./yb_get_view_names.py):** List the view names
     found in this database.
--   **[yb\_get\_seqeuence\_names](./yb_get_sequence_names.py):** List the
+-   **[yb\_get\_sequence\_names](./yb_get_sequence_names.py):** List the
     sequence names found in this database.
 -   **[yb\_ddl\_view](./yb_ddl_view.py):** Dump out the SQL/DDL that was
     used to create a view.
