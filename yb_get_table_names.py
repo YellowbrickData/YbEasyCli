@@ -35,15 +35,17 @@ class get_table_names:
 SELECT
     %s
 FROM
-    <database_name>.information_schema.tables AS t
-    JOIN <database_name>.pg_catalog.pg_tables AS c
-        ON (t.table_name = c.tablename AND t.table_schema = c.schemaname)
+    <database_name>.sys.table AS t
+    JOIN <database_name>.sys.schema AS s
+        ON t.schema_id = s.schema_id
+    JOIN <database_name>.sys.user AS u
+        ON t.owner_id = u.user_id
 WHERE
-    t.table_type='BASE TABLE' AND %s
+    %s
 ORDER BY 1""" % (object_name_clause, common.filter_clause))
-                     .replace('<owner_column_name>', 'c.tableowner')
-                     .replace('<schema_column_name>', 't.table_schema')
-                     .replace('<object_column_name>', 't.table_name')
+                     .replace('<owner_column_name>', 'u.name')
+                     .replace('<schema_column_name>', 's.name')
+                     .replace('<object_column_name>', 't.name')
                      .replace('<database_name>', common.database))
 
         cmd_results = common.ybsql_query(sql_query)

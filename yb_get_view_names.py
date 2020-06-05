@@ -34,15 +34,19 @@ class get_view_names:
 
         sql_query = (("""
 SELECT
-    """ + object_name_clause + """
+    %s
 FROM
-    <database_name>.pg_catalog.pg_views AS v
+    <database_name>.sys.view AS v
+    JOIN <database_name>.sys.schema AS s
+        ON v.schema_id = s.schema_id
+    JOIN <database_name>.sys.user AS u
+        ON v.owner_id = u.user_id
 WHERE
     %s
-ORDER BY 1""" % common.filter_clause)
-                     .replace('<owner_column_name>', 'v.viewowner')
-                     .replace('<schema_column_name>', 'v.schemaname')
-                     .replace('<object_column_name>', 'v.viewname')
+ORDER BY 1""" % (object_name_clause, common.filter_clause))
+                     .replace('<owner_column_name>', 'u.name')
+                     .replace('<schema_column_name>', 's.name')
+                     .replace('<object_column_name>', 'v.name')
                      .replace('<database_name>', common.database))
 
         cmd_results = common.ybsql_query(sql_query)
