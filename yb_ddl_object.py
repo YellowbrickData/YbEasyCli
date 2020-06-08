@@ -58,7 +58,7 @@ class ddl_object:
                 object_full_name = '%s.%s.%s' % (common.database,
                                                  common.schema,
                                                  object)
-            describe_objects.append('DESCRIBE %s ONLY DDL;' % object_full_name)
+            describe_objects.append('DESCRIBE %s ONLY DDL;\n\\echo' % object_full_name)
 
         return '\n'.join(describe_objects)
 
@@ -89,6 +89,7 @@ class ddl_object:
                                     '%s%s.' % (create_object_clause,
                                                common.database))
 
+            #change all data type key words to upper case 
             d_types = [
                 'bigint', 'integer', 'smallint', 'numeric', 'real',
                 'double precision', 'uuid', 'character varying', 'character',
@@ -99,9 +100,17 @@ class ddl_object:
             for data_type in d_types:
                 line = re.sub(r"( )" + data_type + "(,?$|\()",
                               r"\1%s\2" % data_type.upper(), line)
+
             new_ddl.append(line)
 
-        return '\n'.join(new_ddl).strip() + '\n'
+        new_ddl = '\n'.join(new_ddl).strip() + '\n'
+
+        #remove DDL comments at the beginning of each object definition
+        new_ddl = re.sub(r"--.*?\n", "", new_ddl)
+        #correct trailing ';' at end of each definition to be consistent
+        new_ddl = re.sub(r"(\s*);", ";", new_ddl)
+
+        return new_ddl
 
     def init_common(self, object_type):
         """Initialize common class.
