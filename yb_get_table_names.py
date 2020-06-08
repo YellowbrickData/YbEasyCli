@@ -31,6 +31,9 @@ class get_table_names:
             "<schema_column_name> || '.' || <object_column_name>"
             if common.args.schemas else '<object_column_name>')
 
+        sys_user = ("""JOIN <database_name>.sys.user AS u
+        ON t.owner_id = u.user_id""" if common.args.owner else "")
+
         sql_query = (("""
 SELECT
     %s
@@ -38,11 +41,10 @@ FROM
     <database_name>.sys.table AS t
     JOIN <database_name>.sys.schema AS s
         ON t.schema_id = s.schema_id
-    JOIN <database_name>.sys.user AS u
-        ON t.owner_id = u.user_id
+    %s
 WHERE
     %s
-ORDER BY 1""" % (object_name_clause, common.filter_clause))
+ORDER BY 1""" % (object_name_clause, sys_user, common.filter_clause))
                      .replace('<owner_column_name>', 'u.name')
                      .replace('<schema_column_name>', 's.name')
                      .replace('<object_column_name>', 't.name')
