@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_get_table_name [database] table [options]
+      yb_get_table_name.py [database] table [options]
 
 PURPOSE:
       Verifies that the specified table exists.
@@ -11,7 +11,7 @@ OPTIONS:
       (yb_get_table_name.py --help)
 
 Outputs:
-      If the table exists, its name will be echoed back out.
+      If the table exists, it's fully qualified name will be echoed back out.
 """
 
 import sys
@@ -23,32 +23,31 @@ class get_table_name:
     """Issue the command used to verify that the specified table exists."""
 
     def __init__(self):
-
         common = self.init_common()
 
-        object_name_clause = (
-            "<schema_column_name> || '.' || <object_column_name>"
-            if common.args.schemas else '<object_column_name>')
+        filter_clause = self.db_args.build_sql_filter(
+            {'owner':'c.tableowner','schema':'c.schemaname','table':'c.tablename'},
+            indent='    ')
 
         sql_query = (("""
 SELECT
-    """ + object_name_clause + """
+    --'<database_name>.' || c.schemaname || '.' || c.tablename AS table_path
+    c.tablename
 FROM
-    <database_name>.pg_catalog.pg_tables AS t
+    <database_name>.information_schema.tables AS t
+    JOIN <database_name>.pg_catalog.pg_tables AS c
+        ON (t.table_name = c.tablename AND t.table_schema = c.schemaname)
 WHERE
-    <object_column_name> = '""" + common.args.table[0] + """'
-    AND %s""" % common.filter_clause)
-                     .replace('<owner_column_name>', 't.tableowner')
-                     .replace('<schema_column_name>', 't.schemaname')
-                     .replace('<object_column_name>', 't.tablename')
-                     .replace('<database_name>', common.database))
+    t.table_type='BASE TABLE'
+    AND <filter_clause>
+ORDER BY LOWER(c.schemaname), LOWER(c.tablename)""")
+            .replace('<filter_clause>', filter_clause)
+            .replace('<database_name>', common.database))
 
         cmd_results = common.ybsql_query(sql_query)
 
-        if cmd_results.exit_code == 0:
-            sys.stdout.write(cmd_results.stdout)
-        else:
-            sys.stdout.write(common.color(cmd_results.stderr, fg='red'))
+        cmd_results.write(quote=True)
+
         exit(cmd_results.exit_code)
 
     def init_common(self):
@@ -60,15 +59,13 @@ WHERE
 
         :return: An instance of the `common` class
         """
-        common = yb_common.common(
-            description='Verifies that the specified table exists.',
-            positional_args_usage='[database] table',
-            object_type='table')
+        common = yb_common.common()
 
-        common.args_add_positional_args()
-        common.args_add_optional()
-        common.args_add_connection_group()
-        common.args_add_filter_group(keep_args=['--owner', '--schema', '--in'])
+        self.db_args = common.db_args(
+            description=
+                'List/Verifies that the specified table exists.',
+            required_args_single=['table'],
+            optional_args_multi=['owner'])
 
         common.args_process()
 

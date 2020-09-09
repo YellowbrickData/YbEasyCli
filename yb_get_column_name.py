@@ -4,14 +4,14 @@ USAGE:
       yb_get_column_name.py [database] object column [options]
 
 PURPOSE:
-      Verifies that the specified column exists in the object.
+      List/Verifies that the specified column exists in the object.
 
 OPTIONS:
       See the command line help message for all options.
       (yb_get_column_name.py --help)
 
 Output:
-      If the column exists in the object, its name will be echoed back out.
+      If the column exists in the object, it's name will be echoed back out.
 """
 
 import sys
@@ -27,14 +27,20 @@ class get_column_name:
     def __init__(self):
         common = self.init_common()
 
+        filter_clause = self.db_args.build_sql_filter(
+            {'owner':'objectowner',
+            'schema':'schemaname',
+            'object':'objectname',
+            'column':'columnname'})
+
         sql_query = (("""
 WITH
 o AS (
     SELECT
         a.attname AS columnname
-        , c.relname AS tablename
+        , c.relname AS objectname
         , n.nspname AS schemaname
-        , pg_get_userbyid(c.relowner) AS tableowner
+        , pg_get_userbyid(c.relowner) AS objectowner
     FROM <database_name>.pg_catalog.pg_class AS c
         LEFT JOIN <database_name>.pg_catalog.pg_namespace AS n
             ON n.oid = c.relnamespace
@@ -44,27 +50,20 @@ o AS (
         c.relkind IN ('r', 'v')
 )
 SELECT
+    --'<database_name>.' || schemaname || '.' || objectname || '.' || columnname AS column_path
     columnname
 FROM
     o
 WHERE
-    <object_column_name> = '%s'
-    AND <table_column_name> = '%s'
-    AND %s""" % (common.args.column[0],
-                 common.args.object[0],
-                 common.filter_clause))
-                     .replace('<owner_column_name>', 'o.tableowner')
-                     .replace('<object_column_name>', 'o.columnname')
-                     .replace('<table_column_name>', 'o.tablename')
-                     .replace('<schema_column_name>', 'o.schemaname')
-                     .replace('<database_name>', common.database))
+    <filter_clause>
+ORDER BY LOWER(schemaname), LOWER(objectname)""")
+            .replace('<filter_clause>', filter_clause)
+            .replace('<database_name>', common.database))
 
         cmd_results = common.ybsql_query(sql_query)
 
-        if cmd_results.exit_code == 0:
-            sys.stdout.write(cmd_results.stdout)
-        else:
-            sys.stdout.write(common.color(cmd_results.stderr, fg='red'))
+        cmd_results.write(quote=True)
+
         exit(cmd_results.exit_code)
 
     def init_common(self):
@@ -76,15 +75,14 @@ WHERE
 
         :return: An instance of the `common` class
         """
-        common = yb_common.common(
-            description='List/Verifies that the specified column name exists.',
-            positional_args_usage='[database] object column',
-            object_type='object')
+        common = yb_common.common()
 
-        common.args_add_positional_args()
-        common.args_add_optional()
-        common.args_add_connection_group()
-        common.args_add_filter_group(keep_args=['--owner', '--schema', '--in'])
+        self.db_args = common.db_args(
+            description=
+                'List/Verifies that the specified table/view column'
+                'name if it exists.',
+            required_args_single=['object', 'column'],
+            optional_args_multi=['owner'])
 
         common.args_process()
 

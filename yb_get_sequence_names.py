@@ -28,9 +28,10 @@ class get_sequence_names:
 
         common = self.init_common()
 
-        object_name_clause = (
-            "<schema_column_name> || '.' || <object_column_name>"
-            if common.args.schemas else '<object_column_name>')
+        filter_clause = self.db_args.build_sql_filter(
+            {'owner':'sequenceowner',
+            'schema':'schemaname',
+            'sequence':'sequencename'})
 
         sql_query = (("""
 WITH
@@ -46,23 +47,19 @@ o AS (
         c.relkind IN ('S')
 )
 SELECT
-    """ + object_name_clause + """
+    schemaname || '.' || sequencename
 FROM
     o
 WHERE
-    %s
-ORDER BY 1""" % common.filter_clause)
-                     .replace('<owner_column_name>', 'o.sequenceowner')
-                     .replace('<schema_column_name>', 'o.schemaname')
-                     .replace('<object_column_name>', 'o.sequencename')
-                     .replace('<database_name>', common.database))
+    <filter_clause>
+ORDER BY LOWER(schemaname), LOWER(sequencename)""")
+            .replace('<filter_clause>', filter_clause)
+            .replace('<database_name>', common.database))
 
         cmd_results = common.ybsql_query(sql_query)
 
-        if cmd_results.exit_code == 0:
-            sys.stdout.write(cmd_results.stdout)
-        else:
-            sys.stdout.write(common.color(cmd_results.stderr, fg='red'))
+        cmd_results.write(quote=True)
+
         exit(cmd_results.exit_code)
 
     def init_common(self):
@@ -74,15 +71,12 @@ ORDER BY 1""" % common.filter_clause)
 
         :return: An instance of the `common` class
         """
-        common = yb_common.common(
-            description='List/Verifies that the specified sequence/s exist.',
-            positional_args_usage='[database]',
-            object_type='sequence')
+        common = yb_common.common()
 
-        common.args_add_positional_args()
-        common.args_add_optional()
-        common.args_add_connection_group()
-        common.args_add_filter_group()
+        self.db_args = common.db_args(
+            description=
+                'List/Verifies that the specified sequence/s exist.',
+            optional_args_multi=['sequence', 'owner', 'schema'])
 
         common.args_process()
 

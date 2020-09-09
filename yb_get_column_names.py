@@ -28,13 +28,21 @@ class get_column_names:
 
         common = self.init_common()
 
+        filter_clause = self.db_args.build_sql_filter(
+            {
+                'owner':'tableowner'
+                ,'schema':'schemaname'
+                ,'object':'objectname'
+                ,'column':'columnname'},
+            indent='    ')
+
         sql_query = (("""
 WITH
 o AS (
     SELECT
         a.attname AS columnname
         , a.attnum AS columnnum
-        , c.relname AS tablename
+        , c.relname AS objectname
         , n.nspname AS schemaname
         , pg_get_userbyid(c.relowner) AS tableowner
     FROM <database_name>.pg_catalog.pg_class AS c
@@ -47,27 +55,23 @@ o AS (
         AND a.attnum > 0
 )
 SELECT
+    --'<database_name>.' || schemaname || '.' || objectname || '.' || columnname AS column_path
     columnname
 FROM
     o
 WHERE
-    <table_column_name> = '%s'
-    AND %s
+    objectname = '<object_name>'
+    AND <filter_clause>
 ORDER BY
-    columnnum""" % (common.args.object[0],
-                    common.filter_clause))
-                     .replace('<owner_column_name>', 'o.tableowner')
-                     .replace('<object_column_name>', 'o.columnname')
-                     .replace('<table_column_name>', 'o.tablename')
-                     .replace('<schema_column_name>', 'o.schemaname')
-                     .replace('<database_name>', common.database))
+    LOWER(schemaname), LOWER(objectname), columnnum""")
+        .replace('<filter_clause>', filter_clause)
+        .replace('<database_name>', common.database)
+        .replace('<object_name>', common.args.object))
 
         cmd_results = common.ybsql_query(sql_query)
 
-        if cmd_results.exit_code == 0:
-            sys.stdout.write(cmd_results.stdout)
-        else:
-            sys.stdout.write(common.color(cmd_results.stderr, fg='red'))
+        cmd_results.write(quote=True)
+
         exit(cmd_results.exit_code)
 
     def init_common(self):
@@ -79,15 +83,13 @@ ORDER BY
 
         :return: An instance of the `common` class
         """
-        common = yb_common.common(
-            description='List/Verifies that the specified column names exist.',
-            positional_args_usage='[database] object',
-            object_type='object')
+        common = yb_common.common()
 
-        common.args_add_positional_args()
-        common.args_add_optional()
-        common.args_add_connection_group()
-        common.args_add_filter_group()
+        self.db_args = common.db_args(
+            description=
+                'List/Verifies that the specified column names exist.',
+            optional_args_multi=['owner', 'column'],
+            positional_args_usage='[database] object')
 
         common.args_process()
 

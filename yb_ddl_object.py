@@ -23,17 +23,18 @@ class ddl_object:
     """
 
     def __init__(self, object_type):
-
-        common = self.init_common(object_type)
+        self.object_type = object_type
+        common = self.init_common()
 
         describe_sql = self.get_describe_sql(common)
         cmd_results = common.ybsql_query(describe_sql)
 
-        if cmd_results.exit_code == 0:
+        if cmd_results.stdout != '':
             ddl_sql = self.ddl_modifications(cmd_results.stdout, common)
             sys.stdout.write(ddl_sql)
-        else:
-            sys.stdout.write(common.color(cmd_results.stderr, fg='red'))
+        if cmd_results.stderr != '':
+            sys.stderr.write(common.color(cmd_results.stderr, fg='red'))
+
         exit(cmd_results.exit_code)
 
     def get_describe_sql(self, common):
@@ -43,22 +44,30 @@ class ddl_object:
                        module
         :return: A string containing the SQL DESCRIBE statement
         """
-        util_cmd = (' '.join(sys.argv)
-                    .replace(' --with_db', '')
-                    .replace(' --with_schema', '')
+        #if argv is double quoted it needs to also have outer single quotes
+        util_cmd = ''
+        skip_next_argv = False
+        for argv in sys.argv:
+            if skip_next_argv:
+                skip_next_argv = False
+            elif argv in ['--with_db', '--with_schema']:
+                None
+            elif argv in ['--db_name', '--schema_name']:
+                skip_next_argv = True
+            elif argv[0:1] == '"':
+                util_cmd += "'" + argv + "'" + ' '
+            else:
+                util_cmd += argv + ' '
+
+        util_cmd = (util_cmd
                     .replace(os.path.basename(sys.argv[0]),
-                             'yb_get_%s_names.py' % common.object_type))
+                             'yb_get_%s_names.py' % self.object_type))
         cmd_results = common.call_util_cmd(util_cmd)
 
         describe_objects = []
-        for object in cmd_results.stdout.strip().split('\n'):
-            if common.args.schemas:
-                object_full_name = '%s.%s' % (common.database, object)
-            else:
-                object_full_name = '%s.%s.%s' % (common.database,
-                                                 common.schema,
-                                                 object)
-            describe_objects.append('DESCRIBE %s ONLY DDL;\n\\echo' % object_full_name)
+        if cmd_results.stdout.strip() != '':
+            for object in cmd_results.stdout.strip().split('\n'):
+                describe_objects.append('DESCRIBE %s ONLY DDL;\n\\echo' % object)
 
         return '\n'.join(describe_objects)
 
@@ -79,15 +88,28 @@ class ddl_object:
             token = line.split(':')
             if token[0] == '-- Schema':
                 ddl_schema = token[1].strip()
-            create_object_clause = 'CREATE %s ' % common.object_type.upper()
-            if common.args.with_schema or common.args.with_db:
-                line = line.replace(create_object_clause,
-                                    '%s%s.' % (create_object_clause,
-                                               ddl_schema))
-            if common.args.with_db:
-                line = line.replace(create_object_clause,
-                                    '%s%s.' % (create_object_clause,
-                                               common.database))
+
+            #add schema and database to object name and quote name where needed
+            matches = re.match(r"\s*CREATE\s*([^\s]*)\s*([^\s(]*)(.*)"
+                , line, re.MULTILINE)
+            if matches:
+                tablepath = matches.group(2)
+                if common.args.with_schema or common.args.with_db:
+                    tablepath = (
+                        ( common.args.schema_name
+                          if common.args.schema_name
+                          else ddl_schema)
+                        + '.' + tablepath
+                    )
+                if common.args.with_db:
+                    tablepath = (
+                        ( common.args.db_name
+                          if common.args.db_name
+                          else common.database)
+                        + '.' + tablepath
+                    )
+                tablepath = common.quote_object_path(tablepath)
+                line = 'CREATE %s %s%s' % (matches.group(1), tablepath, matches.group(3))
 
             #change all data type key words to upper case 
             d_types = [
@@ -112,35 +134,53 @@ class ddl_object:
 
         return new_ddl
 
-    def init_common(self, object_type):
+    def init_common(self):
         """Initialize common class.
 
         This initialization performs argument parsing and login verification.
         It also provides access to functions such as logging and command
         execution.
 
-        :param object_type: The type of the database object
         :return: An instance of the `common` class
         """
-        common = yb_common.common(
+        common = yb_common.common()
+
+        common.args_process_init(
             description=('Return the {obj_type}/s DDL for the requested '
                          'database.  Use {obj_type} filters to limit the set '
-                         'of tables returned.').format(obj_type=object_type),
-            object_type=object_type)
+                         'of tables returned.').format(obj_type=self.object_type))
 
         common.args_add_positional_args()
         common.args_add_optional()
         common.args_add_connection_group()
-        common.args_add_filter_group()
-
+        
         args_ddl_grp = common.args_parser.add_argument_group('DDL arguments')
         args_ddl_grp.add_argument("--with_schema",
                                   action='store_true',
-                                  help="add the schema name to the object DDL")
+                                  help="add the schema name to the %s DDL"
+                                  % self.object_type)
         args_ddl_grp.add_argument("--with_db",
                                   action='store_true',
-                                  help="add the database name to the object DDL")
+                                  help="add the database name to the %s DDL"
+                                  % self.object_type)
+        args_ddl_grp.add_argument("--schema_name",
+                                  help="set a new schema name to the %s DDL"
+                                  % self.object_type)
+        args_ddl_grp.add_argument("--db_name",
+                                  help="set a new database name to the %s DDL"
+                                  % self.object_type)
+
+        self.db_args = yb_common.db_args(
+            required_args_single=[],
+            optional_args_single=[],
+            optional_args_multi=[self.object_type, 'schema'],
+            common=common)
 
         common.args_process()
+
+        if common.args.schema_name:
+            common.args.with_schema = True
+        if common.args.db_name:
+            common.args.with_db = True
 
         return common

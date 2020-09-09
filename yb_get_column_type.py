@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_get_column_type.py [database] table column [options]
+      yb_get_column_type.py [database] [options]
 
 PURPOSE:
       Get a column's defined data type.
@@ -27,6 +27,12 @@ class get_column_type:
 
         common = self.init_common()
 
+        filter_clause = self.db_args.build_sql_filter(
+            {'owner':'tableowner',
+            'schema':'schemaname',
+            'table':'tablename',
+            'column':'columnname'})
+
         sql_query = (("""
 WITH
 dt AS (
@@ -49,23 +55,14 @@ SELECT
 FROM
     dt
 WHERE
-    <object_column_name> = '%s'
-    AND <table_column_name> = '%s'
-    AND %s""" % (common.args.column[0],
-                 common.args.table[0],
-                 common.filter_clause))
-                     .replace('<owner_column_name>', 'dt.tableowner')
-                     .replace('<object_column_name>', 'dt.columnname')
-                     .replace('<table_column_name>', 'dt.tablename')
-                     .replace('<schema_column_name>', 'dt.schemaname')
-                     .replace('<database_name>', common.database))
+    <filter_clause>""")
+            .replace('<filter_clause>', filter_clause)
+            .replace('<database_name>', common.database))
 
         cmd_results = common.ybsql_query(sql_query)
 
-        if cmd_results.exit_code == 0:
-            sys.stdout.write(cmd_results.stdout)
-        else:
-            sys.stdout.write(common.color(cmd_results.stderr, fg='red'))
+        cmd_results.write()
+
         exit(cmd_results.exit_code)
 
     def init_common(self):
@@ -77,15 +74,12 @@ WHERE
 
         :return: An instance of the `common` class
         """
-        common = yb_common.common(
-            description='Return the data type of the requested column.',
-            positional_args_usage='[database] table column',
-            object_type='object')
+        common = yb_common.common()
 
-        common.args_add_positional_args()
-        common.args_add_optional()
-        common.args_add_connection_group()
-        common.args_add_filter_group(keep_args=['--owner', '--schema', '--in'])
+        self.db_args = common.db_args(
+            description='Return the data type of the requested column.',
+            required_args_single=['table', 'column'],
+            optional_args_multi=['owner'])
 
         common.args_process()
 

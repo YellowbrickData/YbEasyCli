@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_get_table_names [database] [options]
+      yb_get_table_names.py [database] [options]
 
 PURPOSE:
       List the table names found in this database.
@@ -11,7 +11,7 @@ OPTIONS:
       (yb_get_table_names.py --help)
 
 Output:
-      The names of all tables will be listed out, one per line.
+      The fully qualified names of all tables will be listed out, one per line.
 """
 
 import sys
@@ -27,31 +27,28 @@ class get_table_names:
     def __init__(self):
         common = self.init_common()
 
-        object_name_clause = (
-            "<schema_column_name> || '.' || <object_column_name>"
-            if common.args.schemas else '<object_column_name>')
+        filter_clause = self.db_args.build_sql_filter(
+            {'owner':'c.tableowner','schema':'c.schemaname','table':'c.tablename'},
+            indent='    ')
 
         sql_query = (("""
 SELECT
-    %s
+    '<database_name>.' || c.schemaname || '.' || c.tablename AS table_path
 FROM
     <database_name>.information_schema.tables AS t
     JOIN <database_name>.pg_catalog.pg_tables AS c
         ON (t.table_name = c.tablename AND t.table_schema = c.schemaname)
 WHERE
-    t.table_type='BASE TABLE' AND %s
-ORDER BY 1""" % (object_name_clause, common.filter_clause))
-                     .replace('<owner_column_name>', 'c.tableowner')
-                     .replace('<schema_column_name>', 't.table_schema')
-                     .replace('<object_column_name>', 't.table_name')
-                     .replace('<database_name>', common.database))
+    t.table_type='BASE TABLE'
+    AND <filter_clause>
+ORDER BY LOWER(c.schemaname), LOWER(c.tablename)""")
+             .replace('<filter_clause>', filter_clause)
+             .replace('<database_name>', common.database))
 
         cmd_results = common.ybsql_query(sql_query)
 
-        if cmd_results.exit_code == 0:
-            sys.stdout.write(cmd_results.stdout)
-        else:
-            sys.stdout.write(common.color(cmd_results.stderr, fg='red'))
+        cmd_results.write(quote=True)
+
         exit(cmd_results.exit_code)
 
     def init_common(self):
@@ -63,15 +60,12 @@ ORDER BY 1""" % (object_name_clause, common.filter_clause))
 
         :return: An instance of the `common` class
         """
-        common = yb_common.common(
-            description='List/Verifies that the specified table/s exist.',
-            positional_args_usage='[database]',
-            object_type='table')
+        common = yb_common.common()
 
-        common.args_add_positional_args()
-        common.args_add_optional()
-        common.args_add_connection_group()
-        common.args_add_filter_group()
+        self.db_args = common.db_args(
+            description=
+                'List/Verifies that the specified table/s exist.',
+            optional_args_multi=['owner', 'schema', 'table'])
 
         common.args_process()
 
