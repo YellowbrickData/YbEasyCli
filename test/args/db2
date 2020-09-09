@@ -1,0 +1,3 @@
+-h {host}
+-U {user_name}
+-d {db2}
