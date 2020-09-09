@@ -1,39 +1,32 @@
 test_cases = [
     test_case(
-        cmd='yb_get_view_name.py -h %s -U %s -D %s --conn_schema dev a1_v' %
-        (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='a1_v',
-        stderr=''),
+        cmd='yb_get_view_name.py @{argsdir}/db1 --schema dev --view a1_v --'
+        , exit_code=0
+        , stdout='a1_v'
+        , stderr='')
+
+    , test_case(
+        cmd=(
+            'yb_get_view_name.py @{argsdir}/db1 --current_schema dev --schema '
+            """'Prod' --view b1_v --""")
+        , exit_code=0
+        , stdout='b1_v'
+        , stderr=''),
 
     test_case(
         cmd=(
-            'yb_get_view_name.py -h %s -U %s -D %s --conn_schema dev --schema '
-            'prod b1_v') % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='prod.b1_v',
-        stderr=''),
+            "yb_get_view_name.py @{argsdir}/db1 --current_schema dev "
+            """--schema 'Prod' --view 'C1_v' -- {db2} """)
+        , exit_code=0
+        , stdout='"C1_v"'
+        , stderr=''),
 
     test_case(
         cmd=(
-            "yb_get_view_name.py -h %s -U %s -D %s --conn_schema dev "
-            "--schema prod %s c1_v") % (self.host,
-                                        self.test_user_name,
-                                        self.test_db1,
-                                        self.test_db2),
-        exit_code=0,
-        stdout='prod.c1_v',
-        stderr=''),
-
-    test_case(
-        cmd=(
-            "yb_get_view_name.py -h %s -U %s -D %s --conn_schema dev "
-            "--schema prod %s c1_v extra_pos_arg") % (self.host,
-                                                      self.test_user_name,
-                                                      self.test_db1,
-                                                      self.test_db2),
-        exit_code=2,
-        stdout='',
-        stderr="""usage: yb_get_view_name.py [database] view [options]
+            "yb_get_view_name.py @{argsdir}/db1 --current_schema dev "
+            """--schema 'Prod' --view c1_v -- {db2} extra_pos_arg""")
+        , exit_code=2
+        , stdout=''
+        , stderr="""usage: yb_get_view_name.py [database] [options]
 yb_get_view_name.py: error: unrecognized arguments: extra_pos_arg""")
 ]

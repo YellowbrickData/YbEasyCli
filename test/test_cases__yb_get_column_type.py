@@ -1,165 +1,163 @@
 test_cases = [
     test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col1'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='BIGINT',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col1 --'
+        , exit_code=0
+        , stdout='BIGINT'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col2'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='INTEGER',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col2 --'
+        , exit_code=0
+        , stdout='INTEGER'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col3'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='SMALLINT',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col3 --'
+        , exit_code=0
+        , stdout='SMALLINT'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col4'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='NUMERIC(18,0)',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col4 --'
+        , exit_code=0
+        , stdout='NUMERIC(18,0)'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col5'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='REAL',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col5 --'
+        , exit_code=0
+        , stdout='REAL'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col6'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='DOUBLE PRECISION',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col6 --'
+        , exit_code=0
+        , stdout='DOUBLE PRECISION'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col7'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='UUID',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col7 --'
+        , exit_code=0
+        , stdout='UUID'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col8'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='CHARACTER VARYING(256)',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col8 --'
+        , exit_code=0
+        , stdout='CHARACTER VARYING(256)'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col9'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='CHARACTER(1)',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col9 --'
+        , exit_code=0
+        , stdout='CHARACTER(1)'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col10'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='DATE',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col10 --'
+        , exit_code=0
+        , stdout='DATE'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col11'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='TIME WITHOUT TIME ZONE',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col11 --'
+        , exit_code=0
+        , stdout='TIME WITHOUT TIME ZONE'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col12'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='TIMESTAMP WITHOUT TIME ZONE',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col12 --'
+        , exit_code=0
+        , stdout='TIMESTAMP WITHOUT TIME ZONE'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col13'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='TIMESTAMP WITH TIME ZONE',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col13 --'
+        , exit_code=0
+        , stdout='TIMESTAMP WITH TIME ZONE'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col14'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='IPV4',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col14 --'
+        , exit_code=0
+        , stdout='IPV4'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col15'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='IPV6',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col15 --'
+        , exit_code=0
+        , stdout='IPV6'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col16'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='MACADDR',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col16 --'
+        , exit_code=0
+        , stdout='MACADDR'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t col17'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='MACADDR8',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col17 --'
+        , exit_code=0
+        , stdout='MACADDR8'
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=
-        'yb_get_column_type.py -h %s -U %s --schema dev -D %s data_types_t colXX'
-        % (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout='',
-        stderr=''),
+            'yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column colXX --'
+        , exit_code=0
+        , stdout=''
+        , stderr='')
 
-    test_case(
-        cmd=('yb_get_column_type.py -h %s -U %s --schema dev -D %s %s '
-             'data_types_t col1') % (self.host,
-                                     self.test_user_name,
-                                     self.test_db1,
-                                     self.test_db2),
-        exit_code=0,
-        stdout='BIGINT',
-        stderr=''),
+    , test_case(
+        cmd=('yb_get_column_type.py @{argsdir}/db1 --schema dev '
+            '--table data_types_t --column col1 -- {db2}')
+        , exit_code=0
+        , stdout='BIGINT'
+        , stderr='')
 
-    test_case(
-        cmd='yb_get_column_type.py -h %s -U %s --schema dev -D %s col1' %
-        (self.host, self.test_user_name, self.test_db1),
-        exit_code=2,
-        stdout='',
-        stderr=(
-        "usage: yb_get_column_type.py [database] table column [options]\n"
-            "yb_get_column_type.py: error: the following arguments are "
-            "required: column" ))
+    , test_case(
+        cmd='yb_get_column_type.py @{argsdir}/db1 --schema dev col1 --'
+        , exit_code=2
+        , stdout=''
+        , stderr=(
+        """usage: yb_get_column_type.py [database] [options]
+yb_get_column_type.py: error: the following arguments are required: --table, --column"""
+        if self.test_py_version == 3
+        else """usage: yb_get_column_type.py [database] [options]
+yb_get_column_type.py: error: argument --table is required"""))
 ]

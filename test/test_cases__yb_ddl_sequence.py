@@ -1,70 +1,41 @@
 test_cases = [
     test_case(
-        cmd='yb_ddl_sequence.py -h %s -U %s -D %s --conn_schema dev --like a1_seq' %
-        (self.host, self.test_user_name, self.test_db1),
-        exit_code=0,
-        stdout="""-- SHOW DDL
--- Name: a1_seq
--- Schema: dev
---------------------------------------------
-CREATE SEQUENCE a1_seq START WITH 1000448;""",
-        stderr=''),
+        cmd='yb_ddl_sequence.py @{argsdir}/db1 --current_schema dev --sequence_like a1_seq --'
+        , exit_code=0
+        , stdout="""CREATE SEQUENCE a1_seq START WITH 1000448;"""
+        , stderr='')
 
-    test_case(
+    , test_case(
         cmd=(
-            'yb_ddl_sequence.py -h %s -U %s -D %s --conn_schema dev --schemas '
-            'dev prod --like a1_seq') % (self.host,
-                                       self.test_user_name,
-                                       self.test_db1),
-        exit_code=0,
-        stdout="""-- SHOW DDL
--- Name: a1_seq
--- Schema: dev
---------------------------------------------
-CREATE SEQUENCE a1_seq START WITH 1000448;
--- SHOW DDL
--- Name: a1_seq
--- Schema: prod
---------------------------------------------
-CREATE SEQUENCE a1_seq START WITH 1000448;""",
-        stderr=''),
+            'yb_ddl_sequence.py @{argsdir}/db1 --current_schema dev --schema_in '
+            """dev '"Prod"' --sequence_like a1_seq --""")
+        , exit_code=3
+        , stdout="""CREATE SEQUENCE a1_seq START WITH 1000448;"""
+        , stderr="""ERROR:  relation "prod.a1_seq" does not exist
+LINE 1: SELECT * FROM Prod.a1_seq;
+                      ^
+QUERY:  SELECT * FROM Prod.a1_seq;"""
+        , comment='waiting YBD-16762 fix.')
 
-    test_case(
+    , test_case(
         cmd=(
-            'yb_ddl_sequence.py -h %s -U %s -D %s --conn_schema dev --schemas '
-            'dev prod --with_schema --like a1_seq') % (self.host,
-                                                       self.test_user_name,
-                                                       self.test_db1),
-        exit_code=0,
-        stdout="""-- SHOW DDL
--- Name: a1_seq
--- Schema: dev
---------------------------------------------
-CREATE SEQUENCE dev.a1_seq START WITH 1000448;
--- SHOW DDL
--- Name: a1_seq
--- Schema: prod
---------------------------------------------
-CREATE SEQUENCE prod.a1_seq START WITH 1000448;""",
-        stderr=''),
+            'yb_ddl_sequence.py @{argsdir}/db1 --current_schema dev --schema_in '
+            """dev '"Prod"' --with_schema --sequence_like a1_seq --""")
+        , exit_code=3
+        , stdout="""CREATE SEQUENCE dev.a1_seq START WITH 1000448;"""
+        , stderr="""ERROR:  relation "prod.a1_seq" does not exist
+LINE 1: SELECT * FROM Prod.a1_seq;
+                      ^
+QUERY:  SELECT * FROM Prod.a1_seq;""")
 
-    test_case(
+    , test_case(
         cmd=(
-            'yb_ddl_sequence.py -h %s -U %s -D %s --conn_schema dev  --schemas '
-            'dev prod --with_db --like a1_seq') % (self.host,
-                                                   self.test_user_name,
-                                                   self.test_db1),
-        exit_code=0,
-        stdout=("""-- SHOW DDL
--- Name: a1_seq
--- Schema: dev
---------------------------------------------
-CREATE SEQUENCE %(test_db1)s.dev.a1_seq START WITH 1000448;
--- SHOW DDL
--- Name: a1_seq
--- Schema: prod
---------------------------------------------
-CREATE SEQUENCE %(test_db1)s.prod.a1_seq START WITH 1000448;"""
-                % {"test_db1": self.test_db1}),
-        stderr='')
+            'yb_ddl_sequence.py @{argsdir}/db1 --current_schema dev  --schema_in '
+            """dev '"Prod"' --with_db --sequence_like a1_seq --""")
+        , exit_code=3
+        , stdout="""CREATE SEQUENCE {db1}.dev.a1_seq START WITH 1000448;"""
+        , stderr="""ERROR:  relation "prod.a1_seq" does not exist
+LINE 1: SELECT * FROM Prod.a1_seq;
+                      ^
+QUERY:  SELECT * FROM Prod.a1_seq;""")
 ]
