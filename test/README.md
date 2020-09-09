@@ -5,37 +5,36 @@
 Navigate to the `test` directory to run any test. Current tests require a
 pre-defined set of database objects.
 
-&nbsp;&nbsp;&nbsp;&nbsp;```test_create_db_objects.sh``` -- creates all the
+&nbsp;&nbsp;&nbsp;&nbsp;```step1_create_db_objects.sh``` -- creates all the
 database objects required to run
 
-&nbsp;&nbsp;&nbsp;&nbsp;```test_drop_db_objects.sh``` -- cleans up all database
+&nbsp;&nbsp;&nbsp;&nbsp;```step3_drop_db_objects.sh``` -- cleans up all database
 objects by dropping
 
 To personalize the tests, customize the user and database names.
 
-&nbsp;&nbsp;&nbsp;&nbsp;```test_constants.py``` -- modify this file to set
+&nbsp;&nbsp;&nbsp;&nbsp;```settings.py``` -- modify this file to set
 custom user and databases used for running tests
-
-<sub>Note: `test_create_db_objects.sh` creates a new database user. There may be a
-lag of ~30 seconds between when the user create statement is run and when the
-user actually becomes available.</sub> 
 
 ### Running All Tests
 To run all tests, use the given shell script
 
-&nbsp;&nbsp;&nbsp;&nbsp;```./test_run_all_utils.sh <host>```
+&nbsp;&nbsp;&nbsp;&nbsp;```./step2_run_all_tests.sh <host>```
 
 ### Running Individual Tests
+For the full set of test run options run
+
+&nbsp;&nbsp;&nbsp;&nbsp;e.g. ```./test_run.py --help```
+
 To run individual tests, pass the module name you would like to test as a
 command line argument to the test script
 
-&nbsp;&nbsp;&nbsp;&nbsp;e.g. ```./test_run.py -h <host> yb_get_table_names```
+&nbsp;&nbsp;&nbsp;&nbsp;e.g. ```./test_run.py yb_get_table_names```
 
 ### Reading Results
 Each test will present a line of output in the following form
 
-&nbsp;&nbsp;&nbsp;&nbsp;```Test: <Passed/Failed>, Type: <type of test>, Command:
-<command executed>```
+&nbsp;&nbsp;&nbsp;&nbsp;```Test: <Passed/Failed>, To Run: <test command>```
 
 The test only shows the output if the test has failed. To see the output of a
 passed test, copy just the command and execute it by itself. For more
