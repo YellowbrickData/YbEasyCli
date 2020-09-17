@@ -15,6 +15,7 @@ import re
 import sys
 
 import yb_common
+from yb_common import text
 
 
 class ddl_object:
@@ -33,7 +34,7 @@ class ddl_object:
             ddl_sql = self.ddl_modifications(cmd_results.stdout, common)
             sys.stdout.write(ddl_sql)
         if cmd_results.stderr != '':
-            sys.stderr.write(common.color(cmd_results.stderr, fg='red'))
+            sys.stderr.write(text.color(cmd_results.stderr, fg='red'))
 
         exit(cmd_results.exit_code)
 

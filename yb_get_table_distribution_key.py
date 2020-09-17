@@ -22,6 +22,7 @@ Output:
 import sys
 
 import yb_common
+from yb_common import text
 
 
 class get_table_distribution_key:
@@ -75,7 +76,7 @@ WHERE
             else:
                 sys.stdout.write(common.quote_object_path(cmd_results.stdout))
         if cmd_results.stderr != '':
-            sys.stdout.write(common.color(cmd_results.stderr, fg='red'))
+            sys.stdout.write(text.color(cmd_results.stderr, fg='red'))
 
         exit(cmd_results.exit_code)
 

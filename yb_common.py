@@ -14,6 +14,7 @@ import traceback
 import shlex
 from datetime import datetime
 
+
 class common:
     """This class contains functions used for argument parsing, login
     verification, logging, and command execution.
@@ -30,33 +31,12 @@ class common:
         self.connect_timeout = connect_timeout
 
         self.version = '20200908'
-        self.nl = '\n'    # newline character
-        self.gs = '\x1D'  # group seperator character
 
         self.start_ts = datetime.now()
 
         self.util_dir_path = os.path.dirname(os.path.realpath(__file__))
         self.util_file_name = os.path.basename(os.path.realpath(__file__))
         self.util_name = self.util_file_name.split('.')[0]
-
-        self.text_color = {
-            'black': 0,
-            'red': 1,
-            'green': 2,
-            'yellow': 3,
-            'blue': 4,
-            'purple': 5,
-            'cyan': 6,
-            'white': 7
-        }
-
-        self.text_style = {
-            'no_effect': 0,
-            'bold': 1,
-            'underline': 2,
-            'italic': 3,
-            'negative2': 5
-        }
 
     def formatter(self, prog):
         return argparse.RawDescriptionHelpFormatter(prog, width=100)
@@ -207,6 +187,9 @@ class common:
         """
         self.args = self.args_parser.parse_args()
 
+        if self.args.nocolor:
+            text.nocolor = True
+
         # Get and set operating system environment variables related to ybsql
         if has_conn_args:
             if self.args.host:
@@ -239,7 +222,7 @@ class common:
             if self.args.W or os.environ.get("YBPASSWORD") is None:
                 os.environ["YBPASSWORD"] = getpass.getpass(
                     "Enter the password for user %s: "
-                        % self.color(
+                        % text.color(
                             os.environ.get("YBUSER")
                             , fg='cyan'))
         # We are missing YBUSER
@@ -262,7 +245,7 @@ class common:
             self.schema = db_info[1]
             # if --schema arg was set check if the schema is valid
             if len(self.schema) == 0:
-                err = self.color(
+                err = text.color(
                     'util: FATAL: schema "%s" does not exist\n'
                         % self.args.current_schema
                     , fg='red')
@@ -274,7 +257,7 @@ class common:
                 self.database = db_info[0]
         else:
             sys.stderr.write(
-                self.color(
+                text.color(
                     cmd_results.stderr.replace('ybsql', 'util')
                     , fg='red'))
             exit(cmd_results.exit_code)
@@ -294,26 +277,26 @@ class common:
             print(
                 '%s: %s, %s: %s, %s: %s, %s: %s, %s: %s, %s: %s'
                 % (
-                    self.color('Connecting to Host', style='bold')
-                    , self.color(os.environ.get("YBHOST"), fg='cyan')
-                    , self.color('Port', style='bold')
-                    , self.color(os.environ.get("YBPORT"), fg='cyan')
-                    , self.color('DB User', style='bold')
-                    , self.color(os.environ.get("YBUSER"), fg='cyan')
-                    , self.color('Database', style='bold')
-                    , self.color(
+                    text.color('Connecting to Host', style='bold')
+                    , text.color(os.environ.get("YBHOST"), fg='cyan')
+                    , text.color('Port', style='bold')
+                    , text.color(os.environ.get("YBPORT"), fg='cyan')
+                    , text.color('DB User', style='bold')
+                    , text.color(os.environ.get("YBUSER"), fg='cyan')
+                    , text.color('Database', style='bold')
+                    , text.color(
                         '<user default>'
                             if os.environ.get("YBDATABASE") is None
                             else os.environ.get("YBDATABASE")
                         , fg='cyan')
-                    , self.color('Current Schema', style='bold')
-                    , self.color(
+                    , text.color('Current Schema', style='bold')
+                    , text.color(
                         '<user default>'
                         if self.args.current_schema is None
                         else self.args.current_schema
                         , fg='cyan')
-                    , self.color('YBDB', style='bold')
-                    , self.color(self.ybdb_version, fg='cyan')))
+                    , text.color('YBDB', style='bold')
+                    , text.color(self.ybdb_version, fg='cyan')))
         if self.args.verbose >= 2:
             print(
                 'export YBHOST=%s;export YBPORT=%s;export YBUSER=%s%s'
@@ -341,13 +324,13 @@ class common:
             print(
                 '%s: %s, %s: %s, %s: %s\n%s\n%s'
                 % (
-                    self.color('--In file', style='bold')
-                    , self.color(trace_line[0], 'cyan')
-                    , self.color('Function', style='bold')
-                    , self.color(trace_line[2], 'cyan')
-                    , self.color('Line', style='bold')
-                    , self.color(trace_line[1], 'cyan')
-                    , self.color('--Executing--', style='bold')
+                    text.color('--In file', style='bold')
+                    , text.color(trace_line[0], 'cyan')
+                    , text.color('Function', style='bold')
+                    , text.color(trace_line[2], 'cyan')
+                    , text.color('Line', style='bold')
+                    , text.color(trace_line[1], 'cyan')
+                    , text.color('--Executing--', style='bold')
                     , cmd_str))
 
         start_time = datetime.now()
@@ -365,16 +348,16 @@ class common:
             print(
                 '%s: %s\n%s: %s\n%s\n%s%s\n%s'
                 % (
-                    self.color('--Execution duration', style='bold')
-                    , self.color(end_time - start_time, fg='cyan')
-                    , self.color('--Exit code', style='bold')
-                    , self.color(
+                    text.color('--Execution duration', style='bold')
+                    , text.color(end_time - start_time, fg='cyan')
+                    , text.color('--Exit code', style='bold')
+                    , text.color(
                         str(results.exit_code)
                         , fg=('red' if results.exit_code else 'cyan'))
-                    , self.color('--Stdout--', style='bold')
+                    , text.color('--Stdout--', style='bold')
                     , results.stdout.rstrip()
-                    , self.color('--Stderr--', style='bold')
-                    , self.color(results.stderr.rstrip(), fg='red')))
+                    , text.color('--Stderr--', style='bold')
+                    , text.color(results.stderr.rstrip(), fg='red')))
 
         return results
 
@@ -430,63 +413,6 @@ eof""" % (options, self.args.host, self.connect_timeout, sql_statement)
         cmd_results = self.call_cmd(ybsql_cmd, stack_level=3)
 
         return cmd_results
-
-    def color_str(self, fg='white', bg='black', style='no_effect'):
-        """Return a formatted string.
-
-        :param fg: Foreground color string (Default value = 'white')
-        :param bg: Background color string (Default value = 'black')
-        :param style: Text style string (Default value = 'no_effect')
-        :return: A string formatted with color and style
-        """
-        return '\033[%d;%d;%dm' % (
-            self.text_style[style.lower()]
-            , 30 + self.text_color[fg.lower()]
-            , 40 + self.text_color[bg.lower()])
-
-    def color(self, text, fg='white', bg='black', style='no_effect'):
-        """Style a given string with color.
-
-        :param text: The input string
-        :param fg: Foreground color string (Default value = 'white')
-        :param bg: Background color string (Default value = 'black')
-        :param style: Text style string (Default value = 'no_effect')
-        :return: A string with added color
-        """
-        colored_text = '%s%s%s' % (
-            self.color_str(fg, bg, style), text, self.color_str())
-        return text if self.args.nocolor else colored_text
-
-    def log(self, str):
-        """Log text with color and formatting
-
-        For a more readable log entry, format the input string by using
-         '\x1D' as a group separator
-         '\n' as a line separator
-
-        :param str: The string to log
-        """
-        line_1_prefix = '=====>'
-        line_x_prefix = '----->'
-        default_color = '' if self.args.nocolor else self.color_str()
-        print(self.color(self.ts(), fg='green'))
-
-        for str_group in str.split(self.gs):
-            current_color = ''
-            str_lines = str_group.split(self.nl)
-
-            for line in range(len(str_lines)):
-                print('%s%s%s%s' %
-                      (default_color,
-                       line_x_prefix if line else line_1_prefix,
-                       current_color,
-                       str_lines[line]))
-                last_color_loc = str_lines[line].rfind('\033')
-                if last_color_loc != -1:
-                    current_color = str_lines[line][last_color_loc:(
-                        last_color_loc + len(self.color_str()))]
-
-        sys.stdout.flush()
 
     def ts(self):
         """Get the current time (for time stamping)"""
@@ -737,7 +663,7 @@ class cmd_results:
                 if quote
                 else self.stdout)
         if self.stderr != '':
-            sys.stdout.write(self.common.color(self.stderr, fg='red'))
+            sys.stdout.write(text.color(self.stderr, fg='red'))
         else:
             sys.stdout.write(tail)
 
@@ -1033,6 +959,56 @@ class db_args:
             filter_clause = filter_clause.replace("'", "''")
 
         return ('TRUE' if filter_clause == '' else filter_clause)
+
+class text:
+    colors = {
+        'black': 0
+        , 'red': 1
+        , 'green': 2
+        , 'yellow': 3
+        , 'blue': 4
+        , 'purple': 5
+        , 'cyan': 6
+        , 'white': 7
+    }
+
+    styles = {
+        'no_effect': 0
+        , 'bold': 1
+        , 'underline': 2
+        , 'italic': 3
+        , 'negative2': 5
+    }
+
+    nocolor = False
+
+    @staticmethod
+    def color_str(fg='white', bg='black', style='no_effect'):
+        """Return a formatted string.
+
+        :param fg: Foreground color string (Default value = 'white')
+        :param bg: Background color string (Default value = 'black')
+        :param style: Text style string (Default value = 'no_effect')
+        :return: A string formatted with color and style
+        """
+        return '\033[%d;%d;%dm' % (
+            text.styles[style.lower()]
+            , 30 + text.colors[fg.lower()]
+            , 40 + text.colors[bg.lower()])
+
+    @staticmethod
+    def color(txt, fg='white', bg='black', style='no_effect'):
+        """Style a given string with color.
+
+        :param txt: The text input string
+        :param fg: Foreground color string (Default value = 'white')
+        :param bg: Background color string (Default value = 'black')
+        :param style: Text style string (Default value = 'no_effect')
+        :return: A string with added color
+        """
+        colored_text = '%s%s%s' % (
+            text.color_str(fg, bg, style), txt, text.color_str())
+        return txt if text.nocolor else colored_text
 
 def convert_arg_line_to_args(line):
     for arg in shlex.split(line):

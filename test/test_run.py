@@ -13,6 +13,7 @@ import re
 import shutil
 import getpass
 import yb_common
+from yb_common import text
 
 
 class test_case:
@@ -40,19 +41,19 @@ class test_case:
         self.check()
 
         if common.args.test or common.args.print_test:
-            run = '%s: %s' % (common.color('Test runs', style='bold')
+            run = '%s: %s' % (text.color('Test runs', style='bold')
                 , cmd)
         else:
             run = ('%s: %s --test %d'
-                % (common.color('To run', style='bold')
+                % (text.color('To run', style='bold')
                     , ' '.join(sys.argv), test))
 
         print(
             '%s: %s, %s' % (
-                common.color('Test %d' % test, style='bold')
-                , common.color('Passed', fg='green')
+                text.color('Test %d' % test, style='bold')
+                , text.color('Passed', fg='green')
                     if self.passed
-                    else common.color('Failed', fg='red')
+                    else text.color('Failed', fg='red')
                 , run))
         if common.args.print_output:
             sys.stdout.write(self.cmd_results.stdout)
@@ -83,28 +84,28 @@ class test_case:
     def print_test_comparison(self, common):
         """Print a comparison between actual and expected results."""
         print("%s: %d, %s: %d" % (
-            common.color('Exit Code Expected', style='bold')
+            text.color('Exit Code Expected', style='bold')
             , self.exit_code
-            , common.color('Returned', style='bold')
+            , text.color('Returned', style='bold')
             , self.cmd_results.exit_code))
         print("%s: %s%s%s\n%s: %s%s%s" % (
-            common.color('STDOUT Expected', style='bold')
-            , common.color('>!>', style='bold')
+            text.color('STDOUT Expected', style='bold')
+            , text.color('>!>', style='bold')
             , self.stdout.strip()
-            , common.color('<!<', style='bold')
-            , common.color('STDOUT Returned', style='bold')
-            , common.color('>!>', style='bold')
+            , text.color('<!<', style='bold')
+            , text.color('STDOUT Returned', style='bold')
+            , text.color('>!>', style='bold')
             , self.cmd_results.stdout.strip()
-            , common.color('<!<', style='bold')))
+            , text.color('<!<', style='bold')))
         print("%s: %s%s%s\n%s: %s%s%s" % (
-            common.color('STDERR Expected', style='bold')
-            , common.color('>!>', style='bold')
+            text.color('STDERR Expected', style='bold')
+            , text.color('>!>', style='bold')
             , self.stderr.strip()
-            , common.color('<!<', style='bold')
-            , common.color('STDERR Returned', style='bold')
-            , common.color('>!>', style='bold')
+            , text.color('<!<', style='bold')
+            , text.color('STDERR Returned', style='bold')
+            , text.color('>!>', style='bold')
             , self.cmd_results.stderr.strip()
-            , common.color('<!<', style='bold')))
+            , text.color('<!<', style='bold')))
 
 class get:
     exec(open('%s/%s' % (path, 'settings.py'), 'r').read())
@@ -410,9 +411,9 @@ ORDER BY 1
                 print(
                     '%s: %s, %s: %s'
                     % (
-                        common.color('Testing', style='bold')
+                        text.color('Testing', style='bold')
                         , common.args.action
-                        , common.color('Running', style='bold')
+                        , text.color('Running', style='bold')
                         , ' '.join(sys.argv)))
                 for test_case in _ldict['test_cases']:
                     test_case.run(common, test=test)

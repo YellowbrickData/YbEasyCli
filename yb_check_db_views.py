@@ -19,6 +19,7 @@ import os
 import re
 
 import yb_common
+from yb_common import text
 
 class check_db_views:
     """TODO doc
@@ -48,7 +49,7 @@ ORDER BY
         cmd_results = common.ybsql_query(sql_query)
 
         if cmd_results.exit_code != 0:
-            sys.stdout.write(common.color(cmd_results.stderr, fg='red'))
+            sys.stdout.write(text.color(cmd_results.stderr, fg='red'))
             exit(cmd_results.exit_code)
 
         dbs = cmd_results.stdout.strip()
@@ -78,7 +79,7 @@ ORDER BY
             if cmd_results.exit_code == 0:
                 sys.stdout.write(common.quote_object_path(cmd_results.stdout))
             elif cmd_results.stderr.find('permission denied') == -1:
-                sys.stderr.write(common.color(cmd_results.stderr, fg='red'))
+                sys.stderr.write(text.color(cmd_results.stderr, fg='red'))
                 exit(cmd_results.exit_code)
 
             db_broken_view_ct = len(cmd_results.stdout.split())
