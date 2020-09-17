@@ -50,7 +50,7 @@ class chunk_dml_by_date_part:
 
     def add_args(self, common):
         common.args_process_init(
-            description=('Chunk DML b integer column.')
+            description=('Chunk DML by DATE/TIMESTAMP column.')
             , positional_args_usage='')
 
         common.args_add_optional()

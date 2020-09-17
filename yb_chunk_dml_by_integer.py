@@ -49,7 +49,7 @@ class chunk_dml_by_integer:
 
     def add_args(self, common):
         common.args_process_init(
-            description=('Chunk DML by integer column.')
+            description=('Chunk DML by INTEGER column.')
             , positional_args_usage='')
 
         common.args_add_optional()
