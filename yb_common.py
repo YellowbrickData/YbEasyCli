@@ -19,6 +19,11 @@ class common:
     """This class contains functions used for argument parsing, login
     verification, logging, and command execution.
     """
+    version = '20200908'
+
+    util_dir_path = os.path.dirname(os.path.realpath(__file__))
+    util_file_name = os.path.basename(os.path.realpath(__file__))
+    util_name = util_file_name.split('.')[0]
 
     def __init__(self, connect_timeout=10):
         """Create an instance of the common library used by all utilities
@@ -30,13 +35,8 @@ class common:
         self.schema = None
         self.connect_timeout = connect_timeout
 
-        self.version = '20200908'
-
         self.start_ts = datetime.now()
 
-        self.util_dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.util_file_name = os.path.basename(os.path.realpath(__file__))
-        self.util_name = self.util_file_name.split('.')[0]
 
     def formatter(self, prog):
         return argparse.RawDescriptionHelpFormatter(prog, width=100)
@@ -174,7 +174,7 @@ class common:
             , help="turn off colored text output")
         self.args_parser.add_argument(
             "--version", "-v"
-            , action="version", version=self.version
+            , action="version", version=common.version
             , help="display the program version and exit")
 
     def args_process(self, has_conn_args = True):
