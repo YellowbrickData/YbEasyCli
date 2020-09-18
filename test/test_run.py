@@ -13,6 +13,7 @@ import re
 import shutil
 import getpass
 import yb_common
+import difflib
 from yb_common import text
 
 
@@ -59,15 +60,17 @@ class test_case:
             sys.stdout.write(self.cmd_results.stdout)
             sys.stderr.write(self.cmd_results.stderr)
         if not self.passed and common.args.print_diff:
-            self.print_test_comparison(common)
+            self.print_test_comparison()
 
     def check(self):
         """Check test results.
 
-        :return: True if the actual results match the expected results,
-                 False otherwise.
+        set self.passed to True if the actual results match the
+        expected results, False otherwise.
         """
+        #start by mapping out all text colors/styles
         map_out = {r'\x1b[^m]*m' : ''}
+
         map_out.update(self.map_out)
         for regex in map_out.keys():
             rec = re.compile(regex)
@@ -76,36 +79,49 @@ class test_case:
             self.stdout = rec.sub(map_out[regex], self.stdout)
             self.stderr = rec.sub(map_out[regex], self.stderr)
 
+        self.stdout = self.stdout.strip()
+        self.stderr = self.stderr.strip()
+        self.cmd_results.stdout = self.cmd_results.stdout.strip()
+        self.cmd_results.stderr = self.cmd_results.stderr.strip()
+
         self.passed = (
             self.exit_code == self.cmd_results.exit_code
-            and self.stdout.strip() == self.cmd_results.stdout.strip()
-            and self.stderr.strip() == self.cmd_results.stderr.strip())
+            and self.stdout == self.cmd_results.stdout
+            and self.stderr == self.cmd_results.stderr)
 
-    def print_test_comparison(self, common):
+    def print_test_std_comparison(self, std, std1, std2):
+        if std1 != std2:
+            d = difflib.Differ()
+
+            good_stdout = std1.splitlines(keepends=True)
+            bad_stdout = std2.splitlines(keepends=True)
+            diff = list(d.compare(bad_stdout, good_stdout))
+            for i in range(0,len(diff)):
+                if diff[i][0] in ('-', '+', '?'):
+                    color = {'-':'red', '+':'green', '?':'yellow'}[diff[i][0]]
+                    if diff[i][0] == '?':
+                        diff[i] = text.color(diff[i], fg=color, style='bold')
+                    else:
+                        diff[i] = text.color(diff[i], fg=color)
+            print('\n------------------\n%s %s\n------------------' % (
+                text.color(std, style='bold')
+                , text.color('differences', fg='red')))
+            sys.stdout.writelines(diff)
+
+    def print_test_comparison(self):
         """Print a comparison between actual and expected results."""
-        print("%s: %d, %s: %d" % (
-            text.color('Exit Code Expected', style='bold')
-            , self.exit_code
-            , text.color('Returned', style='bold')
-            , self.cmd_results.exit_code))
-        print("%s: %s%s%s\n%s: %s%s%s" % (
-            text.color('STDOUT Expected', style='bold')
-            , text.color('>!>', style='bold')
-            , self.stdout.strip()
-            , text.color('<!<', style='bold')
-            , text.color('STDOUT Returned', style='bold')
-            , text.color('>!>', style='bold')
-            , self.cmd_results.stdout.strip()
-            , text.color('<!<', style='bold')))
-        print("%s: %s%s%s\n%s: %s%s%s" % (
-            text.color('STDERR Expected', style='bold')
-            , text.color('>!>', style='bold')
-            , self.stderr.strip()
-            , text.color('<!<', style='bold')
-            , text.color('STDERR Returned', style='bold')
-            , text.color('>!>', style='bold')
-            , self.cmd_results.stderr.strip()
-            , text.color('<!<', style='bold')))
+        if self.exit_code != self.cmd_results.exit_code:
+            print("%s: %s, %s: %s" % (
+                text.color('Exit Code Expected', style='bold')
+                , text.color(str(self.exit_code), fg='green')
+                , text.color('Returned', style='bold')
+                , text.color(str(self.cmd_results.exit_code), fg='red')))
+
+        self.print_test_std_comparison(
+            'STDOUT', self.stdout, self.cmd_results.stdout)
+
+        self.print_test_std_comparison(
+            'STDERR', self.stderr, self.cmd_results.stderr)
 
 class get:
     exec(open('%s/%s' % (path, 'settings.py'), 'r').read())
