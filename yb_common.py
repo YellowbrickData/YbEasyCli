@@ -663,7 +663,7 @@ class cmd_results:
                 if quote
                 else self.stdout)
         if self.stderr != '':
-            sys.stdout.write(text.color(self.stderr, fg='red'))
+            sys.stderr.write(text.color(self.stderr, fg='red'))
         else:
             sys.stdout.write(tail)
 
