@@ -23,17 +23,34 @@ import yb_common
 class get_column_type:
     """Issue the ybsql command used to get a column's defined data type."""
 
-    def __init__(self):
+    def __init__(self, common=None, db_args=None):
+        """Initialize get_column_types class.
 
-        common = self.init_common()
+        This initialization performs argument parsing and login verification.
+        It also provides access to functions such as logging and command
+        execution.
+        """
+        if common:
+            self.common = common
+            self.db_args = db_args
+        else:
+            self.common = yb_common.common()
 
-        filter_clause = self.db_args.build_sql_filter(
-            {'owner':'tableowner',
-            'schema':'schemaname',
-            'table':'tablename',
-            'column':'columnname'})
+            self.db_args = self.common.db_args(
+                description='Return the data type of the requested column.',
+                required_args_single=['table', 'column'],
+                optional_args_multi=['owner'])
 
-        sql_query = (("""
+            self.common.args_process()
+
+    def exec(self):
+        filter_clause = self.db_args.build_sql_filter({
+            'owner':'tableowner'
+            , 'schema':'schemaname'
+            , 'table':'tablename'
+            , 'column':'columnname'})
+
+        sql_query = """
 WITH
 dt AS (
     SELECT
@@ -42,10 +59,10 @@ dt AS (
         , c.relname AS tablename
         , n.nspname AS schemaname
         , pg_get_userbyid(c.relowner) AS tableowner
-    FROM <database_name>.pg_catalog.pg_class AS c
-        LEFT JOIN <database_name>.pg_catalog.pg_namespace AS n
+    FROM {database_name}.pg_catalog.pg_class AS c
+        LEFT JOIN {database_name}.pg_catalog.pg_namespace AS n
             ON n.oid = c.relnamespace
-        JOIN <database_name>.pg_catalog.pg_attribute AS a
+        JOIN {database_name}.pg_catalog.pg_attribute AS a
             ON a.attrelid = c.oid
     WHERE
         c.relkind = 'r'::CHAR
@@ -55,35 +72,21 @@ SELECT
 FROM
     dt
 WHERE
-    <filter_clause>""")
-            .replace('<filter_clause>', filter_clause)
-            .replace('<database_name>', common.database))
+    {filter_clause}""".format(
+             filter_clause = filter_clause
+             , database_name = self.common.database)
 
-        cmd_results = common.ybsql_query(sql_query)
-
-        cmd_results.write()
-
-        exit(cmd_results.exit_code)
-
-    def init_common(self):
-        """Initialize common class.
-
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        execution.
-
-        :return: An instance of the `common` class
-        """
-        common = yb_common.common()
-
-        self.db_args = common.db_args(
-            description='Return the data type of the requested column.',
-            required_args_single=['table', 'column'],
-            optional_args_multi=['owner'])
-
-        common.args_process()
-
-        return common
+        self.cmd_results = self.common.ybsql_query(sql_query)
 
 
-get_column_type()
+def main():
+    gct = get_column_type()
+    gct.exec()
+
+    gct.cmd_results.write()
+
+    exit(gct.cmd_results.exit_code)
+
+
+if __name__ == "__main__":
+    main()

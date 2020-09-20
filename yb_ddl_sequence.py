@@ -16,4 +16,4 @@ Output:
 
 import yb_ddl_object
 
-yb_ddl_object.ddl_object('sequence')
+yb_ddl_object.main('sequence')

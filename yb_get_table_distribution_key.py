@@ -30,17 +30,36 @@ class get_table_distribution_key:
     this table is distributed.
     """
 
-    def __init__(self):
+    def __init__(self, common=None, db_args=None):
+        """Initialize get_table_distribution_key class.
 
-        common = self.init_common()
+        This initialization performs argument parsing and login verification.
+        It also provides access to functions such as logging and command
+        execution.
+        """
+        if common:
+            self.common = common
+            self.db_args = db_args
+        else:
+            self.common = yb_common.common()
 
+            self.db_args = self.common.db_args(
+                description=
+                    'Identify the distribution column or type (random '
+                    'or replicated) of the requested table.',
+                required_args_single=['table'],
+                optional_args_multi=['owner'])
+
+            self.common.args_process()
+
+    def exec(self):
         filter_clause = self.db_args.build_sql_filter(
-            {'owner':'ownername','schema':'schemaname','table':'tablename'},
-            indent='    ')
+            {'owner':'ownername','schema':'schemaname','table':'tablename'}
+            , indent='    ')
 
-        sql_query = (("""
+        sql_query = """
 WITH
-t AS (
+tbl AS (
     SELECT
         DECODE(
             LOWER(t.distribution)
@@ -50,57 +69,41 @@ t AS (
         , c.relname AS tablename
         , n.nspname AS schemaname
         , pg_get_userbyid(c.relowner) AS ownername
-    FROM <database>.pg_catalog.pg_class AS c
-        LEFT JOIN <database>.pg_catalog.pg_namespace AS n
+    FROM {database_name}.pg_catalog.pg_class AS c
+        LEFT JOIN {database_name}.pg_catalog.pg_namespace AS n
             ON n.oid = c.relnamespace
-        LEFT JOIN <database>.sys.table AS t
+        LEFT JOIN {database_name}.sys.table AS t
             ON c.oid = t.table_id
     WHERE
         c.relkind = 'r'::CHAR
 )
 SELECT
-    t.distribution
+    distribution
 FROM
-    t
+    tbl
 WHERE
-    t.distribution IS NOT NULL
-    AND <filter_clause>""")
-            .replace('<filter_clause>', filter_clause)
-            .replace('<database>', common.database))
+    distribution IS NOT NULL
+    AND {filter_clause}""".format(
+             filter_clause = filter_clause
+             , database_name = self.common.database)
 
-        cmd_results = common.ybsql_query(sql_query)
-
-        if cmd_results.stdout != '':
-            if cmd_results.stdout.strip() in ('RANDOM', 'REPLICATED'):
-                sys.stdout.write(cmd_results.stdout)
-            else:
-                sys.stdout.write(common.quote_object_path(cmd_results.stdout))
-        if cmd_results.stderr != '':
-            sys.stdout.write(text.color(cmd_results.stderr, fg='red'))
-
-        exit(cmd_results.exit_code)
-
-    def init_common(self):
-        """Initialize common class.
-
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        execution.
-
-        :return: An instance of the `common` class
-        """
-        common = yb_common.common()
-
-        self.db_args = common.db_args(
-            description=
-                'Identify the distribution column or type (random '
-                'or replicated) of the requested table.',
-            required_args_single=['table'],
-            optional_args_multi=['owner'])
-
-        common.args_process()
-
-        return common
+        self.cmd_results = self.common.ybsql_query(sql_query)
 
 
-get_table_distribution_key()
+def main():
+    gtdk = get_table_distribution_key()
+    gtdk.exec()
+
+    if gtdk.cmd_results.stdout != '':
+        if gtdk.cmd_results.stdout.strip() in ('RANDOM', 'REPLICATED'):
+            sys.stdout.write(gtdk.cmd_results.stdout)
+        else:
+            sys.stdout.write(gtdk.common.quote_object_path(gtdk.cmd_results.stdout))
+    if gtdk.cmd_results.stderr != '':
+        sys.stdout.write(text.color(gtdk.cmd_results.stderr, fg='red'))
+
+    exit(gtdk.cmd_results.exit_code)
+
+
+if __name__ == "__main__":
+    main()

@@ -22,60 +22,63 @@ import sys
 
 import yb_common
 
-class chunk_dml_by_date_part:
+class chunk_optimal_rows:
     """Issue the ybsql command to determine the optimal number of rows per chunk for a table.
     """
 
-    def __init__(self):
-
-        common = self.init_common()
-
-        schema = (
-            common.args.schema
-            if common.args.schema
-            else common.schema)
-
-        db = (
-            common.args.db
-            if common.args.db
-            else common.database)
-
-        cmd_results = common.call_stored_proc_as_anonymous_block(
-            'yb_chunk_optimal_rows_p'
-            , args = {
-                'a_table_name' : common.args.table
-                , 'a_schema_name' : schema
-                , 'a_db_name' : db})
-
-        if cmd_results.stderr != '' and cmd_results.exit_code == 0:
-            sys.stdout.write(cmd_results.proc_return)
-
-        print(cmd_results.proc_return)
-
-        exit(
-            cmd_results.exit_code
-            if cmd_results.proc_return is not None or cmd_results.exit_code != 0
-            else 1)
-
-    def init_common(self):
-        """Initialize common class.
+    def __init__(self, common=None, db_args=None):
+        """Initialize chunk_dml_by_date_part class.
 
         This initialization performs argument parsing and login verification.
         It also provides access to functions such as logging and command
         execution.
-
-        :return: An instance of the `common` class
         """
-        common = yb_common.common()
+        if common:
+            self.common = common
+            self.db_args = db_args
+        else:
+            self.common = yb_common.common()
 
-        self.db_args = common.db_args(
-            description='Determine the optimal number of rows per chunk for a table.'
-            , required_args_single=['table']
-            , optional_args_single=['db', 'schema']
-            , positional_args_usage=[])
+            self.db_args = self.common.db_args(
+                description='Determine the optimal number of rows per chunk for a table.'
+                , required_args_single=['table']
+                , optional_args_single=['db', 'schema']
+                , positional_args_usage=[])
 
-        common.args_process()
+            self.common.args_process()
 
-        return common
+    def exec(self):
+        schema = (
+            self.common.args.schema
+            if self.common.args.schema
+            else self.common.schema)
 
-chunk_dml_by_date_part()
+        db = (
+            self.common.args.db
+            if self.common.args.db
+            else self.common.database)
+
+        self.cmd_results = self.common.call_stored_proc_as_anonymous_block(
+            'yb_chunk_optimal_rows_p'
+            , args = {
+                'a_table_name' : self.common.args.table
+                , 'a_schema_name' : schema
+                , 'a_db_name' : db})
+
+
+def main():
+    cors = chunk_optimal_rows()
+    cors.exec()
+
+    if cors.cmd_results.stderr != '' and cors.cmd_results.exit_code == 0:
+        sys.stdout.write(cors.cmd_results.proc_return)
+
+    print(cors.cmd_results.proc_return)
+
+    exit(
+        cors.cmd_results.exit_code
+        if cors.cmd_results.proc_return is not None or cors.cmd_results.exit_code != 0
+        else 1)
+
+if __name__ == "__main__":
+    main()

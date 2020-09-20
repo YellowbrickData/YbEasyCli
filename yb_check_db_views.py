@@ -22,31 +22,48 @@ import yb_common
 from yb_common import text
 
 class check_db_views:
-    """TODO doc
+    """Check for broken views.
     """
 
-    def __init__(self):
+    def __init__(self, common=None, db_args=None):
+        """Initialize check_db_views class.
 
+        This initialization performs argument parsing and login verification.
+        It also provides access to functions such as logging and command
+        execution.
+        """
+        if common:
+            self.common = common
+            self.db_args = db_args
+        else:
+            self.common = yb_common.common()
+
+            self.db_args = self.common.db_args(
+                description='Check for broken views.'
+                , positional_args_usage=[]
+                , optional_args_multi=['owner', 'db', 'schema', 'view'])
+
+            self.common.args_process()
+
+    def get_dbs(self):
         db_ct = 0
         broken_view_ct = 0
 
-        common = self.init_common()
-
         filter_clause = self.db_args.build_sql_filter(
-            {'db':'db_name'},
-            indent='    ')
+            {'db':'db_name'}
+            , indent='    ')
 
-        sql_query = (("""
+        sql_query = """
 SELECT
     name AS db_name
 FROM
     sys.database
 WHERE
-    <filter>
+    {filter_clause}
 ORDER BY
-    name""").replace('<filter>', filter_clause))
+    name""".format(filter_clause = filter_clause)
 
-        cmd_results = common.ybsql_query(sql_query)
+        cmd_results = self.common.ybsql_query(sql_query)
 
         if cmd_results.exit_code != 0:
             sys.stdout.write(text.color(cmd_results.stderr, fg='red'))
@@ -56,28 +73,33 @@ ORDER BY
         if dbs == '' and self.db_args.has_optional_args_multi_set('db'):
             dbs = []
         elif dbs == '':
-            dbs = ['"' + common.database + '"']
+            dbs = ['"' + self.common.database + '"']
         else:
             dbs = dbs.split('\n')
+
+        return dbs
+
+    def exec(self):
+        dbs = self.get_dbs()
 
         self.db_args.schema_set_all_if_none()
 
         filter_clause = self.db_args.build_sql_filter(
-            {'owner':'ownername','schema':'schemaname','view':'viewname'},
-            indent='    ')
+            {'owner':'ownername','schema':'schemaname','view':'viewname'}
+            , indent='    ')
 
         db_ct = 0
         broken_view_ct = 0
         sys.stdout.write('-- Running broken view check.\n')
         for db in dbs:
             db_ct += 1
-            cmd_results = common.call_stored_proc_as_anonymous_block(
+            cmd_results = self.common.call_stored_proc_as_anonymous_block(
                 'yb_check_db_views_p'
                 , args = {'a_filter':filter_clause}
                 , pre_sql = ('\c %s\n' % db))
 
             if cmd_results.exit_code == 0:
-                sys.stdout.write(common.quote_object_path(cmd_results.stdout))
+                sys.stdout.write(self.common.quote_object_path(cmd_results.stdout))
             elif cmd_results.stderr.find('permission denied') == -1:
                 sys.stderr.write(text.color(cmd_results.stderr, fg='red'))
                 exit(cmd_results.exit_code)
@@ -86,29 +108,13 @@ ORDER BY
             broken_view_ct += db_broken_view_ct
             sys.stdout.write('-- %d broken view/s in "%s".\n' % (db_broken_view_ct, db))
         sys.stdout.write('-- Completed check, found %d broken view/s in %d db/s.\n' % (broken_view_ct, db_ct))
-    
-        exit(cmd_results.exit_code)
 
 
-    def init_common(self):
-        """Initialize common class.
-
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        execution.
-
-        :return: An instance of the `common` class
-        """
-        common = yb_common.common()
-
-        self.db_args = common.db_args(
-            description='Check for broken views.'
-            , positional_args_usage=[]
-            , optional_args_multi=['owner', 'db', 'schema', 'view'])
-
-        common.args_process()
-
-        return common
+def main():
+    cdbv = check_db_views()
+    cdbv.exec()
+    exit(0)
 
 
-check_db_views()
+if __name__ == "__main__":
+    main()

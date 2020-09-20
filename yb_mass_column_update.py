@@ -24,10 +24,34 @@ class mass_column_update:
     object.
     """
 
-    def __init__(self):
+    def __init__(self, common=None, db_args=None):
+        """Initialize mass_column_update class.
 
-        common = self.init_common()
+        This initialization performs argument parsing and login verification.
+        It also provides access to functions such as logging and command
+        execution.
+        """
+        if common:
+            self.common = common
+            self.db_args = db_args
+        else:
+            self.common = yb_common.common()
 
+            self.add_args()
+
+            self.common.args_process()
+
+        self.db_args.schema_set_all_if_none()
+
+        if '<columnname>' not in self.common.args.update_where_clause:
+            sys.stderr.write("UPDDATE_WHERE_CLAUSE must contain the string '<columnname>'\n")
+            exit(1)
+
+        if not self.common.args.exec_updates:
+            self.common.args.pre_sql = ''
+            self.common.args.post_sql = ''
+
+    def exec(self):
         filter_clause = self.db_args.build_sql_filter(
             {
                 'owner':'tableowner'
@@ -37,24 +61,18 @@ class mass_column_update:
                 , 'datatype':'datatype'}
                 , indent='        ')
 
-        sys.stdout.write('-- Running mass column update.\n')
-
-        cmd_results = common.call_stored_proc_as_anonymous_block(
+        self.cmd_results = self.common.call_stored_proc_as_anonymous_block(
             'yb_mass_column_update_p'
             , args = {
-                'a_update_where_clause' : common.args.update_where_clause
-                , 'a_set_clause' : common.args.set_clause
+                'a_update_where_clause' : self.common.args.update_where_clause
+                , 'a_set_clause' : self.common.args.set_clause
                 , 'a_column_filter_clause' : filter_clause
-                , 'a_exec_updates' : ('TRUE' if common.args.exec_updates else 'FALSE')}
-            , pre_sql = common.args.pre_sql
-            , post_sql = common.args.post_sql)
+                , 'a_exec_updates' : ('TRUE' if self.common.args.exec_updates else 'FALSE')}
+            , pre_sql = self.common.args.pre_sql
+            , post_sql = self.common.args.post_sql)
 
-        cmd_results.write(tail='-- Completed mass column update.\n')
-
-        exit(cmd_results.exit_code)
-
-    def add_args(self, common):
-        common.args_process_init(
+    def add_args(self):
+        self.common.args_process_init(
             description=(
                 'Update the value of multiple columns.'
                 '\n'
@@ -62,11 +80,11 @@ class mass_column_update:
                 '\n  Mass column updates may cause performance issues due to the change '
                 '\n  of how the data is ordered in storage.'))
 
-        common.args_add_positional_args()
-        common.args_add_optional()
-        common.args_add_connection_group()
+        self.common.args_add_positional_args()
+        self.common.args_add_optional()
+        self.common.args_add_connection_group()
 
-        args_mass_r_grp = common.args_parser.add_argument_group('mass update required arguments')
+        args_mass_r_grp = self.common.args_parser.add_argument_group('mass update required arguments')
         args_mass_r_grp.add_argument(
             "--update_where_clause", required=True
             , help=("update column only if this boolean clause is satisfied, like: "
@@ -80,7 +98,7 @@ class mass_column_update:
                 "Note: the special use of the string '<columnname>' ")
         )
 
-        args_mass_o_grp = common.args_parser.add_argument_group('mass update optional arguments')
+        args_mass_o_grp = self.common.args_parser.add_argument_group('mass update optional arguments')
         args_mass_o_grp.add_argument(
             "--exec_updates"
             , action='store_true'
@@ -94,33 +112,18 @@ class mass_column_update:
 
         self.db_args = yb_common.db_args(
             optional_args_multi=['owner', 'schema', 'table', 'column', 'datatype']
-            , required_args_single=[], optional_args_single=[], common=common)
+            , required_args_single=[], optional_args_single=[], common=self.common)
 
-    def init_common(self):
-        """Initialize common class.
 
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        execution.
+def main():
+    mcu = mass_column_update()
 
-        :return: An instance of the `common` class
-        """
-        common = yb_common.common()
+    sys.stdout.write('-- Running mass column update.\n')
+    mcu.exec()
+    mcu.cmd_results.write(tail='-- Completed mass column update.\n')
 
-        self.add_args(common)
+    exit(mcu.cmd_results.exit_code)
 
-        common.args_process()
 
-        self.db_args.schema_set_all_if_none()
-
-        if '<columnname>' not in common.args.update_where_clause:
-            sys.stderr.write("UPDDATE_WHERE_CLAUSE must contain the string '<columnname>'\n")
-            exit(1)
-
-        if not common.args.exec_updates:
-            common.args.pre_sql = ''
-            common.args.post_sql = ''
-
-        return common
-
-mass_column_update()
+if __name__ == "__main__":
+    main()

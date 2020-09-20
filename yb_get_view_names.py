@@ -24,49 +24,53 @@ class get_view_names:
     database.
     """
 
-    def __init__(self):
-        common = self.init_common()
-
-        filter_clause = self.db_args.build_sql_filter(
-            {'owner':'v.viewowner','schema':'v.schemaname','view':'v.viewname'},
-            indent='    ')
-
-        sql_query = (("""
-SELECT
-    '<database_name>.' || v.schemaname || '.' || v.viewname AS view_path
-FROM
-    <database_name>.pg_catalog.pg_views AS v
-WHERE
-    <filter_clause>
-ORDER BY LOWER(v.schemaname), LOWER(v.viewname)""")
-             .replace('<filter_clause>', filter_clause)
-             .replace('<database_name>', common.database))
-
-        cmd_results = common.ybsql_query(sql_query)
-
-        cmd_results.write(quote=True)
-
-        exit(cmd_results.exit_code)
-
-    def init_common(self):
-        """Initialize common class.
+    def __init__(self, common=None, db_args=None):
+        """Initialize get_view_names class.
 
         This initialization performs argument parsing and login verification.
         It also provides access to functions such as logging and command
         execution.
-
-        :return: An instance of the `common` class
         """
-        common = yb_common.common()
+        if common:
+            self.common = common
+            self.db_args = db_args
+        else:
+            self.common = yb_common.common()
 
-        self.db_args = common.db_args(
-            description=
-                'List/Verifies that the specified view/s exist.',
-            optional_args_multi=['owner', 'schema', 'view'])
+            self.db_args = self.common.db_args(
+                description=
+                    'List/Verifies that the specified view/s exist.',
+                optional_args_multi=['owner', 'schema', 'view'])
 
-        common.args_process()
+            self.common.args_process()
 
-        return common
+    def exec(self):
+        filter_clause = self.db_args.build_sql_filter(
+            {'owner':'v.viewowner','schema':'v.schemaname','view':'v.viewname'}
+            , indent='    ')
+
+        sql_query = """
+SELECT
+    '{database_name}.' || v.schemaname || '.' || v.viewname AS view_path
+FROM
+    {database_name}.pg_catalog.pg_views AS v
+WHERE
+    {filter_clause}
+ORDER BY LOWER(v.schemaname), LOWER(v.viewname)""".format(
+             filter_clause = filter_clause
+             , database_name = self.common.database)
+
+        self.cmd_results = self.common.ybsql_query(sql_query)
 
 
-get_view_names()
+def main():
+    gvns = get_view_names()
+    gvns.exec()
+
+    gvns.cmd_results.write(quote=True)
+
+    exit(gvns.cmd_results.exit_code)
+
+
+if __name__ == "__main__":
+    main()

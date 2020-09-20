@@ -20,53 +20,56 @@ import re
 
 import yb_common
 
-class yb_is_cstore_table:
+class is_cstore_table:
     """Issue the ybsql command used to determine if a table is stored as a column store table.
     """
 
-    def __init__(self):
-
-        common = self.init_common()
-
-        cmd_results = common.call_stored_proc_as_anonymous_block(
-            'yb_is_cstore_table_p'
-            , args = {
-                'a_tablename' : common.args.table})
-
-        cmd_results.write()
-        print(cmd_results.proc_return)
-
-        exit(cmd_results.exit_code)
-
-    def add_args(self, common):
-        common.args_process_init(
-            description=('Determine if a table is stored as a column store table.')
-            , positional_args_usage='')
-
-        common.args_add_optional()
-        common.args_add_connection_group()
-
-        args_required_grp = common.args_parser.add_argument_group('required arguments')
-        args_required_grp.add_argument(
-            "--table", required=True
-            , help="table name, the name ot the table to test")
-
-    def init_common(self):
-        """Initialize common class.
+    def __init__(self, common=None, db_args=None):
+        """Initialize is_cstore_table class.
 
         This initialization performs argument parsing and login verification.
         It also provides access to functions such as logging and command
         execution.
-
-        :return: An instance of the `common` class
         """
-        common = yb_common.common()
+        if common:
+            self.common = common
+            self.db_args = db_args
+        else:
+            self.common = yb_common.common()
 
-        self.add_args(common)
+            self.add_args()
 
-        common.args_process()
+            self.common.args_process()
 
-        return common
+    def exec(self):
+        self.cmd_results = self.common.call_stored_proc_as_anonymous_block(
+            'yb_is_cstore_table_p'
+            , args = {
+                'a_tablename' : self.common.args.table})
+
+    def add_args(self):
+        self.common.args_process_init(
+            description=('Determine if a table is stored as a column store table.')
+            , positional_args_usage='')
+
+        self.common.args_add_optional()
+        self.common.args_add_connection_group()
+
+        args_required_grp = self.common.args_parser.add_argument_group('required arguments')
+        args_required_grp.add_argument(
+            "--table", required=True
+            , help="table name, the name ot the table to test")
 
 
-yb_is_cstore_table()
+def main():
+    iscst = is_cstore_table()
+
+    iscst.exec()
+    iscst.cmd_results.write()
+    print(iscst.cmd_results.proc_return)
+
+    exit(iscst.cmd_results.exit_code)
+
+
+if __name__ == "__main__":
+    main()

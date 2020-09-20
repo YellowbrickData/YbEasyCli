@@ -24,24 +24,41 @@ class get_sequence_names:
     database.
     """
 
-    def __init__(self):
+    def __init__(self, common=None, db_args=None):
+        """Initialize get_sequence_names class.
 
-        common = self.init_common()
+        This initialization performs argument parsing and login verification.
+        It also provides access to functions such as logging and command
+        execution.
+        """
+        if common:
+            self.common = common
+            self.db_args = db_args
+        else:
+            self.common = yb_common.common()
 
-        filter_clause = self.db_args.build_sql_filter(
-            {'owner':'sequenceowner',
-            'schema':'schemaname',
-            'sequence':'sequencename'})
+            self.db_args = self.common.db_args(
+                description=
+                    'List/Verifies that the specified sequence/s exist.',
+                optional_args_multi=['sequence', 'owner', 'schema'])
 
-        sql_query = (("""
+            self.common.args_process()
+
+    def exec(self):
+        filter_clause = self.db_args.build_sql_filter({
+            'owner':'sequenceowner'
+            , 'schema':'schemaname'
+            , 'sequence':'sequencename'})
+
+        sql_query = """
 WITH
-o AS (
+objct AS (
     SELECT
         c.relname AS sequencename
         , n.nspname AS schemaname
         , pg_get_userbyid(c.relowner) AS sequenceowner
-    FROM <database_name>.pg_catalog.pg_class AS c
-        LEFT JOIN <database_name>.pg_catalog.pg_namespace AS n
+    FROM {database_name}.pg_catalog.pg_class AS c
+        LEFT JOIN {database_name}.pg_catalog.pg_namespace AS n
             ON n.oid = c.relnamespace
     WHERE
         c.relkind IN ('S')
@@ -49,38 +66,24 @@ o AS (
 SELECT
     schemaname || '.' || sequencename
 FROM
-    o
+    objct
 WHERE
-    <filter_clause>
-ORDER BY LOWER(schemaname), LOWER(sequencename)""")
-            .replace('<filter_clause>', filter_clause)
-            .replace('<database_name>', common.database))
+    {filter_clause}
+ORDER BY LOWER(schemaname), LOWER(sequencename)""".format(
+             filter_clause = filter_clause
+             , database_name = self.common.database)
 
-        cmd_results = common.ybsql_query(sql_query)
-
-        cmd_results.write(quote=True)
-
-        exit(cmd_results.exit_code)
-
-    def init_common(self):
-        """Initialize common class.
-
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        execution.
-
-        :return: An instance of the `common` class
-        """
-        common = yb_common.common()
-
-        self.db_args = common.db_args(
-            description=
-                'List/Verifies that the specified sequence/s exist.',
-            optional_args_multi=['sequence', 'owner', 'schema'])
-
-        common.args_process()
-
-        return common
+        self.cmd_results = self.common.ybsql_query(sql_query)
 
 
-get_sequence_names()
+def main():
+    gsn = get_sequence_names()
+    gsn.exec()
+
+    gsn.cmd_results.write(quote=True)
+
+    exit(gsn.cmd_results.exit_code)
+
+
+if __name__ == "__main__":
+    main()

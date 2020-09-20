@@ -23,39 +23,56 @@ class chunk_dml_by_yyyymmdd_integer:
     """Issue the ybsql command used to create/execute DML chunked by an yyyymmdd integer column
     """
 
-    def __init__(self):
+    def __init__(self, common=None, db_args=None):
+        """Initialize chunk_dml_by_yyyymmdd_integer class.
 
-        common = self.init_common()
+        This initialization performs argument parsing and login verification.
+        It also provides access to functions such as logging and command
+        execution.
+        """
+        if common:
+            self.common = common
+            self.db_args = db_args
+        else:
+            self.common = yb_common.common()
 
-        sys.stdout.write('-- Running DML chunking.\n')
+            self.add_args()
 
-        cmd_results = common.call_stored_proc_as_anonymous_block(
+            self.common.args_process()
+
+        if '<chunk_where_clause>' not in self.common.args.dml:
+            sys.stderr.write("DML must contain the string '<chunk_where_clause>'\n")
+            exit(1)
+
+        if not self.common.args.execute_chunk_dml:
+            self.common.args.pre_sql = ''
+            self.common.args.post_sql = ''
+
+    def exec(self):
+        self.cmd_results = self.common.call_stored_proc_as_anonymous_block(
             'yb_chunk_dml_by_yyyymmdd_integer_p'
             , args = {
-                'a_table_name' : common.args.table
-                , 'a_yyyymmdd_column_name' : common.args.column
-                , 'a_dml' : common.args.dml
-                , 'a_min_chunk_size' : common.args.chunk_rows
-                , 'a_verbose' : ('TRUE' if common.args.verbose_chunk_off else 'FALSE')
-                , 'a_add_null_chunk' : ('TRUE' if common.args.null_chunk_off else 'FALSE')
-                , 'a_print_chunk_dml' : ('TRUE' if common.args.print_chunk_dml else 'FALSE')
-                , 'a_execute_chunk_dml' : ('TRUE' if common.args.execute_chunk_dml else 'FALSE')}
-            , pre_sql = common.args.pre_sql
-            , post_sql = common.args.post_sql)
+                'a_table_name' : self.common.args.table
+                , 'a_yyyymmdd_column_name' : self.common.args.column
+                , 'a_dml' : self.common.args.dml
+                , 'a_min_chunk_size' : self.common.args.chunk_rows
+                , 'a_verbose' : ('TRUE' if self.common.args.verbose_chunk_off else 'FALSE')
+                , 'a_add_null_chunk' : ('TRUE' if self.common.args.null_chunk_off else 'FALSE')
+                , 'a_print_chunk_dml' : ('TRUE' if self.common.args.print_chunk_dml else 'FALSE')
+                , 'a_execute_chunk_dml' : ('TRUE' if self.common.args.execute_chunk_dml else 'FALSE')}
+            , pre_sql = self.common.args.pre_sql
+            , post_sql = self.common.args.post_sql)
 
-        cmd_results.write(tail='-- Completed DML chunking.\n')
-
-        exit(cmd_results.exit_code)
-
-    def add_args(self, common):
-        common.args_process_init(
+    def add_args(self):
+        self.common.args_process_init(
             description=('Chunk DML by YYYYMMDD integer column.')
             , positional_args_usage='')
 
-        common.args_add_optional()
-        common.args_add_connection_group()
+        self.common.args_add_optional()
+        self.common.args_add_connection_group()
 
-        args_chunk_r_grp = common.args_parser.add_argument_group('chunking required arguments')
+        args_chunk_r_grp = self.common.args_parser.add_argument_group(
+            'chunking required arguments')
         args_chunk_r_grp.add_argument(
             "--table", required=True
             , help="table name, the name may be qualified if needed")
@@ -73,7 +90,8 @@ class chunk_dml_by_yyyymmdd_integer:
             , type=yb_common.intRange(1,9223372036854775807)
             , help="the minimum rows that each chunk should contain")
 
-        args_chunk_o_grp = common.args_parser.add_argument_group('chunking optional arguments')
+        args_chunk_o_grp = self.common.args_parser.add_argument_group(
+            'chunking optional arguments')
         args_chunk_o_grp.add_argument("--verbose_chunk_off", action="store_false"
             , help="don't print additional chunking details, defaults to FALSE")
         args_chunk_o_grp.add_argument("--null_chunk_off", action="store_false"
@@ -87,30 +105,16 @@ class chunk_dml_by_yyyymmdd_integer:
         args_chunk_o_grp.add_argument("--post_sql", default=''
             , help="SQL to run after the chunking DML, only runs if execute_chunk_dml is set")
 
-    def init_common(self):
-        """Initialize common class.
 
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        execution.
+def main():
+    cdml = chunk_dml_by_yyyymmdd_integer()
 
-        :return: An instance of the `common` class
-        """
-        common = yb_common.common()
+    sys.stdout.write('-- Running DML chunking.\n')
+    cdml.exec()
+    cdml.cmd_results.write(tail='-- Completed DML chunking.\n')
 
-        self.add_args(common)
-
-        common.args_process()
-
-        if '<chunk_where_clause>' not in common.args.dml:
-            sys.stderr.write("DML must contain the string '<chunk_where_clause>'\n")
-            exit(1)
-
-        if not common.args.execute_chunk_dml:
-            common.args.pre_sql = ''
-            common.args.post_sql = ''
-
-        return common
+    exit(cdml.cmd_results.exit_code)
 
 
-chunk_dml_by_yyyymmdd_integer()
+if __name__ == "__main__":
+    main()

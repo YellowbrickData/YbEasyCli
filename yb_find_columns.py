@@ -24,53 +24,55 @@ class find_columns:
     object.
     """
 
-    def __init__(self):
+    def __init__(self, common=None, db_args=None):
+        """Initialize find_columns class.
 
-        common = self.init_common()
+        This initialization performs argument parsing and login verification.
+        It also provides access to functions such as logging and command
+        execution.
+        """
+        if common:
+            self.common = common
+            self.db_args = db_args
+        else:
+            self.common = yb_common.common()
 
+            self.db_args = self.common.db_args(
+                description=
+                    'List column names and column attributes for filtered columns.',
+                optional_args_multi=['owner', 'schema', 'table', 'column', 'datatype'],
+                positional_args_usage='[database]')
+
+            self.common.args_process()
+
+        self.db_args.schema_set_all_if_none()
+
+    def exec(self):
         filter_clause = self.db_args.build_sql_filter(
             {
                 'owner':'tableowner'
                 ,'schema':'schemaname'
                 ,'table':'tablename'
                 ,'column':'columnname'
-                ,'datatype':'datatype'},
-            indent='    ')
+                ,'datatype':'datatype'}
+            , indent='    ')
 
-        cmd_results = common.call_stored_proc_as_anonymous_block(
+        self.cmd_results = self.common.call_stored_proc_as_anonymous_block(
                 'yb_find_columns_p'
                 , args = {
                     'a_column_filter_clause' : filter_clause
                 }
             )
 
-        cmd_results.write()
 
-        exit(cmd_results.exit_code)
+def main():
+    fcs = find_columns()
+    fcs.exec()
 
+    fcs.cmd_results.write()
 
-    def init_common(self):
-        """Initialize common class.
-
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        execution.
-
-        :return: An instance of the `common` class
-        """
-        common = yb_common.common()
-
-        self.db_args = common.db_args(
-            description=
-                'List column names and column attributes for filtered columns.',
-            optional_args_multi=['owner', 'schema', 'table', 'column', 'datatype'],
-            positional_args_usage='[database]')
-
-        common.args_process()
-
-        self.db_args.schema_set_all_if_none()
-
-        return common
+    exit(fcs.cmd_results.exit_code)
 
 
-find_columns()
+if __name__ == "__main__":
+    main()
