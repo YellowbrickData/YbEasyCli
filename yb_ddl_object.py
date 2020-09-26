@@ -41,6 +41,12 @@ class ddl_object:
             self.common = yb_common.common()
             self.args_process()
 
+    def args_add_by_object_type(self, args_grp):
+        if self.object_type == 'table':
+            args_grp.add_argument("--with_rowcount"
+                , action="store_true"
+                , help="display the current rowcount")
+
     def args_process(self):
         self.common.args_process_init(
             description=('Return the {obj_type}/s DDL for the requested '
@@ -66,6 +72,7 @@ class ddl_object:
         args_ddl_grp.add_argument("--db_name",
                                   help="set a new database name to the %s DDL"
                                   % self.object_type)
+        self.args_add_by_object_type(args_ddl_grp)
 
         self.db_args = yb_common.db_args(
             required_args_single=[]
@@ -88,6 +95,19 @@ class ddl_object:
             self.cmd_results.stdout = self.ddl_modifications(
                 self.cmd_results.stdout, self.common)
 
+    def get_describe_sql_by_object_type(self, object):
+        describe_clause = 'DESCRIBE %s ONLY DDL;\n\\echo' % object
+
+        if self.object_type == 'table':
+            if self.common.args.with_rowcount:
+                rowcount_sql = ('SELECT COUNT(*) FROM %s' % object)
+                cmd_results = self.common.ybsql_query(rowcount_sql)
+                describe_clause = """SELECT '--Rowcount: %s  Table: %s  At: ' || NOW() || '';\n%s""" % (
+                    f"{int(cmd_results.stdout):,}", object, describe_clause)
+
+        return describe_clause
+
+
     def get_describe_sql(self, common):
         """Build up SQL DESCRIBE statement/s.
 
@@ -107,11 +127,12 @@ class ddl_object:
             sys.stdout.write(text.color(gons.cmd_results.stderr, fg='red'))
             exit(gons.cmd_results.exit_code)
 
-        objects = common.quote_object_path(gons.cmd_results.stdout)
+        objects = common.quote_object_paths(gons.cmd_results.stdout)
         describe_objects = []
         if objects.strip() != '':
             for object in objects.strip().split('\n'):
-                describe_objects.append('DESCRIBE %s ONLY DDL;\n\\echo' % object)
+                describe_clause = self.get_describe_sql_by_object_type(object)
+                describe_objects.append(describe_clause)
 
         return '\n'.join(describe_objects)
 
@@ -152,16 +173,17 @@ class ddl_object:
                           else common.database)
                         + '.' + tablepath
                     )
-                tablepath = common.quote_object_path(tablepath)
+                tablepath = common.quote_object_paths(tablepath)
                 line = 'CREATE %s %s%s' % (matches.group(1), tablepath, matches.group(3))
 
             #change all data type key words to upper case 
             d_types = [
-                'bigint', 'integer', 'smallint', 'numeric', 'real',
-                'double precision', 'uuid', 'character varying', 'character',
-                'date', 'time without time zone',
-                'timestamp without time zone', 'timestamp with time zone',
-                'ipv4', 'ipv6', 'macaddr', 'macaddr8'
+                'bigint', 'integer', 'smallint', 'numeric', 'real'
+                , 'double precision', 'uuid', 'character varying', 'character'
+                , 'date', 'time without time zone'
+                , 'timestamp without time zone', 'timestamp with time zone'
+                , 'ipv4', 'ipv6', 'macaddr', 'macaddr8'
+                , 'boolean'
             ]
             for data_type in d_types:
                 line = re.sub(r"( )" + data_type + "(,?$|\()",
@@ -172,7 +194,7 @@ class ddl_object:
         new_ddl = '\n'.join(new_ddl).strip() + '\n'
 
         #remove DDL comments at the beginning of each object definition
-        new_ddl = re.sub(r"--.*?\n", "", new_ddl)
+        new_ddl = re.sub(r"--( |-).*?\n", "", new_ddl)
         #correct trailing ';' at end of each definition to be consistent
         new_ddl = re.sub(r"(\s*);", ";", new_ddl)
 
