@@ -98,7 +98,7 @@ def main():
         if gtdk.cmd_results.stdout.strip() in ('RANDOM', 'REPLICATED'):
             sys.stdout.write(gtdk.cmd_results.stdout)
         else:
-            sys.stdout.write(gtdk.common.quote_object_path(gtdk.cmd_results.stdout))
+            sys.stdout.write(gtdk.common.quote_object_paths(gtdk.cmd_results.stdout))
     if gtdk.cmd_results.stderr != '':
         sys.stdout.write(text.color(gtdk.cmd_results.stderr, fg='red'))
 

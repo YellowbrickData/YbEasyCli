@@ -19,7 +19,7 @@ class common:
     """This class contains functions used for argument parsing, login
     verification, logging, and command execution.
     """
-    version = '20200919'
+    version = '20200925'
 
     util_dir_path = os.path.dirname(os.path.realpath(__file__))
     util_file_name = os.path.basename(os.path.realpath(__file__))
@@ -418,19 +418,22 @@ eof""" % (options, self.args.host, self.connect_timeout, sql_statement)
         """Get the current time (for time stamping)"""
         return str(datetime.now())
 
-    def quote_object_path(self, object_paths):
+    def quote_object_paths(self, object_paths):
         """Convert database object names to have double quotes where required"""
-        quote_object_path = []
+        quote_object_paths = []
         for object_path in object_paths.split('\n'):
+            #first remove all double quotes to start with an unquoted object path
+            #   sometimes the incoming path is partially quoted
+            object_path = object_path.replace('"', '')
             objects = []
             for objct in object_path.split('.'):
                 if len(re.sub('[a-z0-9_]', '', objct)) == 0:
                     objects.append(objct)
                 else:
                     objects.append('"' + objct + '"')
-            quote_object_path.append('.'.join(objects))
+            quote_object_paths.append('.'.join(objects))
 
-        return '\n'.join(quote_object_path)
+        return '\n'.join(quote_object_paths)
 
     def call_stored_proc_as_anonymous_block(self
         , stored_proc
@@ -659,7 +662,7 @@ class cmd_results:
         sys.stdout.write(head)
         if self.stdout != '':
             sys.stdout.write(
-                self.common.quote_object_path(self.stdout)
+                self.common.quote_object_paths(self.stdout)
                 if quote
                 else self.stdout)
         if self.stderr != '':
