@@ -99,7 +99,7 @@ ORDER BY
                 , pre_sql = ('\c %s\n' % db))
 
             if cmd_results.exit_code == 0:
-                sys.stdout.write(self.common.quote_object_path(cmd_results.stdout))
+                sys.stdout.write(self.common.quote_object_paths(cmd_results.stdout))
             elif cmd_results.stderr.find('permission denied') == -1:
                 sys.stderr.write(text.color(cmd_results.stderr, fg='red'))
                 exit(cmd_results.exit_code)
