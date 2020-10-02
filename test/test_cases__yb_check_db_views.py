@@ -1,6 +1,6 @@
 test_cases = [
     test_case(
-        cmd='yb_check_db_views.py @{argsdir}/db1 --db_in {db1}'
+        cmd='yb_check_db_views.py @{argsdir}/db1 --database_in {db1}'
         , exit_code=0
         , stdout="""-- Running broken view check.
 -- 0 broken view/s in "{db1}".
@@ -8,7 +8,7 @@ test_cases = [
         , stderr='')
 
     , test_case(
-        cmd='yb_check_db_views.py @{argsdir}/db2 --db_in {db2}'
+        cmd='yb_check_db_views.py @{argsdir}/db2 --database_in {db2}'
         , exit_code=0
         , stdout="""-- Running broken view check.
 {db2}.dev.broken1_v
