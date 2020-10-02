@@ -46,7 +46,9 @@ class get_column_name:
 
             self.common.args_process()
 
-    def exec(self):
+        self.db_conn = yb_common.db_connect(self.common.args)
+
+    def execute(self):
         filter_clause = self.db_args.build_sql_filter(
             {'owner':'objectowner'
             , 'schema':'schemaname'
@@ -78,14 +80,14 @@ WHERE
     {filter_clause}
 ORDER BY LOWER(schemaname), LOWER(objectname)""".format(
              filter_clause = filter_clause
-             , database_name = self.common.database)
+             , database_name = self.db_conn.database)
 
-        self.cmd_results = self.common.ybsql_query(sql_query)
+        self.cmd_results = self.db_conn.ybsql_query(sql_query)
 
 
 def main():
     gcn = get_column_name()
-    gcn.exec()
+    gcn.execute()
 
     gcn.cmd_results.write(quote=True)
 

@@ -19,24 +19,17 @@ class common:
     """This class contains functions used for argument parsing, login
     verification, logging, and command execution.
     """
-    version = '20200925'
+    version = '20201002'
+    verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(__file__))
     util_file_name = os.path.basename(os.path.realpath(__file__))
     util_name = util_file_name.split('.')[0]
 
-    def __init__(self, connect_timeout=10):
+    def __init__(self):
         """Create an instance of the common library used by all utilities
-
-        :param connect_timeout: database timeout in seconds when trying to
-            connect, defaults to 10 seconds
         """
-        self.database = None
-        self.schema = None
-        self.connect_timeout = connect_timeout
-
         self.start_ts = datetime.now()
-
 
     def formatter(self, prog):
         return argparse.RawDescriptionHelpFormatter(prog, width=100)
@@ -122,37 +115,67 @@ class common:
                         trimmed_arg
                         , help="%s to process" % trimmed_arg)
 
-    def args_add_connection_group(self):
+    def args_add_connection_group(self, type=None, type_desc=''):
         """Add conceptual grouping to improve the display of help messages.
 
-        Creates a new group for arguments related to connection.
+        Creates a new group for arguments related to connection.    
         """
-        conn_grp = self.args_parser.add_argument_group('connection arguments')
-        conn_grp.add_argument(
-            "--host", "-h", "-H"
-            , dest="host", help="specify database server hostname, "
-                "overrides YBHOST env variable")
-        conn_grp.add_argument(
-            "--port", "-p", "-P"
-            , dest="port", help="specify database server port, "
-                "overrides YBPORT env variable, the default port is 5432")
-        conn_grp.add_argument(
-            "--dbuser", "-U"
-            , dest="dbuser", help="specify database user, "
-                "overrides YBUSER env variable")
-        conn_grp.add_argument(
-            "--conn_db", "-d", "-db", "-D"
-            , dest="conn_db", help="specify database to connect to, "
-                "overrides YBDATABASE env variable")
-        conn_grp.add_argument(
-            "--current_schema"
-            , dest="current_schema"
-            , help="specify the current schema after db connection")
-        conn_grp.add_argument(
-            "-W"
-            , action="store_true"
-            , help= "prompt for password instead of using the "
-                "YBPASSWORD env variable")
+        if not type:
+            conn_grp = self.args_parser.add_argument_group(
+                'connection arguments')
+            conn_grp.add_argument(
+                "--host", "-h", "-H"
+                , dest="host", help="database server hostname, "
+                    "overrides YBHOST env variable")
+            conn_grp.add_argument(
+                "--port", "-p", "-P"
+                , dest="port", help="database server port, "
+                    "overrides YBPORT env variable, the default port is 5432")
+            conn_grp.add_argument(
+                "--dbuser", "-U"
+                , dest="dbuser", help="database user, "
+                    "overrides YBUSER env variable")
+            conn_grp.add_argument(
+                "--conn_db", "--db", "-d", "-D"
+                , dest="conn_db", help="database to connect to, "
+                    "overrides YBDATABASE env variable")
+            conn_grp.add_argument(
+                "--current_schema"
+                , help="current schema after db connection")
+            conn_grp.add_argument(
+                "-W"
+                , action="store_true"
+                , help= "prompt for password instead of using the "
+                    "YBPASSWORD env variable")
+        else:
+            conn_grp = self.args_parser.add_argument_group(
+                '%s connection arguments' % type_desc)
+            conn_grp.add_argument(
+                "--%s_host" % type
+                , help="%s database server hostname, "
+                    "overrides YBHOST env variable" % type_desc)
+            conn_grp.add_argument(
+                "--%s_port" % type
+                , help="%s database server port, overrides YBPORT "
+                    "env variable, the default port is 5432" % type_desc)
+            conn_grp.add_argument(
+                "--%s_dbuser" % type
+                , help="%s database user, "
+                    "overrides YBUSER env variable" % type_desc)
+            conn_grp.add_argument(
+                "--%s_conn_db" % type
+                , help="%s database to connect to, "
+                    "overrides YBDATABASE env variable" % type_desc)
+            conn_grp.add_argument(
+                "--%s_current_schema" % type
+                , help="current schema after db connection")
+            conn_grp.add_argument(
+                "--%s_W" % type
+                , action="store_true"
+                , help= "prompt for password instead of using the "
+                    "YBPASSWORD env variable")
+
+        return conn_grp
 
     def args_add_optional(self):
         """Add conceptual grouping  to improve the display of help messages.
@@ -182,7 +205,9 @@ class common:
 
         Convert argument strings to objects and assign to the class. Then
         update the OS environment variables related to ybsql to match what was
-        passed to this script. Finally, attempt to verify login credentials
+        passed to this script.
+
+        Finally, attempt to verify login credentials  TODO #delete
         based on those variables.
         """
         self.args = self.args_parser.parse_args()
@@ -190,126 +215,10 @@ class common:
         if self.args.nocolor:
             text.nocolor = True
 
-        # Get and set operating system environment variables related to ybsql
-        if has_conn_args:
-            if self.args.host:
-                os.environ["YBHOST"] = self.args.host
-            else:
-                if os.environ.get("YBHOST") is None:
-                    sys.stderr.write("%s: error: the host database server must "
-                        "be set using the YBHOST environment variable or with "
-                        "the argument: --host\n" % os.path.basename(sys.argv[0]))
-                    exit(1)
-                else:
-                    self.args.host = os.environ.get("YBHOST")
-            if self.args.port:
-                os.environ["YBPORT"] = self.args.port
-            if os.environ.get("YBPORT") is None:
-                os.environ["YBPORT"] = '5432'  # default port
-            if self.args.dbuser:
-                os.environ["YBUSER"] = self.args.dbuser
-            if self.args.conn_db:
-                os.environ["YBDATABASE"] = self.args.conn_db
+        common.verbose = self.args.verbose
 
-            self.login_verify()
-
-    def login_verify(self):
-        """Attempt to verify login credentials.
-
-        Exits the program with a code if login fails.
-        """
-        if os.environ.get("YBUSER") is not None:
-            if self.args.W or os.environ.get("YBPASSWORD") is None:
-                os.environ["YBPASSWORD"] = getpass.getpass(
-                    "Enter the password for user %s: "
-                        % text.color(
-                            os.environ.get("YBUSER")
-                            , fg='cyan'))
-        # We are missing YBUSER
-        # Set an invalid password to skip the ybsql password prompt
-        else:
-            os.environ["YBPASSWORD"] = '-*-force bad password-*-'
-
-        cmd_results = self.ybsql_query(
-            """SELECT
-    CURRENT_DATABASE() AS db
-    , CURRENT_SCHEMA AS schema
-    , SPLIT_PART(VERSION(), ' ', 4) AS version
-    , SPLIT_PART(version, '-', 1) AS version_number
-    , SPLIT_PART(version, '-', 2) AS version_release
-    , SPLIT_PART(version_number, '.', 1) AS version_major
-    , SPLIT_PART(version_number, '.', 2) AS version_minor
-    , SPLIT_PART(version_number, '.', 3) AS version_patch""")
-        db_info = cmd_results.stdout.split('|')
-        if cmd_results.exit_code == 0:
-            self.schema = db_info[1]
-            # if --schema arg was set check if the schema is valid
-            if len(self.schema) == 0:
-                err = text.color(
-                    'util: FATAL: schema "%s" does not exist\n'
-                        % self.args.current_schema
-                    , fg='red')
-                sys.stderr.write(err)
-                exit(2)
-            if hasattr(self.args, 'database') and self.args.database:
-                self.database = self.args.database
-            else:
-                self.database = db_info[0]
-        else:
-            sys.stderr.write(
-                text.color(
-                    cmd_results.stderr.replace('ybsql', 'util')
-                    , fg='red'))
-            exit(cmd_results.exit_code)
-
-        self.ybdb_version = db_info[2]
-        self.ybdb_version_number = db_info[3]
-        self.ybdb_version_release = db_info[4]
-        self.ybdb_version_major = int(db_info[5])
-        self.ybdb_version_minor = int(db_info[6])
-        self.ybdb_version_patch = int(db_info[7])
-        self.ybdb_version_number_int = (
-            self.ybdb_version_major * 10000
-            + self.ybdb_version_minor * 100
-            + self.ybdb_version_patch)
-
-        if self.args.verbose >= 1:
-            print(
-                '%s: %s, %s: %s, %s: %s, %s: %s, %s: %s, %s: %s'
-                % (
-                    text.color('Connecting to Host', style='bold')
-                    , text.color(os.environ.get("YBHOST"), fg='cyan')
-                    , text.color('Port', style='bold')
-                    , text.color(os.environ.get("YBPORT"), fg='cyan')
-                    , text.color('DB User', style='bold')
-                    , text.color(os.environ.get("YBUSER"), fg='cyan')
-                    , text.color('Database', style='bold')
-                    , text.color(
-                        '<user default>'
-                            if os.environ.get("YBDATABASE") is None
-                            else os.environ.get("YBDATABASE")
-                        , fg='cyan')
-                    , text.color('Current Schema', style='bold')
-                    , text.color(
-                        '<user default>'
-                        if self.args.current_schema is None
-                        else self.args.current_schema
-                        , fg='cyan')
-                    , text.color('YBDB', style='bold')
-                    , text.color(self.ybdb_version, fg='cyan')))
-        if self.args.verbose >= 2:
-            print(
-                'export YBHOST=%s;export YBPORT=%s;export YBUSER=%s%s'
-                % (
-                    os.environ.get("YBHOST")
-                    , os.environ.get("YBPORT")
-                    , os.environ.get("YBUSER")
-                    , ''
-                        if os.environ.get("YBDATABASE") is None
-                        else
-                            ';export YBDATABASE=%s'
-                                % os.environ.get("YBDATABASE")))
-    def call_cmd(self, cmd_str, stack_level=2):
+    @staticmethod
+    def call_cmd(cmd_str, stack_level=2):
         """Spawn a new process to execute the given command.
 
         Example: results = call_cmd('env | grep -i path')
@@ -319,7 +228,7 @@ class common:
                             entries (Default value = 2)
         :return: The result produced by running the given command
         """
-        if self.args.verbose >= 2:
+        if common.verbose >= 2:
             trace_line = traceback.extract_stack(None, stack_level)[0]
             print(
                 '%s: %s, %s: %s, %s: %s\n%s\n%s'
@@ -342,9 +251,9 @@ class common:
         (stdout, stderr) = map(bytes.decode, p.communicate())
         end_time = datetime.now()
 
-        results = cmd_results(p.returncode, stdout, stderr, self)
+        results = cmd_results(p.returncode, stdout, stderr)
 
-        if self.args.verbose >= 2:
+        if common.verbose >= 2:
             print(
                 '%s: %s\n%s: %s\n%s\n%s%s\n%s'
                 % (
@@ -361,64 +270,13 @@ class common:
 
         return results
 
-    def call_util_cmd(self, util_cmd, stack_level=2):
-        """A wrapper for `call_cmd` used when running in verbose mode
-
-        When verbose is turned on, the output of `call_cmd` will contain more
-        info than exepected causing an execution error. To mitigate this issue,
-        this wrapper calls `call_cmd` twice when verbose mode is turned on.
-          - First time it produces the debug output
-          - Second time it strips the verbose setting and returns the desired
-            output without debug info
-
-        :param util_cmd: The string representing the command to execute
-        :param stack_level: A number signifying the limit of stack trace
-                            entries (Default value = 2)
-        :return: The result produced by running the given command
-        """
-        cmd_results = self.call_cmd(util_cmd)
-        if self.args.verbose:
-            util_cmd_wo_verbose = re.sub(
-                r'(.*)--verbose [0-9](.*)', r'\1\2', util_cmd)
-            cmd_results = self.call_cmd(util_cmd_wo_verbose, stack_level)
-
-        return cmd_results
-
-    def ybsql_query(self, sql_statement, options = '-A -q -t -v ON_ERROR_STOP=1 -X'):
-        """Run and evaluate a query using ybsql.
-
-        :param sql_statement: The SQL command string
-        :options: ybsql command options
-            default options
-                -A: unaligned table output mode
-                -q: run quietly (no messages, only query output)
-                -t: print rows only
-                -v: set ybsql variable NAME to VALUE
-                    ON_ERROR_STOP: processing is stopped immediately,
-                        with an exit code of 3
-                -X: do not read startup file (~/.ybsqlrc)
-        :return: The result produced by running the given command
-        """
-        if self.args.current_schema:
-            sql_statement = "SET SCHEMA '%s';%s" % (
-                self.args.current_schema, sql_statement)
-
-        # default timeout is 75 seconds changing it to self.connect_timeout
-        #   'host=<host>' string is required first to set connect timeout
-        #   see https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING
-        ybsql_cmd = """ybsql %s "host=%s connect_timeout=%d" <<eof
-%s
-eof""" % (options, self.args.host, self.connect_timeout, sql_statement)
-
-        cmd_results = self.call_cmd(ybsql_cmd, stack_level=3)
-
-        return cmd_results
-
+    @staticmethod
     def ts(self):
         """Get the current time (for time stamping)"""
         return str(datetime.now())
 
-    def quote_object_paths(self, object_paths):
+    @staticmethod
+    def quote_object_paths(object_paths):
         """Convert database object names to have double quotes where required"""
         quote_object_paths = []
         for object_path in object_paths.split('\n'):
@@ -435,137 +293,8 @@ eof""" % (options, self.args.host, self.connect_timeout, sql_statement)
 
         return '\n'.join(quote_object_paths)
 
-    def call_stored_proc_as_anonymous_block(self
-        , stored_proc
-        , args={}
-        , pre_sql=''
-        , post_sql=''):
-        """Convert an SQL stored procedure to an anonymous SQL block,
-        then execute the anonymous SQL block.  This allows a user to run
-        the stored procedure without building the procedure, lowering the
-        barrier to run.
-
-        :param stored_proc: The SQL stored_proc to be run stored in the sql directory
-        :param args: a dictionary of input args/values to the stored_proc call
-        :param pre_sql: SQL to execute before the stored_proc
-        :param post_sql: SQL to execute after the stored_proc
-        """
-        return_marker = '>!>RETURN<!<:'
-
-        try:
-            filepath = os.path.split(__file__)[0] + ('/sql/%s.sql' % stored_proc)
-            f = open(filepath, "r")
-            stored_proc_sql = f.read()
-            f.close()
-        except FileNotFoundError:
-            print("%s file does not exist..." % filepath)
-            exit(2)
-
-        regex = r"\s*CREATE\s*(OR\s*REPLACE)?\s*PROCEDURE\s*([a-z0-9_]+)\s*\((.*)\)\s*((RETURNS\s*([a-zA-Z]*).*))\s+LANGUAGE.+?(DECLARE\s*(.+))?RETURN\s*([^;]*);(.*)\$\$;"
-        matches = re.search(regex, stored_proc_sql, re.IGNORECASE | re.DOTALL)
-
-        if not matches:
-            sys.stderr.write("Stored proc '%s' regex parse failed.\n" % stored_proc)
-            exit(2)
-
-        stored_proc_args          = matches.group(3)
-        #TODO currently return_type only handles 1 word like; BOOLEAN
-        stored_proc_return_type   = matches.group(6).upper()
-        stored_proc_before_return = matches.group(8)
-        stored_proc_return        = matches.group(9)
-        stored_proc_after_return  = matches.group(10)
-
-        anonymous_block = pre_sql + 'DO $$\nDECLARE\n    --arguments\n'
-        if stored_proc_return_type not in ('BOOLEAN', 'BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
-            sys.stderr.write('--unhandled proc return_type: %s\n'
-                % stored_proc_return_type)
-            exit(2)
- 
-        for arg in self.split(stored_proc_args):
-            matches = re.search(r'(.*)\bDEFAULT\b(.*)'
-                , arg, re.DOTALL | re.IGNORECASE)
-            if matches:
-                arg_def = matches.group(1).strip()
-                default_value = matches.group(2).strip()
-            else:
-                arg_def = arg.strip()
-                default_value = None
-
-            matches = re.search(r'([a-zA-Z0-9_]+)\b\s*([ a-zA-z]+)(.*)'
-                , arg_def, re.DOTALL | re.IGNORECASE)
-            arg_name = matches.group(1).strip()
-            arg_type = matches.group(2).strip()
-            arg_type_size = matches.group(3).strip()
-
-            #print('arg: %s, dt: %s, dts: %s, default: %s' % (arg, arg_datatype, arg_datatype_size, default))
-            if arg_name in args:
-                if arg_type == 'VARCHAR':
-                    anonymous_block += ("    %s %s%s = $A$%s$A$;\n"
-                        % (arg_name, arg_type, arg_type_size, args[arg_name]))
-                elif arg_type in ('BOOLEAN', 'BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
-                    anonymous_block += ("    %s %s = %s;\n"
-                        % (arg_name, arg_type, args[arg_name]))
-                else:
-                    sys.stderr.write("Unhandled proc arg_type: %s\n"
-                        % (arg_type))
-                    exit(2)
-            elif default_value:
-                anonymous_block += ("    %s %s = %s;\n"
-                    % (arg_name, arg_type, default_value))
-            else:
-                sys.stderr.write("Missing proc arg: %s for proc: %s\n"
-                    % (arg_name, stored_proc))
-                exit(2)
-
-        anonymous_block += ("    --variables\n    %sRAISE INFO '%s%%', %s;%s$$;%s"
-            % (
-                stored_proc_before_return, return_marker, stored_proc_return
-                , stored_proc_after_return, post_sql))
-
-        anonymous_block = re.sub(r'\$([a-zA-Z0-9]*)\$', r'\$\1\$'
-            , anonymous_block)
-
-        cmd_results = self.ybsql_query(anonymous_block)
-
-        # pg/plsql RAISE INFO commands are sent to stderr.  The following moves
-        #   the RAISE INFO data to be returned as stdout. 
-        if cmd_results.stderr.strip() != '':
-            return_value = None
-            stderr = ''
-            stdout = cmd_results.stdout
-            for line in cmd_results.stderr.split('\n'):
-                if line[0:7] == 'INFO:  ':
-                    if line[0:20] == 'INFO:  >!>RETURN<!<:':
-                        return_value = line[20:].strip()
-                    else:
-                        stdout += line[7:] + '\n'
-                else:
-                    stderr += line
-
-            if not return_value:
-                sys.stderr.write(cmd_results.stderr)
-                exit(2)
-
-            cmd_results.stderr = stderr
-            cmd_results.stdout = stdout
-
-            if stored_proc_return_type == 'BOOLEAN':
-                boolean_values = {'t': True, 'f': False, '<NULL>': None}
-                cmd_results.proc_return = boolean_values.get(
-                    return_value, None)
-            elif stored_proc_return_type in ('BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
-                cmd_results.proc_return = (
-                    None
-                    if return_value == '<NULL>'
-                    else int(return_value))
-            else:
-                sys.stderr.write("Unhandled proc return_type: %s\n"
-                    % (stored_proc_return_type))
-                exit(2)
-
-        return cmd_results
-
-    def split(self, str, delim=','):
+    @staticmethod
+    def split(str, delim=','):
         #todo handle escape characters
         open_close_char = {"'":"'", '"':'"', '(':')', '[':']', '{':'}'}
         close_char = []
@@ -652,17 +381,16 @@ class intRange:
 
 class cmd_results:
 
-    def __init__(self, exit_code, stdout, stderr, common):
+    def __init__(self, exit_code, stdout, stderr):
         self.exit_code = exit_code
         self.stdout = stdout
         self.stderr = stderr
-        self.common = common
 
     def write(self, head='', tail='', quote=False):
         sys.stdout.write(head)
         if self.stdout != '':
             sys.stdout.write(
-                self.common.quote_object_paths(self.stdout)
+                common.quote_object_paths(self.stdout)
                 if quote
                 else self.stdout)
         if self.stderr != '':
@@ -748,7 +476,7 @@ class db_args:
         :filter_grp: group the new filter is added to
         """
         notation_help = ''
-        if (otype in ['db', 'database', 'schema', 'table', 'column'
+        if (otype in ['database', 'schema', 'table', 'column'
             , 'view', 'sequence', 'object', 'owner']):
             notation_help = (""", use '"Name"' notation """
                 "for case dependent names")
@@ -1013,6 +741,350 @@ class text:
             text.color_str(fg, bg, style), txt, text.color_str())
         return txt if text.nocolor else colored_text
 
+class db_connect:
+    conn_args = {
+        'dbuser':'YBUSER'
+        , 'host':'YBHOST'
+        , 'port':'YBPORT'
+        , 'conn_db':'YBDATABASE'}
+    env_to_set = conn_args.copy()
+    env_to_set['pwd'] = 'YBPASSWORD'
+
+    def __init__(self, args=None, env=None, conn_type='', connect_timeout=10):
+        """
+                :param connect_timeout: database timeout in seconds when trying to
+            connect, defaults to 10 seconds
+        """
+        self.connect_timeout = connect_timeout
+
+        self.env_pre = self.get_env()
+
+        arg_conn_prefix = ('' if (conn_type=='') else ('%s_' % conn_type))
+        pwd_required = False
+        self.env = {'pwd':None}
+        self.env_set_by = {}
+        self.env_args = {}
+  
+        if args:
+            for conn_arg in self.conn_args.keys():
+                conn_arg_qualified = '%s%s' % (arg_conn_prefix, conn_arg)
+                #if not hasattr(args, conn_arg_qualified):
+                #    sys.stderr.write('Missing Connection Argument: %s\n'
+                #        % text.color(conn_arg_qualified, fg='red'))
+                #    exit(2)
+                self.env_args[conn_arg] = getattr(args, conn_arg_qualified)
+                self.env[conn_arg] = self.env_args[conn_arg] or self.env_pre[conn_arg]
+                if self.env_args[conn_arg]:
+                    self.env_set_by[conn_arg] = 'a'
+                elif self.env_pre[conn_arg]:
+                    self.env_set_by[conn_arg] = 'e'
+                else:
+                    self.env_set_by[conn_arg] = 'd'
+            pwd_required = getattr(args, '%sW' % arg_conn_prefix)
+            self.current_schema = getattr(
+                args, '%scurrent_schema' % arg_conn_prefix)
+        elif env:
+            self.current_schema = None
+            for env_var in env.keys():
+                self.env[env_var] = env[env_var] or self.env_pre[env_var]
+                if self.env[env_var]:
+                    self.env_set_by[env_var] = 'a'
+                elif self.env_pre[env_var]:
+                    self.env_set_by[env_var] = 'e'
+                else:
+                    self.env_set_by[env_var] = 'd'
+        else:
+            #TODO either args or env should be defined otherwise throw an error
+            None
+
+        if not self.env['host']:
+            sys.stderr.write("%s: error: the host database server must "
+                "be set using the YBHOST environment variable or with "
+                "the argument: --%shost\n"
+                % (os.path.basename(sys.argv[0]), arg_conn_prefix))
+            exit(1)
+
+        if not self.env['pwd']:
+            user = self.env['dbuser'] or os.environ.get("USER")
+            if user:
+                if pwd_required or self.env_pre['pwd'] is None:
+                    prompt = ("Enter the password for cluster %s, user %s: "
+                        % (text.color(self.env['host'], fg='cyan')
+                            , text.color(user, fg='cyan')))
+                    self.env['pwd'] = getpass.getpass(prompt)
+                else:
+                    self.env['pwd'] = self.env_pre['pwd']
+            # if user is missing
+            # set an invalid password to simulate a failed login
+            else:
+                self.env['pwd'] = '-*-force bad password-*-'
+
+        self.verify()
+
+    @staticmethod
+    def set_env(env):
+        for key, value in env.items():
+            env_name = db_connect.env_to_set[key]
+            if value:
+                os.environ[env_name] = value
+            elif env_name in os.environ:
+                del os.environ[env_name]
+
+    @staticmethod
+    def get_env():
+        env = {}
+        for key, value in db_connect.env_to_set.items():
+            env_name = db_connect.env_to_set[key]
+            env[key] = os.environ.get(env_name)
+        return env
+
+    @staticmethod
+    def create_env(dbuser=None, host=None, port=None, conn_db=None, pwd=None):
+        return {
+            'dbuser':dbuser
+            , 'host':host
+            , 'port':port
+            , 'conn_db':conn_db
+            , 'pwd':pwd}
+
+    def verify(self):
+        cmd_results = self.ybsql_query(
+            """SELECT
+    CURRENT_DATABASE() AS db
+    , CURRENT_SCHEMA AS schema
+    , SPLIT_PART(VERSION(), ' ', 4) AS version
+    , SPLIT_PART(version, '-', 1) AS version_number
+    , SPLIT_PART(version, '-', 2) AS version_release
+    , SPLIT_PART(version_number, '.', 1) AS version_major
+    , SPLIT_PART(version_number, '.', 2) AS version_minor
+    , SPLIT_PART(version_number, '.', 3) AS version_patch""")
+
+        db_info = cmd_results.stdout.split('|')
+        if cmd_results.exit_code == 0:
+            self.database = db_info[0]
+            self.schema = db_info[1]
+            # if --current_schema arg was set check if it is valid
+            # the sql CURRENT_SCHEMA will return an empty string
+            if len(self.schema) == 0:
+                err = text.color(
+                    'util: FATAL: schema "%s" does not exist\n'
+                        % self.current_schema
+                    , fg='red')
+                sys.stderr.write(err)
+                exit(2)                
+        else:
+            sys.stderr.write(
+                text.color(
+                    cmd_results.stderr.replace('ybsql', 'util')
+                    , fg='red'))
+            exit(cmd_results.exit_code)
+
+        self.ybdb_version = db_info[2]
+        self.ybdb_version_number = db_info[3]
+        self.ybdb_version_release = db_info[4]
+        self.ybdb_version_major = int(db_info[5])
+        self.ybdb_version_minor = int(db_info[6])
+        self.ybdb_version_patch = int(db_info[7])
+        self.ybdb_version_number_int = (
+            self.ybdb_version_major * 10000
+            + self.ybdb_version_minor * 100
+            + self.ybdb_version_patch)
+
+        if common.verbose >= 1:
+            print(
+                '%s: %s, %s: %s, %s: %s, %s: %s, %s: %s, %s: %s'
+                % (
+                    text.color('Connecting to Host', style='bold')
+                    , text.color(self.env['host'], fg='cyan')
+                    , text.color('Port', style='bold')
+                    , text.color(self.env['port'], fg='cyan')
+                    , text.color('DB User', style='bold')
+                    , text.color(self.env['dbuser'], fg='cyan')
+                    , text.color('Database', style='bold')
+                    , text.color(self.database, fg='cyan')
+                    , text.color('Current Schema', style='bold')
+                    , text.color(self.schema, fg='cyan')
+                    , text.color('YBDB', style='bold')
+                    , text.color(self.ybdb_version, fg='cyan')))
+        #TODO fix this block
+        """
+        if self.common.args.verbose >= 2:
+            print(
+                'export YBHOST=%s;export YBPORT=%s;export YBUSER=%s%s'
+                % (
+                    os.environ.get("YBHOST")
+                    , os.environ.get("YBPORT")
+                    , os.environ.get("YBUSER")
+                    , ''
+                        if os.environ.get("YBDATABASE") is None
+                        else
+                            ';export YBDATABASE=%s'
+                                % os.environ.get("YBDATABASE")))
+        """
+
+    def ybsql_query(self, sql_statement
+        , options = '-A -q -t -v ON_ERROR_STOP=1 -X'):
+        """Run and evaluate a query using ybsql.
+
+        :param sql_statement: The SQL command string
+        :options: ybsql command options
+            default options
+                -A: unaligned table output mode
+                -q: run quietly (no messages, only query output)
+                -t: print rows only
+                -v: set ybsql variable NAME to VALUE
+                    ON_ERROR_STOP: processing is stopped immediately,
+                        with an exit code of 3
+                -X: do not read startup file (~/.ybsqlrc)
+        :return: The result produced by running the given command
+        """
+        if self.current_schema:
+            sql_statement = "SET SCHEMA '%s';\n%s" % (
+                self.current_schema, sql_statement)
+
+        # default timeout is 75 seconds changing it to self.connect_timeout
+        #   'host=<host>' string is required first to set connect timeout
+        #   see https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING
+        ybsql_cmd = """ybsql %s "host=%s connect_timeout=%d" <<eof
+%s
+eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
+
+        self.set_env(self.env)
+        cmd_results = common.call_cmd(ybsql_cmd, stack_level=3)
+        self.set_env(self.env_pre)
+
+        return cmd_results
+
+    def call_stored_proc_as_anonymous_block(self
+        , stored_proc
+        , args={}
+        , pre_sql=''
+        , post_sql=''):
+        """Convert an SQL stored procedure to an anonymous SQL block,
+        then execute the anonymous SQL block.  This allows a user to run
+        the stored procedure without building the procedure, lowering the
+        barrier to run.
+
+        :param stored_proc: The SQL stored_proc to be run stored in the sql directory
+        :param args: a dictionary of input args/values to the stored_proc call
+        :param pre_sql: SQL to execute before the stored_proc
+        :param post_sql: SQL to execute after the stored_proc
+        """
+        return_marker = '>!>RETURN<!<:'
+
+        try:
+            filepath = os.path.split(__file__)[0] + ('/sql/%s.sql' % stored_proc)
+            f = open(filepath, "r")
+            stored_proc_sql = f.read()
+            f.close()
+        except FileNotFoundError:
+            print("%s file does not exist..." % filepath)
+            exit(2)
+
+        regex = r"\s*CREATE\s*(OR\s*REPLACE)?\s*PROCEDURE\s*([a-z0-9_]+)\s*\((.*)\)\s*((RETURNS\s*([a-zA-Z]*).*))\s+LANGUAGE.+?(DECLARE\s*(.+))?RETURN\s*([^;]*);(.*)\$\$;"
+        matches = re.search(regex, stored_proc_sql, re.IGNORECASE | re.DOTALL)
+
+        if not matches:
+            sys.stderr.write("Stored proc '%s' regex parse failed.\n" % stored_proc)
+            exit(2)
+
+        stored_proc_args          = matches.group(3)
+        #TODO currently return_type only handles 1 word like; BOOLEAN
+        stored_proc_return_type   = matches.group(6).upper()
+        stored_proc_before_return = matches.group(8)
+        stored_proc_return        = matches.group(9)
+        stored_proc_after_return  = matches.group(10)
+
+        anonymous_block = pre_sql + 'DO $$\nDECLARE\n    --arguments\n'
+        if stored_proc_return_type not in ('BOOLEAN', 'BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
+            sys.stderr.write('--unhandled proc return_type: %s\n'
+                % stored_proc_return_type)
+            exit(2)
+ 
+        for arg in common.split(stored_proc_args):
+            matches = re.search(r'(.*)\bDEFAULT\b(.*)'
+                , arg, re.DOTALL | re.IGNORECASE)
+            if matches:
+                arg_def = matches.group(1).strip()
+                default_value = matches.group(2).strip()
+            else:
+                arg_def = arg.strip()
+                default_value = None
+
+            matches = re.search(r'([a-zA-Z0-9_]+)\b\s*([ a-zA-z]+)(.*)'
+                , arg_def, re.DOTALL | re.IGNORECASE)
+            arg_name = matches.group(1).strip()
+            arg_type = matches.group(2).strip()
+            arg_type_size = matches.group(3).strip()
+
+            #print('arg: %s, dt: %s, dts: %s, default: %s' % (arg, arg_datatype, arg_datatype_size, default))
+            if arg_name in args:
+                if arg_type == 'VARCHAR':
+                    anonymous_block += ("    %s %s%s = $A$%s$A$;\n"
+                        % (arg_name, arg_type, arg_type_size, args[arg_name]))
+                elif arg_type in ('BOOLEAN', 'BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
+                    anonymous_block += ("    %s %s = %s;\n"
+                        % (arg_name, arg_type, args[arg_name]))
+                else:
+                    sys.stderr.write("Unhandled proc arg_type: %s\n"
+                        % (arg_type))
+                    exit(2)
+            elif default_value:
+                anonymous_block += ("    %s %s = %s;\n"
+                    % (arg_name, arg_type, default_value))
+            else:
+                sys.stderr.write("Missing proc arg: %s for proc: %s\n"
+                    % (arg_name, stored_proc))
+                exit(2)
+
+        anonymous_block += ("    --variables\n    %sRAISE INFO '%s%%', %s;%s$$;%s"
+            % (
+                stored_proc_before_return, return_marker, stored_proc_return
+                , stored_proc_after_return, post_sql))
+
+        anonymous_block = re.sub(r'\$([a-zA-Z0-9]*)\$', r'\$\1\$'
+            , anonymous_block)
+
+        cmd_results = self.ybsql_query(anonymous_block)
+
+        # pg/plsql RAISE INFO commands are sent to stderr.  The following moves
+        #   the RAISE INFO data to be returned as stdout. 
+        if cmd_results.stderr.strip() != '':
+            return_value = None
+            stderr = ''
+            stdout = cmd_results.stdout
+            for line in cmd_results.stderr.split('\n'):
+                if line[0:7] == 'INFO:  ':
+                    if line[0:20] == 'INFO:  >!>RETURN<!<:':
+                        return_value = line[20:].strip()
+                    else:
+                        stdout += line[7:] + '\n'
+                else:
+                    stderr += line
+
+            if not return_value:
+                sys.stderr.write(cmd_results.stderr)
+                exit(2)
+
+            cmd_results.stderr = stderr
+            cmd_results.stdout = stdout
+
+            if stored_proc_return_type == 'BOOLEAN':
+                boolean_values = {'t': True, 'f': False, '<NULL>': None}
+                cmd_results.proc_return = boolean_values.get(
+                    return_value, None)
+            elif stored_proc_return_type in ('BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
+                cmd_results.proc_return = (
+                    None
+                    if return_value == '<NULL>'
+                    else int(return_value))
+            else:
+                sys.stderr.write("Unhandled proc return_type: %s\n"
+                    % (stored_proc_return_type))
+                exit(2)
+
+        return cmd_results
+
 def convert_arg_line_to_args(line):
     for arg in shlex.split(line):
         if not arg.strip():
@@ -1031,7 +1103,7 @@ if __name__ == "__main__":
     common.args_add_filter_group()
     common.args_process()
 
-    if common.args.verbose >= 3:
+    if common.verbose >= 3:
         # Print extended information on the environment running this program
         print('--->%s\n%s' % ("(common.call_cmd('lscpu')).stdout",
                               common.call_cmd('lscpu').stdout))

@@ -51,7 +51,9 @@ class mass_column_update:
             self.common.args.pre_sql = ''
             self.common.args.post_sql = ''
 
-    def exec(self):
+        self.db_conn = yb_common.db_connect(self.common.args)
+
+    def execute(self):
         filter_clause = self.db_args.build_sql_filter(
             {
                 'owner':'tableowner'
@@ -61,7 +63,7 @@ class mass_column_update:
                 , 'datatype':'datatype'}
                 , indent='        ')
 
-        self.cmd_results = self.common.call_stored_proc_as_anonymous_block(
+        self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_mass_column_update_p'
             , args = {
                 'a_update_where_clause' : self.common.args.update_where_clause
@@ -119,7 +121,7 @@ def main():
     mcu = mass_column_update()
 
     sys.stdout.write('-- Running mass column update.\n')
-    mcu.exec()
+    mcu.execute()
     mcu.cmd_results.write(tail='-- Completed mass column update.\n')
 
     exit(mcu.cmd_results.exit_code)

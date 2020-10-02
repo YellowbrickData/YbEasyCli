@@ -41,6 +41,8 @@ class ddl_object:
             self.common = yb_common.common()
             self.args_process()
 
+        self.db_conn = yb_common.db_connect(self.common.args)
+
     def args_add_by_object_type(self, args_grp):
         if self.object_type == 'table':
             args_grp.add_argument("--with_rowcount"
@@ -87,9 +89,9 @@ class ddl_object:
         if self.common.args.db_name:
             self.common.args.with_db = True
 
-    def exec(self):
+    def execute(self):
         describe_sql = self.get_describe_sql(self.common)
-        self.cmd_results = self.common.ybsql_query(describe_sql)
+        self.cmd_results = self.db_conn.ybsql_query(describe_sql)
 
         if self.cmd_results.stdout != '':
             self.cmd_results.stdout = self.ddl_modifications(
@@ -101,9 +103,9 @@ class ddl_object:
         if self.object_type == 'table':
             if self.common.args.with_rowcount:
                 rowcount_sql = ('SELECT COUNT(*) FROM %s' % object)
-                cmd_results = self.common.ybsql_query(rowcount_sql)
+                cmd_results = self.db_conn.ybsql_query(rowcount_sql)
                 describe_clause = """SELECT '--Rowcount: %s  Table: %s  At: ' || NOW() || '';\n%s""" % (
-                    f"{int(cmd_results.stdout):,}", object, describe_clause)
+                    format(int(cmd_results.stdout), ",d"), object, describe_clause)
 
         return describe_clause
 
@@ -120,7 +122,7 @@ class ddl_object:
             '(common=self.common, db_args=self.db_args)').format(
             object_type=self.object_type)
         gons = eval(code)
-        gons.exec()
+        gons.execute()
 
         if (gons.cmd_results.stderr != ''
             or gons.cmd_results.exit_code != 0):
@@ -170,7 +172,7 @@ class ddl_object:
                     tablepath = (
                         ( common.args.db_name
                           if common.args.db_name
-                          else common.database)
+                          else self.db_conn.database)
                         + '.' + tablepath
                     )
                 tablepath = common.quote_object_paths(tablepath)
@@ -203,7 +205,7 @@ class ddl_object:
 
 def main(object_type):
     ddlo = ddl_object(object_type)
-    ddlo.exec()
+    ddlo.execute()
 
     ddlo.cmd_results.write()
 

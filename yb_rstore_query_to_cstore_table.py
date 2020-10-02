@@ -42,8 +42,10 @@ class rstore_query_to_cstore_table:
 
             self.common.args_process()
 
-    def exec(self):
-        self.cmd_results = self.common.call_stored_proc_as_anonymous_block(
+        self.db_conn = yb_common.db_connect(self.common.args)
+
+    def execute(self):
+        self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_rstore_query_to_cstore_table_p'
             , args = {
                 'a_query' : self.common.args.query
@@ -90,7 +92,7 @@ def main():
     rsqtocst = rstore_query_to_cstore_table()
 
     sys.stdout.write('-- Converting row store query to column store table.\n')
-    rsqtocst.exec()
+    rsqtocst.execute()
     rsqtocst.cmd_results.write(tail='-- The %s column store table has been created.\n'
         % rsqtocst.common.args.table)
 

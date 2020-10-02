@@ -47,7 +47,9 @@ class find_columns:
 
         self.db_args.schema_set_all_if_none()
 
-    def exec(self):
+        self.db_conn = yb_common.db_connect(self.common.args)
+
+    def execute(self):
         filter_clause = self.db_args.build_sql_filter(
             {
                 'owner':'tableowner'
@@ -57,7 +59,7 @@ class find_columns:
                 ,'datatype':'datatype'}
             , indent='    ')
 
-        self.cmd_results = self.common.call_stored_proc_as_anonymous_block(
+        self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
                 'yb_find_columns_p'
                 , args = {
                     'a_column_filter_clause' : filter_clause
@@ -67,7 +69,7 @@ class find_columns:
 
 def main():
     fcs = find_columns()
-    fcs.exec()
+    fcs.execute()
 
     fcs.cmd_results.write()
 

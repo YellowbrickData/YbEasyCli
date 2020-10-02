@@ -41,8 +41,10 @@ class is_cstore_table:
 
             self.common.args_process()
 
-    def exec(self):
-        self.cmd_results = self.common.call_stored_proc_as_anonymous_block(
+        self.db_conn = yb_common.db_connect(self.common.args)
+
+    def execute(self):
+        self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_is_cstore_table_p'
             , args = {
                 'a_tablename' : self.common.args.table})
@@ -64,7 +66,7 @@ class is_cstore_table:
 def main():
     iscst = is_cstore_table()
 
-    iscst.exec()
+    iscst.execute()
     iscst.cmd_results.write()
     print(iscst.cmd_results.proc_return)
 

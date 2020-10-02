@@ -15,6 +15,7 @@ import getpass
 import yb_common
 import difflib
 from yb_common import text
+from yb_common import db_connect
 
 
 class test_case:
@@ -36,6 +37,9 @@ class test_case:
         cmd = '%s/../%s' % (path, self.cmd)
         if common.args.python_exe:
             cmd = '%s %s' % (common.args.python_exe, cmd)
+
+        #TODO make password dynamic
+        os.environ['YBPASSWORD'] = get.test_user_password
 
         self.cmd_results = common.call_cmd(cmd)
 
@@ -137,8 +141,6 @@ class execute_test_action:
     """Initiate testing"""
     def __init__(self):
         common = self.init_common()
-
-        self.set_db_user(common)
 
         self.check_args_dir()
 
@@ -353,18 +355,33 @@ ORDER BY 1
             , 'DROP TABLE dev.dropped_t'
             , 'DROP TABLE "Prod".dropped_t']
 
+        if common.args.action[0:2] != 'yb':
+            action_suffix = common.args.action.split('_')[-1]
+            user = get.create_user_name if action_suffix == 'su' else get.test_user_name
+            pwd = None if action_suffix == 'su' else get.test_user_password
+            if action_suffix == 'su':
+                db_conn = None
+            else:
+                if common.args.action == 'create_objects_db2':
+                    db_conn = get.test_db2
+                else:
+                    db_conn = get.test_db1
+            conn = self.get_db_conn(user, pwd, db_conn)
+
         if common.args.action == 'create_su':
             for query in queries_create_su:
-                cmd_results = common.ybsql_query(query)
+                cmd_results = conn.ybsql_query(query)
             #check if the test user can login
-            self.set_db_user(common
-                , user = get.test_user_name)
+            conn = self.get_db_conn(
+                get.test_user_name
+                , get.test_user_password
+                , get.test_db1)       
             print("Testing '%s' DB login, this may take 2 minutes..."
                 % get.test_user_name)
             for i in range(1,21):
                 time.sleep(5)
                 print("Attempting DB login after %d seconds..." % (1 * 5))
-                cmd_results = common.ybsql_query("SELECT 1")
+                cmd_results = conn.ybsql_query("SELECT 1")
                 if cmd_results.exit_code == 0:
                     break
             if cmd_results.exit_code == 0:
@@ -374,44 +391,44 @@ ORDER BY 1
 
         if common.args.action == 'drop_su':
             for query in queries_drop_su:
-                cmd_results = common.ybsql_query(query)
+                cmd_results = conn.ybsql_query(query)
 
         if common.args.action == 'create_db2':
             for query in queries_create_db2:
-                cmd_results = common.ybsql_query(query)
+                cmd_results = conn.ybsql_query(query)
 
         if common.args.action == 'drop_db2':
             for query in queries_drop_db2:
-                cmd_results = common.ybsql_query(query)
+                cmd_results = conn.ybsql_query(query)
 
         if common.args.action == 'create_objects_db1':
             for query in queries_create_objects_db1:
-                cmd_results = common.ybsql_query(query)
+                cmd_results = conn.ybsql_query(query)
 
         if common.args.action == 'drop_objects_db1':
             for query in queries_drop_objects_db1:
-                cmd_results = common.ybsql_query(query)
+                cmd_results = conn.ybsql_query(query)
 
         if common.args.action == 'upfront_objects_drops_db1':
             for query in queries_upfront_db1_drops:
-                cmd_results = common.ybsql_query(query)
+                cmd_results = conn.ybsql_query(query)
 
         os.environ["YBDATABASE"] = get.test_db2
 
         if common.args.action == 'create_objects_db2':
             for query in queries_create_objects_db2:
-                cmd_results = common.ybsql_query(query)
+                cmd_results = conn.ybsql_query(query)
 
         if common.args.action == 'drop_objects_db2':
             for query in queries_drop_objects_db2:
-                cmd_results = common.ybsql_query(query)
+                cmd_results = conn.ybsql_query(query)
 
         # Actions beginning with `yb` refer to the yb utility scripts in this
         # package, e.g. `yb_get_table_name` or `yb_get_column_names`
         if common.args.action[0:2] == 'yb':
             # Test cases are defined in files within this directory
             #   (see files with prefix `test_cases__`)
-            # We need to execute the relevant test case file and bring
+            # We need to exec the relevant test case file and bring
             # the list of `test_case` objects into the local scope
             _ldict = locals()
             exec(open('%s/test_cases__%s.py'
@@ -466,24 +483,13 @@ ORDER BY 1
                     data = file.read().format(**get.format)
                     open('%s/%s' % (dd, filename), "w").write(data)
 
-    def set_db_user(self, common, user=None):
-        if (user == get.create_user_name
-            or (not user
-                    and ('create_su' in sys.argv 
-                        or 'drop_su' in sys.argv))):
-            os.environ["YBUSER"] = get.create_user_name
-            os.environ["YBPASSWORD"] = getpass.getpass(
-                "Enter the password for user %s: "
-                    % get.create_user_name)
-        elif (user == get.test_user_name
-            or not user):
-            os.environ["YBUSER"] = get.test_user_name
-            os.environ["YBPASSWORD"] = get.test_user_password
-            os.environ["YBDATABASE"] = get.test_db1
-
-        os.environ["YBHOST"] = get.host
-        common.args.current_schema = None
-        common.args.host = get.host
+    def get_db_conn(self, user=None, pwd=None, db_conn=None):
+        env = db_connect.create_env(
+            dbuser=user
+            , pwd=pwd
+            , conn_db=db_conn
+            , host=get.host)
+        return db_connect(env=env)
 
     def init_common(self):
         """Initialize the common class.

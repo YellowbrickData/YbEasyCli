@@ -42,33 +42,35 @@ class chunk_optimal_rows:
             self.db_args = self.common.db_args(
                 description='Determine the optimal number of rows per chunk for a table.'
                 , required_args_single=['table']
-                , optional_args_single=['db', 'schema']
+                , optional_args_single=['database', 'schema']
                 , positional_args_usage=[])
 
             self.common.args_process()
 
-    def exec(self):
+        self.db_conn = yb_common.db_connect(self.common.args)
+
+    def execute(self):
         schema = (
             self.common.args.schema
             if self.common.args.schema
-            else self.common.schema)
+            else self.db_conn.schema)
 
-        db = (
-            self.common.args.db
-            if self.common.args.db
-            else self.common.database)
+        database = (
+            self.common.args.database
+            if self.common.args.database
+            else self.db_conn.database)
 
-        self.cmd_results = self.common.call_stored_proc_as_anonymous_block(
+        self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_chunk_optimal_rows_p'
             , args = {
                 'a_table_name' : self.common.args.table
                 , 'a_schema_name' : schema
-                , 'a_db_name' : db})
+                , 'a_db_name' : database})
 
 
 def main():
     cors = chunk_optimal_rows()
-    cors.exec()
+    cors.execute()
 
     if cors.cmd_results.stderr != '' and cors.cmd_results.exit_code == 0:
         sys.stdout.write(cors.cmd_results.proc_return)

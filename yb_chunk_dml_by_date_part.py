@@ -48,8 +48,10 @@ class chunk_dml_by_date_part:
             self.common.args.pre_sql = ''
             self.common.args.post_sql = ''
 
-    def exec(self):
-        self.cmd_results = self.common.call_stored_proc_as_anonymous_block(
+        self.db_conn = yb_common.db_connect(self.common.args)
+
+    def execute(self):
+        self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_chunk_dml_by_date_part_p'
             , args = {
                 'a_table_name' : self.common.args.table
@@ -115,7 +117,7 @@ def main():
     cdml = chunk_dml_by_date_part()
 
     sys.stdout.write('-- Running DML chunking.\n')
-    cdml.exec()
+    cdml.execute()
     cdml.cmd_results.write(tail='-- Completed DML chunking.\n')
 
     exit(cdml.cmd_results.exit_code)

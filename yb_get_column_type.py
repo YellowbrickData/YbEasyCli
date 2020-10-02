@@ -43,7 +43,9 @@ class get_column_type:
 
             self.common.args_process()
 
-    def exec(self):
+        self.db_conn = yb_common.db_connect(self.common.args)
+
+    def execute(self):
         filter_clause = self.db_args.build_sql_filter({
             'owner':'tableowner'
             , 'schema':'schemaname'
@@ -74,14 +76,14 @@ FROM
 WHERE
     {filter_clause}""".format(
              filter_clause = filter_clause
-             , database_name = self.common.database)
+             , database_name = self.db_conn.database)
 
-        self.cmd_results = self.common.ybsql_query(sql_query)
+        self.cmd_results = self.db_conn.ybsql_query(sql_query)
 
 
 def main():
     gct = get_column_type()
-    gct.exec()
+    gct.execute()
 
     gct.cmd_results.write()
 

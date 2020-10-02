@@ -41,16 +41,18 @@ class check_db_views:
             self.db_args = self.common.db_args(
                 description='Check for broken views.'
                 , positional_args_usage=[]
-                , optional_args_multi=['owner', 'db', 'schema', 'view'])
+                , optional_args_multi=['owner', 'database', 'schema', 'view'])
 
             self.common.args_process()
+
+        self.db_conn = yb_common.db_connect(self.common.args)
 
     def get_dbs(self):
         db_ct = 0
         broken_view_ct = 0
 
         filter_clause = self.db_args.build_sql_filter(
-            {'db':'db_name'}
+            {'database':'db_name'}
             , indent='    ')
 
         sql_query = """
@@ -63,23 +65,23 @@ WHERE
 ORDER BY
     name""".format(filter_clause = filter_clause)
 
-        cmd_results = self.common.ybsql_query(sql_query)
+        cmd_results = self.db_conn.ybsql_query(sql_query)
 
         if cmd_results.exit_code != 0:
             sys.stdout.write(text.color(cmd_results.stderr, fg='red'))
             exit(cmd_results.exit_code)
 
         dbs = cmd_results.stdout.strip()
-        if dbs == '' and self.db_args.has_optional_args_multi_set('db'):
+        if dbs == '' and self.db_args.has_optional_args_multi_set('database'):
             dbs = []
         elif dbs == '':
-            dbs = ['"' + self.common.database + '"']
+            dbs = ['"' + self.db_conn.database + '"']
         else:
             dbs = dbs.split('\n')
 
         return dbs
 
-    def exec(self):
+    def execute(self):
         dbs = self.get_dbs()
 
         self.db_args.schema_set_all_if_none()
@@ -93,7 +95,7 @@ ORDER BY
         sys.stdout.write('-- Running broken view check.\n')
         for db in dbs:
             db_ct += 1
-            cmd_results = self.common.call_stored_proc_as_anonymous_block(
+            cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
                 'yb_check_db_views_p'
                 , args = {'a_filter':filter_clause}
                 , pre_sql = ('\c %s\n' % db))
@@ -112,7 +114,7 @@ ORDER BY
 
 def main():
     cdbv = check_db_views()
-    cdbv.exec()
+    cdbv.execute()
     exit(0)
 
 

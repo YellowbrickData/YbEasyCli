@@ -44,7 +44,9 @@ class get_view_names:
 
             self.common.args_process()
 
-    def exec(self):
+        self.db_conn = yb_common.db_connect(self.common.args)
+
+    def execute(self):
         filter_clause = self.db_args.build_sql_filter(
             {'owner':'v.viewowner','schema':'v.schemaname','view':'v.viewname'}
             , indent='    ')
@@ -58,14 +60,14 @@ WHERE
     {filter_clause}
 ORDER BY LOWER(v.schemaname), LOWER(v.viewname)""".format(
              filter_clause = filter_clause
-             , database_name = self.common.database)
+             , database_name = self.db_conn.database)
 
-        self.cmd_results = self.common.ybsql_query(sql_query)
+        self.cmd_results = self.db_conn.ybsql_query(sql_query)
 
 
 def main():
     gvns = get_view_names()
-    gvns.exec()
+    gvns.execute()
 
     gvns.cmd_results.write(quote=True)
 
