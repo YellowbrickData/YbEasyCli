@@ -755,8 +755,9 @@ class db_connect:
                 :param connect_timeout: database timeout in seconds when trying to
             connect, defaults to 10 seconds
         """
+        self.database = None
+        self.schema = None
         self.connect_timeout = connect_timeout
-
         self.env_pre = self.get_env()
 
         arg_conn_prefix = ('' if (conn_type=='') else ('%s_' % conn_type))
