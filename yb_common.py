@@ -19,7 +19,7 @@ class common:
     """This class contains functions used for argument parsing, login
     verification, logging, and command execution.
     """
-    version = '20201002'
+    version = '20201006'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(__file__))
