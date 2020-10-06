@@ -366,25 +366,28 @@ ORDER BY 1
                     db_conn = get.test_db2
                 else:
                     db_conn = get.test_db1
+            #a failed connection will exit
             conn = self.get_db_conn(user, pwd, db_conn)
 
         if common.args.action == 'create_su':
             for query in queries_create_su:
                 cmd_results = conn.ybsql_query(query)
             #check if the test user can login
-            conn = self.get_db_conn(
-                get.test_user_name
-                , get.test_user_password
-                , get.test_db1)       
+            #  sometimes there is a lag from when a user is created
+            #  till when the user can actually login
             print("Testing '%s' DB login, this may take 2 minutes..."
                 % get.test_user_name)
             for i in range(1,21):
-                time.sleep(5)
-                print("Attempting DB login after %d seconds..." % (1 * 5))
-                cmd_results = conn.ybsql_query("SELECT 1")
-                if cmd_results.exit_code == 0:
+                if i > 1:
+                    time.sleep(5)
+                    print("Attempting DB login after %d seconds..." % (1 * 5))
+                conn = self.get_db_conn(
+                    get.test_user_name
+                    , get.test_user_password
+                    , get.test_db1)       
+                if conn.database:
                     break
-            if cmd_results.exit_code == 0:
+            if conn.database:
                 print("DB login succeeded...")
             else:
                 print("DB login failed...")
