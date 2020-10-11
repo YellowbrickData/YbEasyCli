@@ -1,0 +1,6 @@
+--src_host {host}
+--src_dbuser {user_name}
+--src_conn_db {db1}
+--dst_host {host}
+--dst_dbuser {user_name}
+--dst_conn_db {db2}
