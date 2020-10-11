@@ -2,6 +2,7 @@ CREATE OR REPLACE PROCEDURE yb_chunk_dml_by_integer_p(
     a_table_name            VARCHAR
     , a_integer_column_name VARCHAR
     , a_dml                 VARCHAR
+    , a_table_where_clause  VARCHAR DEFAULT 'TRUE'
     , a_min_chunk_size      BIGINT
     , a_verbose             BOOLEAN DEFAULT TRUE
     , a_add_null_chunk      BOOLEAN DEFAULT TRUE
@@ -24,27 +25,30 @@ DECLARE
     v_sql_where_clause   TEXT := REPLACE(
 '/* chunk_clause(chunk: <chunk>, size: <chunk_size>) >>>*/ <chunk_first_val> <= <integer_column_name> AND <integer_column_name> < <chunk_last_val> /*<<< chunk_clause */'
         , '<integer_column_name>', a_integer_column_name);
-    v_sql_select_total_size TEXT := REPLACE(
-'SELECT COUNT(*) AS total_size FROM <table_name>'
-        , '<table_name>', a_table_name);
-    v_sql_select_null_count TEXT := REPLACE(REPLACE(
-'SELECT COUNT(*) AS null_count FROM <table_name> WHERE <integer_column_name> IS NULL'
+    v_sql_select_total_size TEXT := REPLACE(REPLACE(
+'SELECT COUNT(*) AS total_size FROM <table_name> WHERE <table_where_clause>'
         , '<table_name>', a_table_name)
-        , '<integer_column_name>', a_integer_column_name);
-    v_sql_create_tmp_group_table TEXT := REPLACE(REPLACE('
-DROP TABLE IF EXISTS chunked_groups;
+        , '<table_where_clause>', a_table_where_clause);
+    v_sql_select_null_count TEXT := REPLACE(REPLACE(REPLACE(
+'SELECT COUNT(*) AS null_count FROM <table_name> WHERE <integer_column_name> IS NULL AND <table_where_clause> AND <table_where_clause>'
+        , '<table_name>', a_table_name)
+        , '<integer_column_name>', a_integer_column_name)
+        , '<table_where_clause>', a_table_where_clause);
+    v_sql_create_tmp_group_table TEXT := REPLACE(REPLACE(REPLACE(
+'DROP TABLE IF EXISTS chunked_groups;
 CREATE TEMPORARY TABLE chunked_groups AS
 SELECT
     <integer_column_name> AS start_val
     , COUNT(*) AS cnt
---FROM <db_name>.<schema_name>.<table_name>
 FROM <table_name>
+WHERE <table_where_clause>
 GROUP BY 1
 DISTRIBUTE ON (start_val)'
         , '<table_name>', a_table_name)
-        , '<integer_column_name>', a_integer_column_name);
-    v_sql_create_tmp_group_w_lead_table TEXT := '
-DROP TABLE IF EXISTS group_w_lead;
+        , '<integer_column_name>', a_integer_column_name)
+        , '<table_where_clause>', a_table_where_clause);
+    v_sql_create_tmp_group_w_lead_table TEXT := 
+'DROP TABLE IF EXISTS group_w_lead;
 CREATE TEMPORARY TABLE group_w_lead AS
     SELECT
         start_val
@@ -53,8 +57,8 @@ CREATE TEMPORARY TABLE group_w_lead AS
         , ROW_NUMBER() OVER (ORDER BY start_val) AS rn
     FROM chunked_groups
 DISTRIBUTE ON (start_val)';
-    v_sql_fold_groups_sql_fold_groups Text := '
-DROP TABLE IF EXISTS folded_groups;
+    v_sql_fold_groups_sql_fold_groups Text := 
+'DROP TABLE IF EXISTS folded_groups;
 CREATE TEMP TABLE folded_groups AS
 WITH
 folded AS (
@@ -92,8 +96,8 @@ FROM
     new_groups
 DISTRIBUTE ON (start_val)
 ';
-    v_sql_select_groups TEXT := '
-SELECT
+    v_sql_select_groups TEXT := 
+'SELECT
     start_val
     , NVL(next_val, start_val + 1) AS next_val  
     , NVL2(next_val, FALSE, TRUE) AS is_last_rec
