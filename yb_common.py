@@ -12,14 +12,20 @@ import subprocess
 import sys
 import traceback
 import shlex
+import signal
 from datetime import datetime
+
+def signal_handler(signal, frame):
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
 
 
 class common:
     """This class contains functions used for argument parsing, login
     verification, logging, and command execution.
     """
-    version = '20201006'
+    version = '20201011'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -241,6 +247,9 @@ class common:
                     , text.color(trace_line[1], 'cyan')
                     , text.color('--Executing--', style='bold')
                     , cmd_str))
+        elif common.verbose >= 1:
+            print('%s: %s'
+                % (text.color('Executing', style='bold'), cmd_str))
 
         start_time = datetime.now()
         p = subprocess.Popen(
