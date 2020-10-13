@@ -188,30 +188,29 @@ class yb_to_yb_copy_table:
             , ybload_cmd = ybload_cmd)
 
     def chunk_table_unload_sql(self, table_unload_sql):
-            #TODO check if version 4 or greater
-            if self.src_conn.ybdb_version_major < 4:
-                print(yb_common.text.color(
-                    "The '--chunk_rows' option is only supported on YBDB version 4 or higher."
-                    " The source db is running YBDB %s..." % self.src_conn.ybdb_version
-                    , 'yellow'))
-                exit(1)
+        if self.src_conn.ybdb_version_major < 4:
+            print(yb_common.text.color(
+                "The '--chunk_rows' option is only supported on YBDB version 4 or higher."
+                " The source db is running YBDB %s..." % self.src_conn.ybdb_version
+                , 'yellow'))
+            exit(1)
 
-            self.common.args.dml = ("%s AND <chunk_where_clause>" % table_unload_sql)
-            self.common.args.execute_chunk_dml = False
-            self.common.args.verbose_chunk_off = False
-            self.common.args.null_chunk_off = False
-            self.common.args.print_chunk_dml = True
-            self.common.args.table = self.common.quote_object_paths(self.common.args.src_table)
-            self.common.args.column = 'rowunique'
-            self.common.args.table_where_clause = self.common.args.where_clause
+        self.common.args.dml = ("%s AND <chunk_where_clause>" % table_unload_sql)
+        self.common.args.execute_chunk_dml = False
+        self.common.args.verbose_chunk_off = False
+        self.common.args.null_chunk_off = False
+        self.common.args.print_chunk_dml = True
+        self.common.args.table = self.common.quote_object_paths(self.common.args.src_table)
+        self.common.args.column = 'rowunique'
+        self.common.args.table_where_clause = self.common.args.where_clause
 
-            cdml = chunk_dml_by_integer(self.common, db_conn=self.src_conn)
-            cdml.execute()
-            if cdml.cmd_results.exit_code:
-                cdml.cmd_results.write()
-                exit(cdml.cmd_results.exit_code)
+        cdml = chunk_dml_by_integer(self.common, db_conn=self.src_conn)
+        cdml.execute()
+        if cdml.cmd_results.exit_code:
+            cdml.cmd_results.write()
+            exit(cdml.cmd_results.exit_code)
 
-            return cdml.cmd_results.stdout.strip().split('\n')
+        return cdml.cmd_results.stdout.strip().split('\n')
 
     def execute(self):
         table_unload_sql = "SELECT * FROM {src_table} WHERE TRUE{where_clause}".format(
