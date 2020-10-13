@@ -47,7 +47,7 @@ class is_cstore_table:
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_is_cstore_table_p'
             , args = {
-                'a_tablename' : self.common.args.table})
+                'a_tablename' : self.common.quote_object_paths(self.common.args.table)})
 
     def add_args(self):
         self.common.args_process_init(

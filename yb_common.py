@@ -484,21 +484,16 @@ class db_args:
         :param otype: A database object that will be filtered
         :filter_grp: group the new filter is added to
         """
-        notation_help = ''
-        if (otype in ['database', 'schema', 'table', 'column'
-            , 'view', 'sequence', 'object', 'owner']):
-            notation_help = (""", use '"Name"' notation """
-                "for case dependent names")
         filter_grp.add_argument(
             "--%s_in" % otype
             , dest="%s_in_list" % otype
             , nargs="+", action='append', metavar="%s_NAME" % otype.upper(),
-            help="%s/s in the list%s" % (otype, notation_help))
+            help="%s/s in the list" % otype)
         filter_grp.add_argument(
             "--%s_NOTin" % otype
             , dest="%s_not_in_list" % otype
             , nargs="+", action='append', metavar="%s_NAME" % otype.upper()
-            , help="%s/s NOT in the list%s" % (otype, notation_help))
+            , help="%s/s NOT in the list" % otype)
         filter_grp.add_argument(
             "--%s_like" % otype
             , dest="%s_like_pattern" % otype
@@ -662,7 +657,7 @@ class db_args:
                 if name[0] == '"':
                     objects.append(name.replace('"', "'"))
                 else:
-                    objects.append("'%s'" % name.lower())
+                    objects.append("'%s'" % name)
             or_objects.append(
                 '<column_name> IN (%s)' % ', '.join(objects))
 
@@ -681,7 +676,7 @@ class db_args:
                 if name[0] == '"':
                     objects.append(name.replace('"', "'"))
                 else:
-                    objects.append("'%s'" % name.lower())
+                    objects.append("'%s'" % name)
             and_objects.append(
                 '<column_name> NOT IN (%s)' % ', '.join(objects))
 

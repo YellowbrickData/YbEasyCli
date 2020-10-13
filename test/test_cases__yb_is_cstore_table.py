@@ -6,7 +6,7 @@ test_cases = [
         , stderr='')
 
     , test_case(
-        cmd="""yb_is_cstore_table.py @{argsdir}/db1 --table '"Prod".data_types_t'"""
+        cmd="""yb_is_cstore_table.py @{argsdir}/db1 --table Prod.data_types_t"""
         , exit_code=0
         , stdout="""True"""
         , stderr='')

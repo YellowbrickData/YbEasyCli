@@ -30,7 +30,7 @@ test_cases = [
 
     , test_case(
         cmd=
-            """yb_get_column_name.py @{argsdir}/db1 --schema 'Prod' --object 'C1_t' --column 'Col1' -- {db2}"""
+            """yb_get_column_name.py @{argsdir}/db1 --schema 'Prod' --object C1_t --column Col1 -- {db2}"""
         , exit_code=0
         , stdout='"Col1"'
         , stderr='')

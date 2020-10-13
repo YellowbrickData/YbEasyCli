@@ -54,8 +54,8 @@ col9"""
 
     test_case(
         cmd=(
-            "yb_get_column_names.py @{argsdir}/db1 --schema 'Prod' "
-            "-- {db2} 'C1_t'")
+            "yb_get_column_names.py @{argsdir}/db1 --schema Prod "
+            "-- {db2} C1_t")
         , exit_code=0
         , stdout='"Col1"'
         , stderr='')

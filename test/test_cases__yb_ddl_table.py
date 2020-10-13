@@ -11,7 +11,7 @@ DISTRIBUTE ON (col1);"""
     , test_case(
         cmd=
             ('yb_ddl_table.py @{argsdir}/db1 --current_schema dev '
-            """--schema_in dev '"Prod"' --table_like a1_t --""")
+            """--schema_in dev Prod --table_like a1_t --""")
         , exit_code=0
         , stdout="""CREATE TABLE a1_t (
     col1 INTEGER
@@ -27,7 +27,7 @@ DISTRIBUTE ON (col1);"""
     , test_case(
         cmd=
             ('yb_ddl_table.py @{argsdir}/db1 --current_schema dev '
-            """--schema_in dev '"Prod"' --with_schema --table_like a1_t --""")
+            """--schema_in dev Prod --with_schema --table_like a1_t --""")
         , exit_code=0
         , stdout="""CREATE TABLE dev.a1_t (
     col1 INTEGER
@@ -43,7 +43,7 @@ DISTRIBUTE ON (col1);"""
     , test_case(
         cmd=
             ('yb_ddl_table.py @{argsdir}/db1 --current_schema dev '
-            """--schema_in dev '"Prod"' --with_db --table_like a1_t --""")
+            """--schema_in dev Prod --with_db --table_like a1_t --""")
         , exit_code=0
         , stdout="""CREATE TABLE {db1}.dev.a1_t (
     col1 INTEGER
