@@ -24,24 +24,40 @@ class analyze_columns:
     """Issue the ybsql command used to analyze the data content of a table's column/s
     """
 
-    def __init__(self):
+    def __init__(self, db_conn=None, args_handler=None, db_filter_args=None):
+        """Initialize analyze_columns class.
 
-        common = self.init_common()
+        This initialization performs argument parsing and login verification.
+        It also provides access to functions such as logging and command
+        exec
+        """
+        if db_conn:
+            self.db_conn = db_conn
+            self.args_handler = args_handler
+            self.db_filter_args = db_filter_args
+        else:
+            self.args_handler = yb_common.args_handler(
+                description="Analyze the data content of a table's columns."
+                , required_args_single=['table']
+                , optional_args_multi=['owner', 'schema', 'column'])
 
-        db_conn = yb_common.db_connect(common.args)
+            self.args_handler.args_process()
+            self.db_conn = yb_common.db_connect(self.args_handler.args)
+            self.db_filter_args = self.args_handler.db_filter_args
 
-        filter_clause = self.db_args.build_sql_filter({
+    def execute(self):
+        filter_clause = self.db_filter_args.build_sql_filter({
             'owner':'tableowner'
             , 'schema':'schemaname'
             , 'column':'columnname'})
 
         sys.stdout.write('-- Running column analysis.\n')
 
-        cmd_results = db_conn.call_stored_proc_as_anonymous_block(
+        cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
                 'yb_analyze_columns_p'
                 , args = {
-                    'a_dbname' : db_conn.database
-                    , 'a_tablename' : common.args.table
+                    'a_dbname' : self.db_conn.database
+                    , 'a_tablename' : self.args_handler.args.table
                     , 'a_filter_clause' : filter_clause})
 
         cmd_results.write(tail='-- Completed column analysis.\n')
@@ -49,25 +65,9 @@ class analyze_columns:
         exit(cmd_results.exit_code)
 
 
-    def init_common(self):
-        """Initialize common class.
+def main():
+    acs = analyze_columns()
+    acs.execute()
 
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        execution.
-
-        :return: An instance of the `common` class
-        """
-        common = yb_common.common()
-
-        self.db_args = common.db_args(
-            description="Analyze the data content of a table's columns."
-            , required_args_single=['table']
-            , optional_args_multi=['owner', 'schema', 'column'])
-
-        common.args_process()
-
-        return common
-
-
-analyze_columns()
+if __name__ == "__main__":
+    main()

@@ -24,40 +24,39 @@ class is_cstore_table:
     """Issue the ybsql command used to determine if a table is stored as a column store table.
     """
 
-    def __init__(self, common=None, db_args=None):
+    def __init__(self, db_conn=None, args_handler=None):
         """Initialize is_cstore_table class.
 
         This initialization performs argument parsing and login verification.
         It also provides access to functions such as logging and command
-        execution.
+        exec
         """
-        if common:
-            self.common = common
-            self.db_args = db_args
+        if db_conn:
+            self.db_conn = db_conn
+            self.args_handler = args_handler
         else:
-            self.common = yb_common.common()
+            self.args_handler = yb_common.args_handler()
 
             self.add_args()
 
-            self.common.args_process()
-
-        self.db_conn = yb_common.db_connect(self.common.args)
+            self.args_handler.args_process()
+            self.db_conn = yb_common.db_connect(self.args_handler.args)
 
     def execute(self):
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_is_cstore_table_p'
             , args = {
-                'a_tablename' : self.common.quote_object_paths(self.common.args.table)})
+                'a_tablename' : yb_common.common.quote_object_paths(self.args_handler.args.table)})
 
     def add_args(self):
-        self.common.args_process_init(
+        self.args_handler.args_process_init(
             description=('Determine if a table is stored as a column store table.')
             , positional_args_usage='')
 
-        self.common.args_add_optional()
-        self.common.args_add_connection_group()
+        self.args_handler.args_add_optional()
+        self.args_handler.args_add_connection_group()
 
-        args_required_grp = self.common.args_parser.add_argument_group('required arguments')
+        args_required_grp = self.args_handler.args_parser.add_argument_group('required arguments')
         args_required_grp.add_argument(
             "--table", required=True
             , help="table name, the name ot the table to test")

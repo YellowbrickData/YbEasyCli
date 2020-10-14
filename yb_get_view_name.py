@@ -22,31 +22,29 @@ import yb_common
 class get_view_name:
     """Issue the ybsql command used to verify that the specified view exists."""
 
-    def __init__(self, common=None, db_args=None):
-        """Initialize get_view_name class.
+    def __init__(self, db_conn=None, db_filter_args=None):
+        """Initialize get_table_name class.
 
         This initialization performs argument parsing and login verification.
         It also provides access to functions such as logging and command
-        execution.
+        exec
         """
-        if common:
-            self.common = common
-            self.db_args = db_args
+        if db_conn:
+            self.db_conn = db_conn
+            self.db_filter_args = db_filter_args
         else:
-            self.common = yb_common.common()
-
-            self.db_args = self.common.db_args(
+            self.args_handler = yb_common.args_handler(
                 description=
                     'List/Verifies that the specified view exists.',
                 required_args_single=['view'],
                 optional_args_multi=['owner'])
 
-            self.common.args_process()
-
-        self.db_conn = yb_common.db_connect(self.common.args)
+            self.args_handler.args_process()
+            self.db_conn = yb_common.db_connect(self.args_handler.args)
+            self.db_filter_args = self.args_handler.db_filter_args
 
     def execute(self):
-        filter_clause = self.db_args.build_sql_filter(
+        filter_clause = self.db_filter_args.build_sql_filter(
             {'owner':'v.viewowner','schema':'v.schemaname','view':'v.viewname'},
             indent='    ')
 

@@ -22,10 +22,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 class common:
-    """This class contains functions used for argument parsing, login
-    verification, logging, and command execution.
-    """
-    version = '20201011'
+    version = '20201014'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -37,16 +34,154 @@ class common:
         """
         self.start_ts = datetime.now()
 
-    def formatter(self, prog):
-        return argparse.RawDescriptionHelpFormatter(prog, width=100)
+    @staticmethod
+    def call_cmd(cmd_str, stack_level=2):
+        """Spawn a new process to execute the given command.
 
-    def db_args(self
-        , description
+        Example: results = call_cmd('env | grep -i path')
+
+        :param cmd_str: The string representing the command to execute
+        :param stack_level: A number signifying the limit of stack trace
+                            entries (Default value = 2)
+        :return: The result produced by running the given command
+        """
+        if common.verbose >= 2:
+            trace_line = traceback.extract_stack(None, stack_level)[0]
+            print(
+                '%s: %s, %s: %s, %s: %s\n%s\n%s'
+                % (
+                    text.color('--In file', style='bold')
+                    , text.color(trace_line[0], 'cyan')
+                    , text.color('Function', style='bold')
+                    , text.color(trace_line[2], 'cyan')
+                    , text.color('Line', style='bold')
+                    , text.color(trace_line[1], 'cyan')
+                    , text.color('--Executing--', style='bold')
+                    , cmd_str))
+        elif common.verbose >= 1:
+            print('%s: %s'
+                % (text.color('Executing', style='bold'), cmd_str))
+
+        start_time = datetime.now()
+        p = subprocess.Popen(
+            cmd_str
+            , stdout=subprocess.PIPE
+            , stderr=subprocess.PIPE
+            , shell=True)
+        (stdout, stderr) = map(bytes.decode, p.communicate())
+        end_time = datetime.now()
+
+        results = cmd_results(p.returncode, stdout, stderr)
+
+        if common.verbose >= 2:
+            print(
+                '%s: %s\n%s: %s\n%s\n%s%s\n%s'
+                % (
+                    text.color('--Execution duration', style='bold')
+                    , text.color(end_time - start_time, fg='cyan')
+                    , text.color('--Exit code', style='bold')
+                    , text.color(
+                        str(results.exit_code)
+                        , fg=('red' if results.exit_code else 'cyan'))
+                    , text.color('--Stdout--', style='bold')
+                    , results.stdout.rstrip()
+                    , text.color('--Stderr--', style='bold')
+                    , text.color(results.stderr.rstrip(), fg='red')))
+
+        return results
+
+    @staticmethod
+    def ts(self):
+        """Get the current time (for time stamping)"""
+        return str(datetime.now())
+
+    @staticmethod
+    def quote_object_paths(object_paths):
+        """Convert database object names to have double quotes where required"""
+        quote_object_paths = []
+        for object_path in object_paths.split('\n'):
+            #first remove all double quotes to start with an unquoted object path
+            #   sometimes the incoming path is partially quoted
+            object_path = object_path.replace('"', '')
+            objects = []
+            for objct in object_path.split('.'):
+                if len(re.sub('[a-z0-9_]', '', objct)) == 0:
+                    objects.append(objct)
+                else:
+                    objects.append('"' + objct + '"')
+            quote_object_paths.append('.'.join(objects))
+
+        return '\n'.join(quote_object_paths)
+
+    @staticmethod
+    def split(str, delim=','):
+        #todo handle escape characters
+        open_close_char = {"'":"'", '"':'"', '(':')', '[':']', '{':'}'}
+        close_char = []
+        for char in open_close_char.keys():
+            close_char.append(open_close_char[char])
+        open_and_close_char = []
+        for char in open_close_char.keys():
+            if char == open_close_char[char]:
+                open_and_close_char.append(char)
+
+        open_char = []
+        token = ''
+        tokens = []
+        for i in range(len(str)):
+            if len(open_char) == 0 and str[i] == delim:
+                tokens.append(token.strip())
+                token = ''
+            else:
+                token += str[i]
+
+            if str[i] in open_close_char.keys():
+                if (str[i] in open_and_close_char
+                    and len(open_char) > 0
+                    and open_char[-1] == str[i]):
+                    None
+                else:
+                    skip_close = True
+                    open_char.append(str[i])
+
+            if str[i] in close_char and not skip_close:
+                if (len(open_char) == 0
+                    or open_close_char[open_char[-1]] != str[i]):
+                    sys.stderr.write('Invalid Argument List: %s'
+                        % str)
+                    exit(1)
+                else:
+                    open_char.pop()
+            else:
+                skip_close = False
+
+        if len(open_char) > 0:
+            sys.stderr.write('Invalid Argument List: %s\n' % str)
+            exit(1)
+        else:
+            tokens.append(token.strip())
+
+        return tokens
+
+
+class args_handler:
+    """This class contains functions used for argument parsing
+    """
+    def __init__(self
+        , description=None
         , required_args_single=[]
         , optional_args_single=['schema']
         , optional_args_multi=[]
         , positional_args_usage='[database]'):
-        """Build all the request a database arguments
+        if description is not None:
+            self.init_default(
+                description, required_args_single, optional_args_single
+                , optional_args_multi, positional_args_usage)
+
+    def init_default(self
+        , description, required_args_single, optional_args_single
+        , optional_args_multi, positional_args_usage):
+        """Build all the requested database arguments
 
         :param description: Help description
         :param required_args_single: A list of required db object types that will
@@ -70,11 +205,14 @@ class common:
         self.args_add_optional()
         self.args_add_connection_group()
         
-        return db_args(
+        self.db_filter_args = db_filter_args(
             required_args_single
             , optional_args_single
             , optional_args_multi
             , self)
+
+    def formatter(self, prog):
+        return argparse.RawDescriptionHelpFormatter(prog, width=100)
 
     def args_process_init(self
         , description
@@ -206,15 +344,10 @@ class common:
             , action="version", version=common.version
             , help="display the program version and exit")
 
-    def args_process(self, has_conn_args = True):
+    def args_process(self):
         """Process arguments.
 
-        Convert argument strings to objects and assign to the class. Then
-        update the OS environment variables related to ybsql to match what was
-        passed to this script.
-
-        Finally, attempt to verify login credentials  TODO #delete
-        based on those variables.
+        Convert argument strings to objects and assign to the class.
         """
         self.args = self.args_parser.parse_args()
 
@@ -223,134 +356,8 @@ class common:
 
         common.verbose = self.args.verbose
 
-    @staticmethod
-    def call_cmd(cmd_str, stack_level=2):
-        """Spawn a new process to execute the given command.
+        return self.args
 
-        Example: results = call_cmd('env | grep -i path')
-
-        :param cmd_str: The string representing the command to execute
-        :param stack_level: A number signifying the limit of stack trace
-                            entries (Default value = 2)
-        :return: The result produced by running the given command
-        """
-        if common.verbose >= 2:
-            trace_line = traceback.extract_stack(None, stack_level)[0]
-            print(
-                '%s: %s, %s: %s, %s: %s\n%s\n%s'
-                % (
-                    text.color('--In file', style='bold')
-                    , text.color(trace_line[0], 'cyan')
-                    , text.color('Function', style='bold')
-                    , text.color(trace_line[2], 'cyan')
-                    , text.color('Line', style='bold')
-                    , text.color(trace_line[1], 'cyan')
-                    , text.color('--Executing--', style='bold')
-                    , cmd_str))
-        elif common.verbose >= 1:
-            print('%s: %s'
-                % (text.color('Executing', style='bold'), cmd_str))
-
-        start_time = datetime.now()
-        p = subprocess.Popen(
-            cmd_str
-            , stdout=subprocess.PIPE
-            , stderr=subprocess.PIPE
-            , shell=True)
-        (stdout, stderr) = map(bytes.decode, p.communicate())
-        end_time = datetime.now()
-
-        results = cmd_results(p.returncode, stdout, stderr)
-
-        if common.verbose >= 2:
-            print(
-                '%s: %s\n%s: %s\n%s\n%s%s\n%s'
-                % (
-                    text.color('--Execution duration', style='bold')
-                    , text.color(end_time - start_time, fg='cyan')
-                    , text.color('--Exit code', style='bold')
-                    , text.color(
-                        str(results.exit_code)
-                        , fg=('red' if results.exit_code else 'cyan'))
-                    , text.color('--Stdout--', style='bold')
-                    , results.stdout.rstrip()
-                    , text.color('--Stderr--', style='bold')
-                    , text.color(results.stderr.rstrip(), fg='red')))
-
-        return results
-
-    @staticmethod
-    def ts(self):
-        """Get the current time (for time stamping)"""
-        return str(datetime.now())
-
-    @staticmethod
-    def quote_object_paths(object_paths):
-        """Convert database object names to have double quotes where required"""
-        quote_object_paths = []
-        for object_path in object_paths.split('\n'):
-            #first remove all double quotes to start with an unquoted object path
-            #   sometimes the incoming path is partially quoted
-            object_path = object_path.replace('"', '')
-            objects = []
-            for objct in object_path.split('.'):
-                if len(re.sub('[a-z0-9_]', '', objct)) == 0:
-                    objects.append(objct)
-                else:
-                    objects.append('"' + objct + '"')
-            quote_object_paths.append('.'.join(objects))
-
-        return '\n'.join(quote_object_paths)
-
-    @staticmethod
-    def split(str, delim=','):
-        #todo handle escape characters
-        open_close_char = {"'":"'", '"':'"', '(':')', '[':']', '{':'}'}
-        close_char = []
-        for char in open_close_char.keys():
-            close_char.append(open_close_char[char])
-        open_and_close_char = []
-        for char in open_close_char.keys():
-            if char == open_close_char[char]:
-                open_and_close_char.append(char)
-
-        open_char = []
-        token = ''
-        tokens = []
-        for i in range(len(str)):
-            if len(open_char) == 0 and str[i] == delim:
-                tokens.append(token.strip())
-                token = ''
-            else:
-                token += str[i]
-
-            if str[i] in open_close_char.keys():
-                if (str[i] in open_and_close_char
-                    and len(open_char) > 0
-                    and open_char[-1] == str[i]):
-                    None
-                else:
-                    skip_close = True
-                    open_char.append(str[i])
-
-            if str[i] in close_char and not skip_close:
-                if (len(open_char) == 0
-                    or open_close_char[open_char[-1]] != str[i]):
-                    sys.stderr.write('Invalid Argument List: %s'
-                        % str)
-                    exit(1)
-                else:
-                    open_char.pop()
-            else:
-                skip_close = False
-
-        if len(open_char) > 0:
-            sys.stderr.write('Invalid Argument List: %s\n' % str)
-            exit(1)
-        else:
-            tokens.append(token.strip())
-
-        return tokens
 
 class intRange:
     """Custom argparse type representing a bounded int
@@ -408,7 +415,7 @@ class cmd_results:
             sys.stdout.write(tail)
 
 
-class db_args:
+class db_filter_args:
     """Class that handles database objects that are used as a filter 
     """
 
@@ -416,7 +423,7 @@ class db_args:
         , required_args_single
         , optional_args_single
         , optional_args_multi
-        , common):
+        , args_handler):
         """During init the command line filter arguments are built for the
         requested object_types
 
@@ -426,18 +433,18 @@ class db_args:
             be filtered for a single object, like: ['db', 'owner', 'table']
         :param optional_args_multi: A list of optional db object types that will
             be filtered for multiple objects, like: ['db', 'owner', 'table']
-        :param common: the common object created by the caller, this is needed
-            to get a handle for common.argparser and common.args
+        :param args_handler: the args_handler object created by the caller, this is needed
+            to get a handle for args_handler.argparser and args_handler.args
         """
         self.required_args_single = required_args_single
         self.optional_args_single = optional_args_single
         self.optional_args_multi = optional_args_multi
         self.schema_is_required = False
-        self.common = common
+        self.args_handler = args_handler
 
         if len(self.required_args_single):
             args_filter_grp = (
-                self.common.args_parser.add_argument_group(
+                self.args_handler.args_parser.add_argument_group(
                     'required database object filter arguments'))
             for otype in self.required_args_single:
                 self.args_add_object_type_single(
@@ -446,7 +453,7 @@ class db_args:
         if (len(self.optional_args_single)
             or len(self.optional_args_multi)):
             args_filter_grp = (
-                self.common.args_parser.add_argument_group(
+                self.args_handler.args_parser.add_argument_group(
                     'optional database object filter arguments'))
             for otype in self.optional_args_single:
                 self.args_add_object_type_single(
@@ -513,7 +520,7 @@ class db_args:
         ret_value = False
         
         if otype in self.optional_args_single:
-            ret_value = eval('self.common.args.%s' % otype)
+            ret_value = eval('self.args_handler.args.%s' % otype)
         
         return ret_value
 
@@ -538,17 +545,17 @@ class db_args:
 
         :param typ: database object type to get filters for
         """
-        arg_in_list = eval('self.common.args.%s_in_list' % otype)
+        arg_in_list = eval('self.args_handler.args.%s_in_list' % otype)
         if arg_in_list:
             arg_in_list = sorted(set(sum(arg_in_list, [])))
-        arg_like_pattern = eval('self.common.args.%s_like_pattern' % otype)
+        arg_like_pattern = eval('self.args_handler.args.%s_like_pattern' % otype)
         if arg_like_pattern:
             arg_like_pattern = sorted(set(sum(arg_like_pattern, [])))
-        arg_not_in_list = eval('self.common.args.%s_not_in_list' % otype)
+        arg_not_in_list = eval('self.args_handler.args.%s_not_in_list' % otype)
         if arg_not_in_list:
             arg_not_in_list = sorted(set(sum(arg_not_in_list, [])))
         arg_not_like_pattern = eval(
-            'self.common.args.%s_not_like_pattern' % otype)
+            'self.args_handler.args.%s_not_like_pattern' % otype)
         if arg_not_like_pattern:
             arg_not_like_pattern = sorted(
                 set(sum(arg_not_like_pattern, [])))
@@ -561,7 +568,7 @@ class db_args:
 
     def schema_set_all_if_none(self):
         if not self.has_optional_args_multi_set('schema'):
-            self.common.args.schema_like_pattern = [['%']]
+            self.args_handler.args.schema_like_pattern = [['%']]
 
     def build_sql_filter(self
         , object_column_names
@@ -603,7 +610,7 @@ class db_args:
             and not (
                 ('schema' in self.required_args_single
                     or 'schema' in self.optional_args_single)
-                and self.common.args.schema != None)):
+                and self.args_handler.args.schema != None)):
             and_objects.append('%s = CURRENT_SCHEMA'
                 % object_column_names['schema'])
 
@@ -624,7 +631,7 @@ class db_args:
             to "''" when set to True (Default value = False)
         :returns: SQL filter clause
         """
-        arg_value = eval('self.common.args.%s' % otype)
+        arg_value = eval('self.args_handler.args.%s' % otype)
         if arg_value:
             filter_clause = ("%s = '%s'" % (column_name, arg_value))
         else:

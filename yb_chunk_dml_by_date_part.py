@@ -23,58 +23,57 @@ class chunk_dml_by_date_part:
     """Issue the ybsql command used to create/execute DML chunked by date/timestamp column
     """
 
-    def __init__(self, common=None, db_args=None):
+    def __init__(self, db_conn=None, args_handler=None):
         """Initialize chunk_dml_by_date_part class.
 
         This initialization performs argument parsing and login verification.
         It also provides access to functions such as logging and command
         execution.
         """
-        if common:
-            self.common = common
-            self.db_args = db_args
+        if db_conn:
+            self.db_conn = db_conn
+            self.args_handler = args_handler
         else:
-            self.common = yb_common.common()
+            self.args_handler = yb_common.args_handler()
 
             self.add_args()
 
-            self.common.args_process()
+            self.args_handler.args_process()
+            self.db_conn = yb_common.db_connect(self.args_handler.args)
 
-        if '<chunk_where_clause>' not in self.common.args.dml:
+        if '<chunk_where_clause>' not in self.args_handler.args.dml:
             sys.stderr.write("DML must contain the string '<chunk_where_clause>'\n")
             exit(1)
 
-        if not self.common.args.execute_chunk_dml:
-            self.common.args.pre_sql = ''
-            self.common.args.post_sql = ''
-
-        self.db_conn = yb_common.db_connect(self.common.args)
+        if not self.args_handler.args.execute_chunk_dml:
+            self.args_handler.args.pre_sql = ''
+            self.args_handler.args.post_sql = ''
 
     def execute(self):
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_chunk_dml_by_date_part_p'
             , args = {
-                'a_table_name' : self.common.args.table
-                , 'a_ts_column_name' : self.common.args.column
-                , 'a_date_part' : self.common.args.date_part
-                , 'a_dml' : self.common.args.dml
-                , 'a_min_chunk_size' : self.common.args.chunk_rows
-                , 'a_verbose' : ('TRUE' if self.common.args.verbose_chunk_off else 'FALSE')
-                , 'a_add_null_chunk' : ('TRUE' if self.common.args.null_chunk_off else 'FALSE')
-                , 'a_print_chunk_dml' : ('TRUE' if self.common.args.print_chunk_dml else 'FALSE')
-                , 'a_execute_chunk_dml' : ('TRUE' if self.common.args.execute_chunk_dml else 'FALSE')}
-            , pre_sql = self.common.args.pre_sql
-            , post_sql = self.common.args.post_sql)
+                'a_table_name' : self.args_handler.args.table
+                , 'a_ts_column_name' : self.args_handler.args.column
+                , 'a_date_part' : self.args_handler.args.date_part
+                , 'a_dml' : self.args_handler.args.dml
+                , 'a_min_chunk_size' : self.args_handler.args.chunk_rows
+                , 'a_verbose' : ('TRUE' if self.args_handler.args.verbose_chunk_off else 'FALSE')
+                , 'a_add_null_chunk' : ('TRUE' if self.args_handler.args.null_chunk_off else 'FALSE')
+                , 'a_print_chunk_dml' : ('TRUE' if self.args_handler.args.print_chunk_dml else 'FALSE')
+                , 'a_execute_chunk_dml' : ('TRUE' if self.args_handler.args.execute_chunk_dml else 'FALSE')}
+            , pre_sql = self.args_handler.args.pre_sql
+            , post_sql = self.args_handler.args.post_sql)
 
     def add_args(self):
-        self.common.args_process_init(
+        self.args_handler.args_process_init(
             description=('Chunk DML by DATE/TIMESTAMP column.')
             , positional_args_usage='')
 
-        self.common.args_add_optional()
-        self.common.args_add_connection_group()
+        self.args_handler.args_add_optional()
+        self.args_handler.args_add_connection_group()
 
-        args_chunk_r_grp = self.common.args_parser.add_argument_group(
+        args_chunk_r_grp = self.args_handler.args_parser.add_argument_group(
             'chunking required arguments')
         args_chunk_r_grp.add_argument(
             "--table", required=True
@@ -97,7 +96,7 @@ class chunk_dml_by_date_part:
             , type=yb_common.intRange(1,9223372036854775807)
             , help="the minimum rows that each chunk should contain")
 
-        args_chunk_o_grp = self.common.args_parser.add_argument_group(
+        args_chunk_o_grp = self.args_handler.args_parser.add_argument_group(
             'chunking optional arguments')
         args_chunk_o_grp.add_argument("--verbose_chunk_off", action="store_false"
             , help="don't print additional chunking details, defaults to FALSE")

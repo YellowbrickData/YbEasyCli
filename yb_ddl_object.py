@@ -26,7 +26,7 @@ class ddl_object:
     given object.
     """
 
-    def __init__(self, object_type, common=None, db_args=None):
+    def __init__(self, object_type, db_conn=None, args_handler=None, db_filter_args=None):
         """Initialize ddl_object class.
 
         This initialization performs argument parsing and login verification.
@@ -34,14 +34,14 @@ class ddl_object:
         execution.
         """
         self.object_type = object_type
-        if common:
-            self.common = common
-            self.db_args = db_args
+        if db_conn:
+            self.db_conn = db_conn
+            self.args_handler = args_handler
+            self.db_filter_args = db_filter_args
         else:
-            self.common = yb_common.common()
+            self.args_handler = yb_common.args_handler()
             self.args_process()
-
-        self.db_conn = yb_common.db_connect(self.common.args)
+            self.db_conn = yb_common.db_connect(self.args_handler.args)
 
     def args_add_by_object_type(self, args_grp):
         if self.object_type == 'table':
@@ -50,16 +50,16 @@ class ddl_object:
                 , help="display the current rowcount")
 
     def args_process(self):
-        self.common.args_process_init(
+        self.args_handler.args_process_init(
             description=('Return the {obj_type}/s DDL for the requested '
                          'database.  Use {obj_type} filters to limit the set '
                          'of tables returned.').format(obj_type=self.object_type))
 
-        self.common.args_add_positional_args()
-        self.common.args_add_optional()
-        self.common.args_add_connection_group()
+        self.args_handler.args_add_positional_args()
+        self.args_handler.args_add_optional()
+        self.args_handler.args_add_connection_group()
         
-        args_ddl_grp = self.common.args_parser.add_argument_group('DDL arguments')
+        args_ddl_grp = self.args_handler.args_parser.add_argument_group('DDL arguments')
         args_ddl_grp.add_argument("--with_schema",
                                   action='store_true',
                                   help="add the schema name to the %s DDL"
@@ -76,32 +76,32 @@ class ddl_object:
                                   % self.object_type)
         self.args_add_by_object_type(args_ddl_grp)
 
-        self.db_args = yb_common.db_args(
+        self.db_filter_args = yb_common.db_filter_args(
             required_args_single=[]
             , optional_args_single=[]
             , optional_args_multi=[self.object_type, 'schema']
-            , common=self.common)
+            , args_handler=self.args_handler)
 
-        self.common.args_process()
+        self.args_handler.args_process()
 
-        if self.common.args.schema_name:
-            self.common.args.with_schema = True
-        if self.common.args.db_name:
-            self.common.args.with_db = True
+        if self.args_handler.args.schema_name:
+            self.args_handler.args.with_schema = True
+        if self.args_handler.args.db_name:
+            self.args_handler.args.with_db = True
 
     def execute(self):
-        describe_sql = self.get_describe_sql(self.common)
+        describe_sql = self.get_describe_sql()
         self.cmd_results = self.db_conn.ybsql_query(describe_sql)
 
         if self.cmd_results.stdout != '':
             self.cmd_results.stdout = self.ddl_modifications(
-                self.cmd_results.stdout, self.common)
+                self.cmd_results.stdout, self.args_handler.args)
 
     def get_describe_sql_by_object_type(self, object):
         describe_clause = 'DESCRIBE %s ONLY DDL;\n\\echo' % object
 
         if self.object_type == 'table':
-            if self.common.args.with_rowcount:
+            if self.args_handler.args.with_rowcount:
                 rowcount_sql = ('SELECT COUNT(*) FROM %s' % object)
                 cmd_results = self.db_conn.ybsql_query(rowcount_sql)
                 describe_clause = """SELECT '--Rowcount: %s  Table: %s  At: ' || NOW() || '';\n%s""" % (
@@ -109,8 +109,7 @@ class ddl_object:
 
         return describe_clause
 
-
-    def get_describe_sql(self, common):
+    def get_describe_sql(self):
         """Build up SQL DESCRIBE statement/s.
 
         :param common: The instance of the `common` class constructed in this
@@ -119,7 +118,7 @@ class ddl_object:
         """
         #if argv is double quoted it needs to also have outer single quotes
         code = ('get_{object_type}_names'
-            '(common=self.common, db_args=self.db_args)').format(
+            '(db_conn=self.db_conn, db_filter_args=self.db_filter_args)').format(
             object_type=self.object_type)
         gons = eval(code)
         gons.execute()
@@ -129,7 +128,7 @@ class ddl_object:
             sys.stdout.write(text.color(gons.cmd_results.stderr, fg='red'))
             exit(gons.cmd_results.exit_code)
 
-        objects = common.quote_object_paths(gons.cmd_results.stdout)
+        objects = yb_common.common.quote_object_paths(gons.cmd_results.stdout)
         describe_objects = []
         if objects.strip() != '':
             for object in objects.strip().split('\n'):
@@ -138,14 +137,13 @@ class ddl_object:
 
         return '\n'.join(describe_objects)
 
-    def ddl_modifications(self, ddl, common):
+    def ddl_modifications(self, ddl, args):
         """
         Modify a given DDL statement by optionally adding db/schema name to a
         CREATE statement and transforming all SQL reserved words to uppercase.
 
         :param ddl: The DDL statement to modify
-        :param common: The instance of the `common` class constructed in this
-                       module
+        :param args: The command line args after being processed
         :return: A string containing the modified DDL statement
         """
         new_ddl = []
@@ -161,21 +159,21 @@ class ddl_object:
                 , line, re.MULTILINE)
             if matches:
                 tablepath = matches.group(2)
-                if common.args.with_schema or common.args.with_db:
+                if args.with_schema or args.with_db:
                     tablepath = (
-                        ( common.args.schema_name
-                          if common.args.schema_name
+                        ( args.schema_name
+                          if args.schema_name
                           else ddl_schema)
                         + '.' + tablepath
                     )
-                if common.args.with_db:
+                if args.with_db:
                     tablepath = (
-                        ( common.args.db_name
-                          if common.args.db_name
+                        ( args.db_name
+                          if args.db_name
                           else self.db_conn.database)
                         + '.' + tablepath
                     )
-                tablepath = common.quote_object_paths(tablepath)
+                tablepath = yb_common.common.quote_object_paths(tablepath)
                 line = 'CREATE %s %s%s' % (matches.group(1), tablepath, matches.group(3))
 
             #change all data type key words to upper case 

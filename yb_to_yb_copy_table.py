@@ -29,31 +29,26 @@ class yb_to_yb_copy_table:
     database.
     """
 
-    def __init__(self, common=None, db_args=None):
+    def __init__(self, src_conn=None, dst_conn=None, args_handler=None):
         """Initialize yb_to_yb_copy_tables class.
 
         This initialization performs argument parsing and login verification.
         It also provides access to functions such as logging and command
         execution.
         """
-        if common:
-            self.common = common
-            self.db_args = db_args
+        if src_conn:
+            self.src_conn = src_conn
+            self.dst_conn = dst_conn
+            self.args_handler = args_handler
         else:
-            self.common = yb_common.common()
+            self.args_handler = yb_common.args_handler()
 
             self.add_args()
 
-            """
-                description=
-                    'Copy table/s from a cluster to another cluster.'
-                , optional_args_multi=['owner', 'schema', 'table']
-            """
-
-            self.common.args_process(False)
+            self.args_handler.args_process()
 
     def add_args(self):
-        self.common.args_process_init(
+        self.args_handler.args_process_init(
             description=(
                 'Copy a table from a source cluster to a destination cluster.'
                 '\n'
@@ -62,12 +57,12 @@ class yb_to_yb_copy_table:
                 '\n  For manual password entry unset all env passwords or use the --src_W and --dst_W options.')
             , positional_args_usage='')
 
-        self.common.args_add_optional()
+        self.args_handler.args_add_optional()
 
-        self.common.args_add_connection_group('src', 'source')
-        self.common.args_add_connection_group('dst', 'destination')
+        self.args_handler.args_add_connection_group('src', 'source')
+        self.args_handler.args_add_connection_group('dst', 'destination')
 
-        copy_table_r_grp = self.common.args_parser.add_argument_group('required copy table arguments')
+        copy_table_r_grp = self.args_handler.args_parser.add_argument_group('required copy table arguments')
         copy_table_r_grp.add_argument(
             "--src_table", required=True
             , help=("source table to copy"))
@@ -75,7 +70,7 @@ class yb_to_yb_copy_table:
             "--dst_table", required=True
             , help=("destination table"))
 
-        copy_table_o_grp = self.common.args_parser.add_argument_group('optional copy table arguments')
+        copy_table_o_grp = self.args_handler.args_parser.add_argument_group('optional copy table arguments')
         copy_table_o_grp.add_argument(
             "--log_prefix", help=("prefix placed on log files"))
         copy_table_o_grp.add_argument(
@@ -100,7 +95,7 @@ class yb_to_yb_copy_table:
         src_pwd = os.environ['SRC_YBPASSWORD'] if 'SRC_YBPASSWORD' in os.environ else None
         if src_pwd:
             os.environ['YBPASSWORD'] = src_pwd
-        self.src_conn = db_connect(args=self.common.args, conn_type='src')
+        self.src_conn = db_connect(args=self.args_handler.args, conn_type='src')
         if pwd:
             os.environ['YBPASSWORD'] = pwd
         elif src_pwd:
@@ -109,7 +104,7 @@ class yb_to_yb_copy_table:
         dst_pwd = os.environ['DST_YBPASSWORD'] if 'DST_YBPASSWORD' in os.environ else None
         if dst_pwd:
             os.environ['YBPASSWORD'] = dst_pwd
-        self.dst_conn = db_connect(args=self.common.args, conn_type='dst')
+        self.dst_conn = db_connect(args=self.args_handler.args, conn_type='dst')
         if pwd:
             os.environ['YBPASSWORD'] = pwd
         elif dst_pwd:
@@ -117,11 +112,11 @@ class yb_to_yb_copy_table:
 
     def build_log_file_name_template(self):    
         self.log_file_name_template = ('{}{}{}_{}_{{{{XofX}}}}_{{log_type}}.log'.format(
-            ('%s/' % self.common.args.log_dir
-                if self.common.args.log_dir
+            ('%s/' % self.args_handler.args.log_dir
+                if self.args_handler.args.log_dir
                 else '')
-            , ('%s_' % self.common.args.log_prefix
-                if self.common.args.log_prefix
+            , ('%s_' % self.args_handler.args.log_prefix
+                if self.args_handler.args.log_prefix
                 else '')
             , datetime.now().strftime("%Y%m%d_%H%M%S")
             , "%04d" % random.randint(0,9999)))
@@ -140,15 +135,15 @@ class yb_to_yb_copy_table:
             "{additionl_options}"
             """ --select "{{unload_sql}}" """).format(
             src_host = self.src_conn.env['host']
-            , port_option = (' --port %s' % self.common.args.src_port if self.common.args.src_port else '')
+            , port_option = (' --port %s' % self.args_handler.args.src_port if self.args_handler.args.src_port else '')
             , src_user = self.src_conn.env['dbuser']
             , src_db = self.src_conn.env['conn_db']
-            , delimiter = self.common.args.delimiter
+            , delimiter = self.args_handler.args.delimiter
             , log_file_name = (self.log_file_name_template.format(log_type='ybunload'))
-            , additionl_options = (' %s' % self.common.args.ybunload_options if self.common.args.ybunload_options else ''))
+            , additionl_options = (' %s' % self.args_handler.args.ybunload_options if self.args_handler.args.ybunload_options else ''))
 
-        if (self.common.args.ybload_options
-            and re.search('logfile-log-level', self.common.args.ybload_options, re.IGNORECASE)):
+        if (self.args_handler.args.ybload_options
+            and re.search('logfile-log-level', self.args_handler.args.ybload_options, re.IGNORECASE)):
             #the user has set their own log level in ybload_options
             logfile_log_level_option = ''
         else:
@@ -170,15 +165,15 @@ class yb_to_yb_copy_table:
             "{additionl_options}"
             " -- -").format(
             dst_host = self.dst_conn.env['host']
-            , port_option = (' --port %s' % self.common.args.dst_port if self.common.args.dst_port else '')
+            , port_option = (' --port %s' % self.args_handler.args.dst_port if self.args_handler.args.dst_port else '')
             , dst_user = self.dst_conn.env['dbuser']
             , dst_db = self.dst_conn.env['conn_db']
-            , dst_table = self.common.quote_object_paths(self.common.args.dst_table)
-            , delimiter = self.common.args.delimiter
+            , dst_table = yb_common.common.quote_object_paths(self.args_handler.args.dst_table)
+            , delimiter = self.args_handler.args.delimiter
             , log_file_name = (self.log_file_name_template.format(log_type='ybload'))
             , logfile_log_level_option = logfile_log_level_option
             , bad_log_file_name = (self.log_file_name_template.format(log_type='ybload_bad'))
-            , additionl_options = (' %s' % self.common.args.ybload_options if self.common.args.ybload_options else ''))
+            , additionl_options = (' %s' % self.args_handler.args.ybload_options if self.args_handler.args.ybload_options else ''))
 
         self.table_copy_cmd = ("{ybunload_env} {ybunload_cmd}"
             " | {ybload_env} {ybload_cmd}").format(
@@ -195,16 +190,16 @@ class yb_to_yb_copy_table:
                 , 'yellow'))
             exit(1)
 
-        self.common.args.dml = ("%s AND <chunk_where_clause>" % table_unload_sql)
-        self.common.args.execute_chunk_dml = False
-        self.common.args.verbose_chunk_off = False
-        self.common.args.null_chunk_off = False
-        self.common.args.print_chunk_dml = True
-        self.common.args.table = self.common.quote_object_paths(self.common.args.src_table)
-        self.common.args.column = 'rowunique'
-        self.common.args.table_where_clause = self.common.args.where_clause
+        self.args_handler.args.dml = ("%s AND <chunk_where_clause>" % table_unload_sql)
+        self.args_handler.args.execute_chunk_dml = False
+        self.args_handler.args.verbose_chunk_off = False
+        self.args_handler.args.null_chunk_off = False
+        self.args_handler.args.print_chunk_dml = True
+        self.args_handler.args.table = yb_common.common.quote_object_paths(self.args_handler.args.src_table)
+        self.args_handler.args.column = 'rowunique'
+        self.args_handler.args.table_where_clause = self.args_handler.args.where_clause
 
-        cdml = chunk_dml_by_integer(self.common, db_conn=self.src_conn)
+        cdml = chunk_dml_by_integer(db_conn=self.src_conn, args_handler=self.args_handler)
         cdml.execute()
         if cdml.cmd_results.exit_code:
             cdml.cmd_results.write()
@@ -214,10 +209,10 @@ class yb_to_yb_copy_table:
 
     def execute(self):
         table_unload_sql = "SELECT * FROM {src_table} WHERE TRUE{where_clause}".format(
-            src_table = self.common.quote_object_paths(self.common.args.src_table).replace('"','"\\""')
-            , where_clause=(' AND %s' % self.common.args.where_clause if self.common.args.where_clause else ''))
+            src_table = yb_common.common.quote_object_paths(self.args_handler.args.src_table).replace('"','"\\""')
+            , where_clause=(' AND %s' % self.args_handler.args.where_clause if self.args_handler.args.where_clause else ''))
 
-        if self.common.args.chunk_rows:
+        if self.args_handler.args.chunk_rows:
             table_unload_sql = self.chunk_table_unload_sql(table_unload_sql)
         else:
             table_unload_sql = [table_unload_sql]
@@ -236,7 +231,7 @@ class yb_to_yb_copy_table:
             ybload_log_file_name = self.log_file_name_template.format(
                 log_type='ybload').format(XofX=XofX)
 
-            cmd_results = self.common.call_cmd(copy_cmd)
+            cmd_results = yb_common.common.call_cmd(copy_cmd)
 
             loaded = False
             if cmd_results.exit_code == 0:

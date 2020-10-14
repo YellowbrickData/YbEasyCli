@@ -25,46 +25,45 @@ class rstore_query_to_cstore_table:
     memory query to a column store table.
     """
 
-    def __init__(self, common=None, db_args=None):
-        """Initialize yb_rstore_query_to_cstore_table class.
+    def __init__(self, db_conn=None, args_handler=None):
+        """Initialize get_table_name class.
 
         This initialization performs argument parsing and login verification.
         It also provides access to functions such as logging and command
-        execution.
+        exec
         """
-        if common:
-            self.common = common
-            self.db_args = db_args
+        if db_conn:
+            self.db_conn = db_conn
+            self.args_handler = args_handler
         else:
-            self.common = yb_common.common()
+            self.args_handler = yb_common.args_handler()
 
             self.add_args()
 
-            self.common.args_process()
-
-        self.db_conn = yb_common.db_connect(self.common.args)
+            self.args_handler.args_process()
+            self.db_conn = yb_common.db_connect(self.args_handler.args)
 
     def execute(self):
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_rstore_query_to_cstore_table_p'
             , args = {
-                'a_query' : self.common.args.query
-                , 'a_tablename' : self.common.args.table
-                , 'a_create_temp_table' : ('TRUE' if self.common.args.create_temp_table else 'FALSE')
-                , 'a_drop_table' : ('TRUE' if self.common.args.drop_table else 'FALSE')
-                , 'a_max_varchar_size' : self.common.args.max_varchar_size}
-            , pre_sql = self.common.args.pre_sql
-            , post_sql = self.common.args.post_sql)
+                'a_query' : self.args_handler.args.query
+                , 'a_tablename' : self.args_handler.args.table
+                , 'a_create_temp_table' : ('TRUE' if self.args_handler.args.create_temp_table else 'FALSE')
+                , 'a_drop_table' : ('TRUE' if self.args_handler.args.drop_table else 'FALSE')
+                , 'a_max_varchar_size' : self.args_handler.args.max_varchar_size}
+            , pre_sql = self.args_handler.args.pre_sql
+            , post_sql = self.args_handler.args.post_sql)
 
     def add_args(self):
-        self.common.args_process_init(
+        self.args_handler.args_process_init(
             description=('Convert row store query to column store table.')
             , positional_args_usage='')
 
-        self.common.args_add_optional()
-        self.common.args_add_connection_group()
+        self.args_handler.args_add_optional()
+        self.args_handler.args_add_connection_group()
 
-        args_required_grp = self.common.args_parser.add_argument_group(
+        args_required_grp = self.args_handler.args_parser.add_argument_group(
             'required arguments')
         args_required_grp.add_argument(
             "--query", required=True
@@ -73,7 +72,7 @@ class rstore_query_to_cstore_table:
             "--table", required=True
             , help="table name, the name of the table that will be created")
 
-        args_optional_grp = self.common.args_parser.add_argument_group(
+        args_optional_grp = self.args_handler.args_parser.add_argument_group(
             'optional arguments')
         args_optional_grp.add_argument("--create_temp_table", action="store_true"
             , help="create destination table as temporary table, defaults to FALSE")
@@ -94,7 +93,7 @@ def main():
     sys.stdout.write('-- Converting row store query to column store table.\n')
     rsqtocst.execute()
     rsqtocst.cmd_results.write(tail='-- The %s column store table has been created.\n'
-        % rsqtocst.common.args.table)
+        % rsqtocst.args_handler.args.table)
 
     exit(rsqtocst.cmd_results.exit_code)
 

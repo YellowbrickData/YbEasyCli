@@ -28,24 +28,24 @@ class test_case:
         self.comment = comment
         self.map_out = map_out
 
-    def run(self, common, test):
+    def run(self, args, test):
         """Run the test.
 
-        :param common: An instance of the `common` class
+        :param args: An instance of the `args` class
         :test the ordinal of the test in a list of test cases
         """
         cmd = '%s/../%s' % (path, self.cmd)
-        if common.args.python_exe:
-            cmd = '%s %s' % (common.args.python_exe, cmd)
+        if args.python_exe:
+            cmd = '%s %s' % (args.python_exe, cmd)
 
         #TODO make password dynamic
         os.environ['YBPASSWORD'] = get.test_user_password
 
-        self.cmd_results = common.call_cmd(cmd)
+        self.cmd_results = yb_common.common.call_cmd(cmd)
 
         self.check()
 
-        if common.args.test or common.args.print_test:
+        if args.test or args.print_test:
             run = '%s: %s' % (text.color('Test runs', style='bold')
                 , cmd)
         else:
@@ -60,10 +60,10 @@ class test_case:
                     if self.passed
                     else text.color('Failed', fg='red')
                 , run))
-        if common.args.print_output:
+        if args.print_output:
             sys.stdout.write(self.cmd_results.stdout)
             sys.stderr.write(self.cmd_results.stderr)
-        if not self.passed and common.args.print_diff:
+        if not self.passed and args.print_diff:
             self.print_test_comparison()
 
     def check(self):
@@ -140,7 +140,7 @@ class get:
 class execute_test_action:
     """Initiate testing"""
     def __init__(self):
-        common = self.init_common()
+        args = self.init_args()
 
         self.check_args_dir()
 
@@ -355,21 +355,21 @@ ORDER BY 1
             , 'DROP TABLE dev.dropped_t'
             , 'DROP TABLE "Prod".dropped_t']
 
-        if common.args.action[0:2] != 'yb':
-            action_suffix = common.args.action.split('_')[-1]
+        if args.action[0:2] != 'yb':
+            action_suffix = args.action.split('_')[-1]
             user = get.create_user_name if action_suffix == 'su' else get.test_user_name
             pwd = None if action_suffix == 'su' else get.test_user_password
             if action_suffix == 'su':
                 db_conn = None
             else:
-                if common.args.action == 'create_objects_db2':
+                if args.action == 'create_objects_db2':
                     db_conn = get.test_db2
                 else:
                     db_conn = get.test_db1
             #a failed connection will exit
             conn = self.get_db_conn(user, pwd, db_conn)
 
-        if common.args.action == 'create_su':
+        if args.action == 'create_su':
             for query in queries_create_su:
                 cmd_results = conn.ybsql_query(query)
             #check if the test user can login
@@ -392,55 +392,55 @@ ORDER BY 1
             else:
                 print("DB login failed...")
 
-        if common.args.action == 'drop_su':
+        if args.action == 'drop_su':
             for query in queries_drop_su:
                 cmd_results = conn.ybsql_query(query)
 
-        if common.args.action == 'create_db2':
+        if args.action == 'create_db2':
             for query in queries_create_db2:
                 cmd_results = conn.ybsql_query(query)
 
-        if common.args.action == 'drop_db2':
+        if args.action == 'drop_db2':
             for query in queries_drop_db2:
                 cmd_results = conn.ybsql_query(query)
 
-        if common.args.action == 'create_objects_db1':
+        if args.action == 'create_objects_db1':
             for query in queries_create_objects_db1:
                 cmd_results = conn.ybsql_query(query)
 
-        if common.args.action == 'drop_objects_db1':
+        if args.action == 'drop_objects_db1':
             for query in queries_drop_objects_db1:
                 cmd_results = conn.ybsql_query(query)
 
-        if common.args.action == 'upfront_objects_drops_db1':
+        if args.action == 'upfront_objects_drops_db1':
             for query in queries_upfront_db1_drops:
                 cmd_results = conn.ybsql_query(query)
 
         os.environ["YBDATABASE"] = get.test_db2
 
-        if common.args.action == 'create_objects_db2':
+        if args.action == 'create_objects_db2':
             for query in queries_create_objects_db2:
                 cmd_results = conn.ybsql_query(query)
 
-        if common.args.action == 'drop_objects_db2':
+        if args.action == 'drop_objects_db2':
             for query in queries_drop_objects_db2:
                 cmd_results = conn.ybsql_query(query)
 
         # Actions beginning with `yb` refer to the yb utility scripts in this
         # package, e.g. `yb_get_table_name` or `yb_get_column_names`
-        if common.args.action[0:2] == 'yb':
+        if args.action[0:2] == 'yb':
             # Test cases are defined in files within this directory
             #   (see files with prefix `test_cases__`)
             # We need to exec the relevant test case file and bring
             # the list of `test_case` objects into the local scope
             _ldict = locals()
             exec(open('%s/test_cases__%s.py'
-                % (path, common.args.action), 'r').read()
+                % (path, args.action), 'r').read()
                 , globals()
                 , _ldict)
-            if common.args.test:
-                _ldict['test_cases'][common.args.test-1].run(
-                    common, common.args.test)
+            if args.test:
+                _ldict['test_cases'][args.test-1].run(
+                    args, args.test)
             else:
                 # run test cases
                 test = 1
@@ -448,11 +448,11 @@ ORDER BY 1
                     '%s: %s, %s: %s'
                     % (
                         text.color('Testing', style='bold')
-                        , common.args.action
+                        , args.action
                         , text.color('Running', style='bold')
                         , ' '.join(sys.argv)))
                 for test_case in _ldict['test_cases']:
-                    test_case.run(common, test=test)
+                    test_case.run(args, test=test)
                     test += 1
 
     def check_args_dir(self):
@@ -494,25 +494,25 @@ ORDER BY 1
             , host=get.host)
         return db_connect(env=env)
 
-    def init_common(self):
-        """Initialize the common class.
+    def init_args(self):
+        """Initialize the args class.
 
         This initialization performs argument parsing.
         It also provides access to functions such as logging and command
         execution.
 
-        :return: An instance of the `common` class
+        :return: An instance of the `args` class
         """
-        common = yb_common.common()
+        args_handler = yb_common.args_handler()
 
-        common.args_process_init(
+        args_handler.args_process_init(
             description='Run unit test actions.'
             , positional_args_usage='action')
 
-        common.args_add_positional_args()
-        common.args_add_optional()
+        args_handler.args_add_positional_args()
+        args_handler.args_add_optional()
         
-        args_test_optional_grp = common.args_parser.add_argument_group(
+        args_test_optional_grp = args_handler.args_parser.add_argument_group(
             'Test optional arguments')
         args_test_optional_grp.add_argument("--test"
             , type=int, default=None
@@ -532,22 +532,22 @@ ORDER BY 1
             , help="python executable to run tests with, this allows testing "
                 "with different python versions, defaults to 'python3'")
 
-        common.args_process(has_conn_args=False)
+        args = args_handler.args_process()
 
-        if common.args.python_exe:
-            if os.access(common.args.python_exe, os.X_OK):
-                cmd_results = common.call_cmd('%s --version'
-                    % common.args.python_exe)
+        if args.python_exe:
+            if os.access(args.python_exe, os.X_OK):
+                cmd_results = yb_common.common.call_cmd('%s --version'
+                    % args.python_exe)
                 self.test_py_version = (
                     int(cmd_results.stderr.split(' ')[1].split('.')[0]))
             else:
                 sys.stderr.write("'%s' is not found or not executable..."
-                    % common.args.python_exe)
+                    % args.python_exe)
                 exit(2)
         else:
             self.test_py_version = 3
 
-        return common
+        return args
 
 
 execute_test_action()

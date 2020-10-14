@@ -26,47 +26,43 @@ class chunk_optimal_rows:
     """Issue the ybsql command to determine the optimal number of rows per chunk for a table.
     """
 
-    def __init__(self, common=None, db_args=None):
-        """Initialize chunk_dml_by_date_part class.
+    def __init__(self, db_conn=None, args_handler=None):
+        """Initialize chunk_optimal_rows class.
 
         This initialization performs argument parsing and login verification.
         It also provides access to functions such as logging and command
         execution.
         """
-        if common:
-            self.common = common
-            self.db_args = db_args
+        if db_conn:
+            self.db_conn = db_conn
+            self.args_handler = args_handler
         else:
-            self.common = yb_common.common()
-
-            self.db_args = self.common.db_args(
+            self.args_handler = yb_common.args_handler(
                 description='Determine the optimal number of rows per chunk for a table.'
                 , required_args_single=['table']
                 , optional_args_single=['database', 'schema']
                 , positional_args_usage=[])
 
-            self.common.args_process()
-
-        self.db_conn = yb_common.db_connect(self.common.args)
+            self.args_handler.args_process()
+            self.db_conn = yb_common.db_connect(self.args_handler.args)
 
     def execute(self):
         schema = (
-            self.common.args.schema
-            if self.common.args.schema
+            self.args_handler.args.schema
+            if self.args_handler.args.schema
             else self.db_conn.schema)
 
         database = (
-            self.common.args.database
-            if self.common.args.database
+            self.args_handler.args.database
+            if self.args_handler.args.database
             else self.db_conn.database)
 
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_chunk_optimal_rows_p'
             , args = {
-                'a_table_name' : self.common.args.table
+                'a_table_name' : self.args_handler.args.table
                 , 'a_schema_name' : schema
                 , 'a_db_name' : database})
-
 
 def main():
     cors = chunk_optimal_rows()

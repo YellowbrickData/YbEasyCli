@@ -25,33 +25,31 @@ class check_db_views:
     """Check for broken views.
     """
 
-    def __init__(self, common=None, db_args=None):
+    def __init__(self, db_conn=None, db_filter_args=None):
         """Initialize check_db_views class.
 
         This initialization performs argument parsing and login verification.
         It also provides access to functions such as logging and command
-        execution.
+        exec
         """
-        if common:
-            self.common = common
-            self.db_args = db_args
+        if db_conn:
+            self.db_conn = db_conn
+            self.db_filter_args = db_filter_args
         else:
-            self.common = yb_common.common()
-
-            self.db_args = self.common.db_args(
+            args_handler = yb_common.args_handler(
                 description='Check for broken views.'
                 , positional_args_usage=[]
                 , optional_args_multi=['owner', 'database', 'schema', 'view'])
 
-            self.common.args_process()
-
-        self.db_conn = yb_common.db_connect(self.common.args)
+            args_handler.args_process()
+            self.db_conn = yb_common.db_connect(args_handler.args)
+            self.db_filter_args = args_handler.db_filter_args
 
     def get_dbs(self):
         db_ct = 0
         broken_view_ct = 0
 
-        filter_clause = self.db_args.build_sql_filter(
+        filter_clause = self.db_filter_args.build_sql_filter(
             {'database':'db_name'}
             , indent='    ')
 
@@ -72,7 +70,7 @@ ORDER BY
             exit(cmd_results.exit_code)
 
         dbs = cmd_results.stdout.strip()
-        if dbs == '' and self.db_args.has_optional_args_multi_set('database'):
+        if dbs == '' and self.db_filter_args.has_optional_args_multi_set('database'):
             dbs = []
         elif dbs == '':
             dbs = ['"' + self.db_conn.database + '"']
@@ -84,9 +82,9 @@ ORDER BY
     def execute(self):
         dbs = self.get_dbs()
 
-        self.db_args.schema_set_all_if_none()
+        self.db_filter_args.schema_set_all_if_none()
 
-        filter_clause = self.db_args.build_sql_filter(
+        filter_clause = self.db_filter_args.build_sql_filter(
             {'owner':'ownername','schema':'schemaname','view':'viewname'}
             , indent='    ')
 
@@ -101,7 +99,7 @@ ORDER BY
                 , pre_sql = ('\c %s\n' % db))
 
             if cmd_results.exit_code == 0:
-                sys.stdout.write(self.common.quote_object_paths(cmd_results.stdout))
+                sys.stdout.write(yb_common.common.quote_object_paths(cmd_results.stdout))
             elif cmd_results.stderr.find('permission denied') == -1:
                 sys.stderr.write(text.color(cmd_results.stderr, fg='red'))
                 exit(cmd_results.exit_code)

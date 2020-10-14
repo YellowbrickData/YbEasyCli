@@ -30,32 +30,30 @@ class get_table_distribution_key:
     this table is distributed.
     """
 
-    def __init__(self, common=None, db_args=None):
+    def __init__(self, db_conn=None, db_filter_args=None):
         """Initialize get_table_distribution_key class.
 
         This initialization performs argument parsing and login verification.
         It also provides access to functions such as logging and command
-        execution.
+        exec
         """
-        if common:
-            self.common = common
-            self.db_args = db_args
+        if db_conn:
+            self.db_conn = db_conn
+            self.db_filter_args = db_filter_args
         else:
-            self.common = yb_common.common()
-
-            self.db_args = self.common.db_args(
+            self.args_handler = yb_common.args_handler(
                 description=
                     'Identify the distribution column or type (random '
                     'or replicated) of the requested table.',
                 required_args_single=['table'],
                 optional_args_multi=['owner'])
 
-            self.common.args_process()
-
-        self.db_conn = yb_common.db_connect(self.common.args)
+            self.args_handler.args_process()
+            self.db_conn = yb_common.db_connect(self.args_handler.args)
+            self.db_filter_args = self.args_handler.db_filter_args
 
     def execute(self):
-        filter_clause = self.db_args.build_sql_filter(
+        filter_clause = self.db_filter_args.build_sql_filter(
             {'owner':'ownername','schema':'schemaname','table':'tablename'}
             , indent='    ')
 
@@ -100,7 +98,7 @@ def main():
         if gtdk.cmd_results.stdout.strip() in ('RANDOM', 'REPLICATED'):
             sys.stdout.write(gtdk.cmd_results.stdout)
         else:
-            sys.stdout.write(gtdk.common.quote_object_paths(gtdk.cmd_results.stdout))
+            sys.stdout.write(yb_common.common.quote_object_paths(gtdk.cmd_results.stdout))
     if gtdk.cmd_results.stderr != '':
         sys.stdout.write(text.color(gtdk.cmd_results.stderr, fg='red'))
 
