@@ -124,7 +124,8 @@ $STR$
             v_query := v_query || ', ';
             v_do_values := v_do_values || ', ';
         END IF;
-        IF v_rec.data_type IN ('BIGINT', 'BOOLEAN', 'DOUBLE PRECISION', 'INTEGER', 'NUMERIC', 'REAL', 'SMALLINT', 'TIMESTAMP WITH TIME ZONE', 'UUID') THEN
+        IF v_rec.data_type IN ('BIGINT', 'BOOLEAN', 'DATE', 'DOUBLE PRECISION', 'INTEGER', 'IPV4', 'IPV6', 'MACADDR', 'MACADDR8', 'NUMERIC'
+            , 'REAL', 'SMALLINT', 'TIMESTAMP WITH TIME ZONE', 'TIMESTAMP WITHOUT TIME ZONE', 'TIME WITHOUT TIME ZONE', 'UUID') THEN
             v_query := v_query || v_sql_name || ' ' || v_rec.data_type;
             v_do_values := v_do_values || REPLACE('v_rec.<name>', '<name>', v_rec.name);
         ELSIF v_rec.data_type IN ('OID', 'INFORMATION_SCHEMA.CARDINAL_NUMBER') THEN
