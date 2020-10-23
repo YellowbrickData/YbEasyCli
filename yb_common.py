@@ -16,7 +16,7 @@ import signal
 from datetime import datetime
 
 def signal_handler(signal, frame):
-    sys.exit(0)
+    common.error('user terminated...')
 
 signal.signal(signal.SIGINT, signal_handler)
 
@@ -25,14 +25,32 @@ class common:
     version = '20201014'
     verbose = 0
 
-    util_dir_path = os.path.dirname(os.path.realpath(__file__))
-    util_file_name = os.path.basename(os.path.realpath(__file__))
+    util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
+    util_file_name = os.path.basename(os.path.realpath(sys.argv[0]))
     util_name = util_file_name.split('.')[0]
 
     def __init__(self):
         """Create an instance of the common library used by all utilities
         """
         self.start_ts = datetime.now()
+
+    @staticmethod
+    def error(msg, exit_code=1):
+        sys.stderr.write("%s: %s\n" % (
+            text.color(common.util_file_name, style='bold')
+            , text.color(msg, 'red')))
+        exit(exit_code)
+
+    @staticmethod
+    def read_file(file_path):
+        try:
+            with open(file_path) as f:
+                data = f.read()
+                f.close()
+        except IOError as ioe:
+            common.error(ioe)
+
+        return data
 
     @staticmethod
     def call_cmd(cmd_str, stack_level=2):
@@ -147,17 +165,14 @@ class common:
             if str[i] in close_char and not skip_close:
                 if (len(open_char) == 0
                     or open_close_char[open_char[-1]] != str[i]):
-                    sys.stderr.write('Invalid Argument List: %s'
-                        % str)
-                    exit(1)
+                    common.error('Invalid Argument List: %s' % str)
                 else:
                     open_char.pop()
             else:
                 skip_close = False
 
         if len(open_char) > 0:
-            sys.stderr.write('Invalid Argument List: %s\n' % str)
-            exit(1)
+            common.error('Invalid Argument List: %s' % str)
         else:
             tokens.append(token.strip())
 
@@ -810,11 +825,9 @@ class db_connect:
             None
 
         if not self.env['host']:
-            sys.stderr.write("%s: error: the host database server must "
+            common.error("the host database server must "
                 "be set using the YBHOST environment variable or with "
-                "the argument: --%shost\n"
-                % (os.path.basename(sys.argv[0]), arg_conn_prefix))
-            exit(1)
+                "the argument: --%shost" % arg_conn_prefix)
 
         if not self.env['pwd']:
             user = self.env['dbuser'] or os.environ.get("USER")
@@ -869,7 +882,10 @@ class db_connect:
     , SPLIT_PART(version, '-', 2) AS version_release
     , SPLIT_PART(version_number, '.', 1) AS version_major
     , SPLIT_PART(version_number, '.', 2) AS version_minor
-    , SPLIT_PART(version_number, '.', 3) AS version_patch""")
+    , SPLIT_PART(version_number, '.', 3) AS version_patch
+    , usesuper
+FROM pg_user
+WHERE usename = CURRENT_USER""")
 
         db_info = cmd_results.stdout.split('|')
         if cmd_results.exit_code == 0:
@@ -878,18 +894,11 @@ class db_connect:
             # if --current_schema arg was set check if it is valid
             # the sql CURRENT_SCHEMA will return an empty string
             if len(self.schema) == 0:
-                err = text.color(
-                    'util: FATAL: schema "%s" does not exist\n'
-                        % self.current_schema
-                    , fg='red')
-                sys.stderr.write(err)
-                exit(2)                
+                common.error('schema "%s" does not exist'
+                    % self.current_schema)
         else:
-            sys.stderr.write(
-                text.color(
-                    cmd_results.stderr.replace('ybsql', 'util')
-                    , fg='red'))
-            exit(cmd_results.exit_code)
+            common.error(cmd_results.stderr.replace('ybsql', 'util')
+                    , cmd_results.exit_code)
 
         self.ybdb_version = db_info[2]
         self.ybdb_version_number = db_info[3]
@@ -901,10 +910,11 @@ class db_connect:
             self.ybdb_version_major * 10000
             + self.ybdb_version_minor * 100
             + self.ybdb_version_patch)
+        self.is_super_user = (True if db_info[8].strip() == 't' else False)
 
         if common.verbose >= 1:
             print(
-                '%s: %s, %s: %s, %s: %s, %s: %s, %s: %s, %s: %s'
+                '%s: %s, %s: %s, %s: %s, %s: %s, %s: %s, %s: %s, %s: %s'
                 % (
                     text.color('Connecting to Host', style='bold')
                     , text.color(self.env['host'], fg='cyan')
@@ -912,6 +922,8 @@ class db_connect:
                     , text.color(self.env['port'], fg='cyan')
                     , text.color('DB User', style='bold')
                     , text.color(self.env['dbuser'], fg='cyan')
+                    , text.color('Super User', style='bold')
+                    , text.color(self.is_super_user, fg='cyan')
                     , text.color('Database', style='bold')
                     , text.color(self.database, fg='cyan')
                     , text.color('Current Schema', style='bold')
@@ -984,21 +996,14 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
         """
         return_marker = '>!>RETURN<!<:'
 
-        try:
-            filepath = os.path.split(__file__)[0] + ('/sql/%s.sql' % stored_proc)
-            f = open(filepath, "r")
-            stored_proc_sql = f.read()
-            f.close()
-        except FileNotFoundError:
-            print("%s file does not exist..." % filepath)
-            exit(2)
+        filepath = common.util_dir_path + ('/sql/%s.sql' % stored_proc)
+        stored_proc_sql = common.read_file(filepath)
 
-        regex = r"\s*CREATE\s*(OR\s*REPLACE)?\s*PROCEDURE\s*([a-z0-9_]+)\s*\((.*)\)\s*((RETURNS\s*([a-zA-Z]*).*))\s+LANGUAGE.+?(DECLARE\s*(.+))?RETURN\s*([^;]*);(.*)\$\$;"
+        regex = r"\s*CREATE\s*(OR\s*REPLACE)?\s*PROCEDURE\s*([a-z0-9_]+)\s*\((.*?)\)\s*((RETURNS\s*([a-zA-Z]*).*?))\s+LANGUAGE.+?(DECLARE\s*(.+))?RETURN\s*([^;]*);(.*)\$\$;"
         matches = re.search(regex, stored_proc_sql, re.IGNORECASE | re.DOTALL)
 
         if not matches:
-            sys.stderr.write("Stored proc '%s' regex parse failed.\n" % stored_proc)
-            exit(2)
+            common.error("Stored proc '%s' regex parse failed." % stored_proc)
 
         stored_proc_args          = matches.group(3)
         #TODO currently return_type only handles 1 word like; BOOLEAN
@@ -1009,9 +1014,7 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
 
         anonymous_block = pre_sql + 'DO $$\nDECLARE\n    --arguments\n'
         if stored_proc_return_type not in ('BOOLEAN', 'BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
-            sys.stderr.write('--unhandled proc return_type: %s\n'
-                % stored_proc_return_type)
-            exit(2)
+            common.error('Unhandled proc return_type: %s' % stored_proc_return_type)
  
         for arg in common.split(stored_proc_args):
             matches = re.search(r'(.*)\bDEFAULT\b(.*)'
@@ -1038,16 +1041,13 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
                     anonymous_block += ("    %s %s = %s;\n"
                         % (arg_name, arg_type, args[arg_name]))
                 else:
-                    sys.stderr.write("Unhandled proc arg_type: %s\n"
-                        % (arg_type))
-                    exit(2)
+                    common.error('Unhandled proc arg_type: %s' % arg_type)
             elif default_value:
                 anonymous_block += ("    %s %s = %s;\n"
                     % (arg_name, arg_type, default_value))
             else:
-                sys.stderr.write("Missing proc arg: %s for proc: %s\n"
+                common.error("Missing proc arg: %s for proc: %s"
                     % (arg_name, stored_proc))
-                exit(2)
 
         anonymous_block += ("    --variables\n    %sRAISE INFO '%s%%', %s;%s$$;%s"
             % (
@@ -1075,8 +1075,7 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
                     stderr += line
 
             if not return_value:
-                sys.stderr.write(cmd_results.stderr)
-                exit(2)
+                common.error(cmd_results.stderr)
 
             cmd_results.stderr = stderr
             cmd_results.stdout = stdout
@@ -1091,9 +1090,7 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
                     if return_value == '<NULL>'
                     else int(return_value))
             else:
-                sys.stderr.write("Unhandled proc return_type: %s\n"
-                    % (stored_proc_return_type))
-                exit(2)
+                common.error("Unhandled proc return_type: %s" % stored_proc_return_type)
 
         return cmd_results
 
