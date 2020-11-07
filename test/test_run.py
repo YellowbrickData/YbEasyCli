@@ -3,10 +3,16 @@
 
 import os
 import sys
+import glob
 path = os.path.dirname(__file__)
 if len(path) == 0:
     path = '.'
 sys.path.append('%s/../' % path)
+
+try:
+    import configparser                  # for python3
+except:
+    import ConfigParser as configparser  # for python2
 
 import time
 import re
@@ -28,34 +34,39 @@ class test_case:
         self.comment = comment
         self.map_out = map_out
 
-    def run(self, args, test):
-        """Run the test.
+    def run(self, args, config, case, test_name):
+        """Run the test case.
 
         :param args: An instance of the `args` class
-        :test the ordinal of the test in a list of test cases
+        :case the ordinal of the test case in a list of test cases
         """
         cmd = '%s/../%s' % (path, self.cmd)
         if args.python_exe:
             cmd = '%s %s' % (args.python_exe, cmd)
 
-        #TODO make password dynamic
-        os.environ['YBPASSWORD'] = get.test_user_password
+        section = 'test_%s' % args.host
+        os.environ['YBPASSWORD'] = config.get(section, 'password')
 
         self.cmd_results = yb_common.common.call_cmd(cmd)
 
         self.check()
 
-        if args.test or args.print_test:
+        if args.case or args.print_test:
             run = '%s: %s' % (text.color('Test runs', style='bold')
                 , cmd)
         else:
-            run = ('%s: %s --test %d'
+            if '--all' in sys.argv:
+                running = ('%s --test_name %s'
+                    % (' '.join(sys.argv).replace(' --all', ''), test_name))
+            else:
+                running = ' '.join(sys.argv)
+            run = ('%s: %s --case %d'
                 % (text.color('To run', style='bold')
-                    , ' '.join(sys.argv), test))
+                    , running, case))
 
         print(
             '%s: %s, %s' % (
-                text.color('Test %d' % test, style='bold')
+                text.color('Test case %d' % case, style='bold')
                 , text.color('Passed', fg='green')
                     if self.passed
                     else text.color('Failed', fg='red')
@@ -128,332 +139,62 @@ class test_case:
             'STDERR', self.stderr, self.cmd_results.stderr)
 
 class get:
-    exec(open('%s/%s' % (path, 'settings.py'), 'r').read())
-    format = {
-        'host' : host
-        , 'user_name' : test_user_name
-        , 'user_password' : test_user_password
-        , 'db1' : test_db1
-        , 'db2' : test_db2
-        , 'argsdir' : '%s/args_tmp' % (path)}
+    def __init__(self, args, config):
+        section = 'test_%s' % args.host
+        get.format = {
+            'host' : args.host
+            , 'user_name' : config.get(section, 'user')
+            , 'user_password' : config.get(section, 'password')
+            , 'db1' : config.get(section, 'db1')
+            , 'db2' : config.get(section, 'db2')
+            , 'argsdir' : '%s/args_tmp' % (path)}
 
 class execute_test_action:
     """Initiate testing"""
     def __init__(self):
+        self.init_config()
         args = self.init_args()
+        get(args, self.config)
 
         self.check_args_dir()
 
-        queries_create_su = [
-            "CREATE USER %s CREATEDB LOGIN PASSWORD '%s'" % (
-                get.test_user_name
-                , get.test_user_password)
-            , "CREATE DATABASE %s OWNER %s" % (
-                get.test_db1
-                , get.test_user_name)
-            , "GRANT CONNECT ON DATABASE %s TO %s" % (
-                get.test_db1, get.test_user_name)
-        ]
+        for test_case_file in self.test_case_files:
+            self.load_test_cases(test_case_file)
 
-        queries_drop_su = [
-            "DROP DATABASE %s" % get.test_db1
-            , "DROP DATABASE %s" % get.test_db2
-            , "DROP USER %s" % (get.test_user_name)
-        ]
+    def load_test_cases(self, test_case_file):
+        # Test cases are defined in files within this directory
+        #   (see files with prefix `test_cases__`)
+        # We need to exec the relevant test case file and bring
+        # the list of `test_case` objects into the local scope
+        _ldict = locals()
 
-        queries_create_db2 = ["CREATE DATABASE %s" % get.test_db2]
+        matches = re.search('test_cases__(.*)\.py', test_case_file, re.DOTALL)
+        test_name = matches.group(1)
 
-        queries_drop_db2 = ["DROP DATABASE %s" % get.test_db2]
-
-        ddl_dev_types_t = """CREATE TABLE %s.data_types_t (
-    col1 BIGINT
-    , col2 INTEGER
-    , col3 SMALLINT
-    , col4 DECIMAL
-    , col5 REAL
-    , col6 DOUBLE PRECISION
-    , col7 UUID
-    , col8 VARCHAR
-    , col9 CHAR
-    , col10 DATE
-    , col11 TIME
-    , col12 TIMESTAMP
-    , col13 TIMESTAMP WITH TIME ZONE
-    , col14 IPV4
-    , col15 IPV6
-    , col16 MACADDR
-    , col17 MACADDR8
-    , col18 BOOLEAN
-    , col19 INTEGER
-) DISTRIBUTE ON (col1)
-"""
-
-        ddl_dev_types_t__data = """INSERT INTO %s.data_types_t
-WITH
-digits AS (
-    SELECT 0::BIGINT AS digit
-    UNION ALL SELECT 1
-    UNION ALL SELECT 2
-    UNION ALL SELECT 3
-    UNION ALL SELECT 4
-    UNION ALL SELECT 5
-    UNION ALL SELECT 6
-    UNION ALL SELECT 7
-    UNION ALL SELECT 8
-    UNION ALL SELECT 9
-)
-, seq AS (
-    SELECT
-        d1.digit + 1
-        + d10.digit * 10
-        + d100.digit * 100
-        + d1000.digit * 1000
-        + d10000.digit * 10000
-        + d100000.digit * 100000
-        AS seq
-        , seq::VARCHAR(32) AS seq_char
-        , LENGTH(seq_char) AS seq_char_len
-    FROM
-        digits AS d1
-        CROSS JOIN digits AS d10
-        CROSS JOIN digits AS d100
-        CROSS JOIN digits AS d1000
-        CROSS JOIN digits AS d10000
-        CROSS JOIN digits AS d100000
---    WHERE
---        seq <= 500
-)
-, cols AS (
-    SELECT
-        seq::BIGINT AS col1
-        , ((SELECT MAX(seq) FROM seq) - seq + 1)::INTEGER AS col2
-        , (seq / 100 + 1)::SMALLINT AS col3
-        , (col1 * col2)::NUMERIC(18,0) AS col4
-        , (col4 / (col3 * 1.0))::REAL AS col5
-        , (col4 / (col3 * 1.0))::DOUBLE PRECISION AS col6
-        , (SUBSTR('1234567890abcdef1234567890abcdef', 1, 32-seq_char_len) || seq_char)::UUID AS col7
-        , SUBSTR(col4::VARCHAR(32), 1, 2) AS s1
-        , SUBSTR(col4::VARCHAR(32), 3, 2) AS s2
-        , SUBSTR(col4::VARCHAR(32), 5, 2) AS s3
-        , SUBSTR(col4::VARCHAR(32), 7, 2) AS s4
-        , DECODE(TRUE, s1 = '', 0, s1::INT > 90, 0, s1::INT) AS val1
-        , DECODE(TRUE, s2 = '', 0, s2::INT > 90, 0, s2::INT) AS val2
-        , DECODE(TRUE, s3 = '', 0, s3::INT > 90, 0, s3::INT) AS val3
-        , DECODE(TRUE, s4 = '', 0, s4::INT > 90, 0, s4::INT) AS val4
-        , SUBSTR((val1 + 100)::VARCHAR(3), 2, 2) AS str1
-        , SUBSTR((val2 + 100)::VARCHAR(3), 2, 2) AS str2
-        , SUBSTR((val3 + 100)::VARCHAR(3), 2, 2) AS str3
-        , SUBSTR((val4 + 100)::VARCHAR(3), 2, 2) AS str4
-        , CHR(33 + val1) || CHR(33 + val2) || CHR(33 + val3) || CHR(33 + val4) AS col8
-        , CHR(34 + val1) AS col9
-        , '2020/01/01'::DATE + (val1 * val2) AS col10
-        , '01:01:01'::TIME + MAKE_INTERVAL(0,0,0,0,0,0,val2*val3) AS col11
-        , '2020/01/01'::DATE::TIMESTAMP + MAKE_INTERVAL(0,0,0,0,0,0,val1*val2*val3*val4+1) AS col12
-        , '2020/01/01'::TIMESTAMP WITH TIME ZONE AT TIME ZONE 'America/New_York' + MAKE_INTERVAL(0,0,0,0,0,0,val1*val2*val3*val4+1) AS col13
-        , (str1 || '.' || str2 || '.' || str3 || '.' || str4)::IPV4 AS col14
-        , (str1 || ':' || str2 || ':' || str3 || ':' || str4
-        || ':' || str1 || ':' || str2 || ':' || str3 || ':' || str4)::IPV6 AS col15
-        , (str1 || ':' || str2 || ':' || str3 || ':' || str4
-        || ':' || str1 || ':' || str2)::MACADDR AS col16
-        , (str1 || ':' || str2 || ':' || str3 || ':' || str4
-        || ':' || str1 || ':' || str2 || ':' || str3 || ':' || str4)::MACADDR8 AS col17
-        , DECODE(col2 %% 2, 0, TRUE, FALSE) AS col18
-        , TO_CHAR(col10, 'YYYYMMDD')::INTEGER AS col19
-    FROM
-        seq
---    WHERE FALSE
-)
-SELECT
-    col1
-    , col2
-    , col3
-    , col4
-    , col5
-    , col6
-    , col7
-    , col8
-    , col9
-    , col10
-    , col11
-    , col12
-    , col13
-    , col14
-    , col15
-    , col16
-    , col17
-    , col18
-    , col19
-FROM 
-    cols
-ORDER BY 1
-"""
-
-        queries_create_objects_db1 = [
-            'CREATE SCHEMA dev'
-            , 'CREATE TABLE dev.a1_t (col1 INT) DISTRIBUTE ON (col1)'
-            , 'CREATE TABLE dev.b1_t (col1 INT) DISTRIBUTE ON (col1)'
-            , 'CREATE TABLE dev.c1_t (col1 INT) DISTRIBUTE ON (col1)'
-            , 'CREATE TABLE dev.dist_random_t (col1 INT) DISTRIBUTE RANDOM'
-            , 'CREATE TABLE dev.dist_replicate_t (col1 INT) DISTRIBUTE REPLICATE'
-            , ddl_dev_types_t % 'dev'
-            , 'CREATE VIEW dev.a1_v AS SELECT * FROM dev.a1_t'
-            , 'CREATE VIEW dev.b1_v AS SELECT * FROM dev.b1_t'
-            , 'CREATE VIEW dev.c1_v AS SELECT * FROM dev.c1_t'
-            , 'CREATE SEQUENCE dev.a1_seq START WITH 1000000'
-            , 'CREATE SEQUENCE dev.b1_seq START WITH 1000000'
-            , 'CREATE SEQUENCE dev.c1_seq START WITH 1000000'
-            , 'CREATE SCHEMA "Prod"'
-            , 'CREATE TABLE "Prod".a1_t (col1 INT) DISTRIBUTE ON (col1)'
-            , 'CREATE TABLE "Prod".b1_t (col1 INT) DISTRIBUTE ON (col1)'
-            , 'CREATE TABLE "Prod"."C1_t" ("Col1" INT) DISTRIBUTE ON ("Col1")'
-            , ddl_dev_types_t % '"Prod"'
-            , 'CREATE VIEW "Prod".a1_v AS SELECT * FROM "Prod".a1_t'
-            , 'CREATE VIEW "Prod".b1_v AS SELECT * FROM "Prod".b1_t'
-            , 'CREATE VIEW "Prod"."C1_v" AS SELECT * FROM "Prod"."C1_t"'
-            , 'CREATE SEQUENCE "Prod".a1_seq START WITH 1000000'
-            , 'CREATE SEQUENCE "Prod".b1_seq START WITH 1000000'
-            , 'CREATE SEQUENCE "Prod"."C1_seq" START WITH 1000000'
-            , ddl_dev_types_t__data % 'dev']
-
-        queries_drop_objects_db1 = [
-            'DROP SEQUENCE "Prod"."C1_seq"', 'DROP SEQUENCE "Prod".b1_seq'
-            , 'DROP SEQUENCE "Prod".a1_seq', 'DROP VIEW "Prod"."C1_v"'
-            , 'DROP VIEW "Prod".b1_v', 'DROP VIEW "Prod".a1_v'
-            , 'DROP TABLE "Prod".data_types_t', 'DROP TABLE "Prod"."C1_t"'
-            , 'DROP TABLE "Prod".b1_t', 'DROP TABLE "Prod".a1_t', 'DROP SCHEMA "Prod"'
-            , 'DROP SEQUENCE dev.c1_seq', 'DROP SEQUENCE dev.b1_seq'
-            , 'DROP SEQUENCE dev.a1_seq', 'DROP VIEW dev.c1_v'
-            , 'DROP VIEW dev.b1_v', 'DROP VIEW dev.a1_v'
-            , 'DROP TABLE dev.data_types_t', 'DROP TABLE dev.dist_replicate_t'
-            , 'DROP TABLE dev.dist_random_t', 'DROP TABLE dev.c1_t'
-            , 'DROP TABLE dev.b1_t', 'DROP TABLE dev.a1_t', 'DROP SCHEMA dev']
-
-        queries_create_objects_db2 = queries_create_objects_db1.copy()
-        queries_drop_objects_db2 = queries_drop_objects_db1.copy()
-
-        queries_create_objects_db1.extend([
-            # create broken views
-            'CREATE TABLE dev.dropped_t (col1 INT) DISTRIBUTE ON (col1)'
-            , 'CREATE TABLE "Prod".dropped_t (col1 INT) DISTRIBUTE ON (col1)'
-            , 'CREATE VIEW "Prod"."Dropped_v" AS SELECT * FROM "Prod".dropped_t'])
-
-        queries_create_objects_db2.extend([
-            # create broken views
-            'CREATE VIEW dev.broken1_v AS SELECT * FROM %s."Prod".dropped_t' % get.test_db1
-            , 'CREATE VIEW dev.broken2_v AS SELECT * FROM %s."Prod"."Dropped_v"' % get.test_db1
-            , 'CREATE VIEW dev."Broken3_v" AS SELECT * FROM dev.broken1_v'
-            , 'CREATE VIEW "Prod".broken1_v AS SELECT * FROM %s.dev.dropped_t' % get.test_db1])
-
-        queries_drop_objects_db2.extend([
-            'DROP VIEW "Prod".broken1_v'
-            , 'DROP VIEW dev."Broken3_v"'
-            , 'DROP VIEW dev.broken2_v'
-            , 'DROP VIEW dev.broken1_v'])
-
-        queries_upfront_db1_drops = [
-            'DROP VIEW "Prod"."Dropped_v"'
-            , 'DROP TABLE dev.dropped_t'
-            , 'DROP TABLE "Prod".dropped_t']
-
-        if args.action[0:2] != 'yb':
-            action_suffix = args.action.split('_')[-1]
-            user = get.create_user_name if action_suffix == 'su' else get.test_user_name
-            pwd = None if action_suffix == 'su' else get.test_user_password
-            if action_suffix == 'su':
-                db_conn = None
+        exec(open(test_case_file, 'r').read()
+            , globals()
+            , _ldict)
+        if self.args.case:
+            _ldict['test_cases'][self.args.case-1].run(
+                self.args, self.config, self.args.case, test_name)
+        else:
+            # run test cases
+            if '--all' in sys.argv:
+                running = ('%s --test_name %s'
+                    % (' '.join(sys.argv).replace(' --all', ''), test_name))
             else:
-                if args.action == 'create_objects_db2':
-                    db_conn = get.test_db2
-                else:
-                    db_conn = get.test_db1
-            #a failed connection will exit
-            conn = self.get_db_conn(user, pwd, db_conn)
-
-        if args.action == 'create_su':
-            for query in queries_create_su:
-                cmd_results = conn.ybsql_query(query)
-            #check if the test user can login
-            #  sometimes there is a lag from when a user is created
-            #  till when the user can actually login
-            print("Testing '%s' DB login, this may take 2 minutes..."
-                % get.test_user_name)
-            for i in range(1,21):
-                if i > 1:
-                    time.sleep(5)
-                    print("Attempting DB login after %d seconds..." % (1 * 5))
-                conn = self.get_db_conn(
-                    get.test_user_name
-                    , get.test_user_password
-                    , get.test_db1)       
-                if conn.database:
-                    break
-            if conn.database:
-                print("DB login succeeded...")
-            else:
-                print("DB login failed...")
-
-        if args.action == 'drop_su':
-            for query in queries_drop_su:
-                cmd_results = conn.ybsql_query(query)
-
-        if args.action == 'create_db2':
-            for query in queries_create_db2:
-                cmd_results = conn.ybsql_query(query)
-
-        if args.action == 'drop_db2':
-            for query in queries_drop_db2:
-                cmd_results = conn.ybsql_query(query)
-
-        if args.action == 'create_objects_db1':
-            for query in queries_create_objects_db1:
-                cmd_results = conn.ybsql_query(query)
-
-        if args.action == 'drop_objects_db1':
-            for query in queries_drop_objects_db1:
-                cmd_results = conn.ybsql_query(query)
-
-        if args.action == 'upfront_objects_drops_db1':
-            for query in queries_upfront_db1_drops:
-                cmd_results = conn.ybsql_query(query)
-
-        os.environ["YBDATABASE"] = get.test_db2
-
-        if args.action == 'create_objects_db2':
-            for query in queries_create_objects_db2:
-                cmd_results = conn.ybsql_query(query)
-
-        if args.action == 'drop_objects_db2':
-            for query in queries_drop_objects_db2:
-                cmd_results = conn.ybsql_query(query)
-
-        # Actions beginning with `yb` refer to the yb utility scripts in this
-        # package, e.g. `yb_get_table_name` or `yb_get_column_names`
-        if args.action[0:2] == 'yb':
-            # Test cases are defined in files within this directory
-            #   (see files with prefix `test_cases__`)
-            # We need to exec the relevant test case file and bring
-            # the list of `test_case` objects into the local scope
-            _ldict = locals()
-            exec(open('%s/test_cases__%s.py'
-                % (path, args.action), 'r').read()
-                , globals()
-                , _ldict)
-            if args.test:
-                _ldict['test_cases'][args.test-1].run(
-                    args, args.test)
-            else:
-                # run test cases
-                test = 1
-                print(
-                    '%s: %s, %s: %s'
-                    % (
-                        text.color('Testing', style='bold')
-                        , args.action
-                        , text.color('Running', style='bold')
-                        , ' '.join(sys.argv)))
-                for test_case in _ldict['test_cases']:
-                    test_case.run(args, test=test)
-                    test += 1
+                running = ' '.join(sys.argv)
+            print(
+                '%s: %s, %s: %s'
+                % (
+                    text.color('Testing', style='bold')
+                    , test_name
+                    , text.color('Running', style='bold')
+                    , running))
+            case = 1
+            for test_case in _ldict['test_cases']:
+                test_case.run(self.args, self.config, case, test_name)
+                case += 1
 
     def check_args_dir(self):
         """Check if the dynamic sd args directory has changed.
@@ -477,8 +218,7 @@ ORDER BY 1
 
         if (True #TODO forcing rewrite of args_tmp directory on every call due to {argsdir} needing to be dynamic on every call
             or len(dd_ts) == 0
-            or max(sd_ts) > min(dd_ts)
-            or os.path.getmtime('%s/%s' % (path, 'settings.py')) > min(dd_ts)):
+            or max(sd_ts) > min(dd_ts)):
             shutil.rmtree(path=dd, ignore_errors=True)
             os.mkdir(path=dd)
             for filename in sd_files:
@@ -506,17 +246,31 @@ ORDER BY 1
         args_handler = yb_common.args_handler()
 
         args_handler.args_process_init(
-            description='Run unit test actions.'
-            , positional_args_usage='action')
+            description='Run unit test cases on utility.'
+            , positional_args_usage=[])
 
         args_handler.args_add_positional_args()
         args_handler.args_add_optional()
-        
+
+        args_test_required_grp = args_handler.args_parser.add_argument_group(
+            'test required arguments')
+        args_test_required_grp.add_argument("--test_name", "--tn", "-t"
+            , dest="name"
+            , help="the test case name to run, like 'yb_get_table_name'"
+                " for the test case file 'test_cases__yb_get_table_name.py'")
+        args_test_required_grp.add_argument("--all"
+            , action="store_true"
+            , help="run test cases for all the test case files")
+
         args_test_optional_grp = args_handler.args_parser.add_argument_group(
-            'Test optional arguments')
-        args_test_optional_grp.add_argument("--test"
+            'test optional arguments')
+        args_test_optional_grp.add_argument(
+            "--host", "-h", "-H"
+            , dest="host", help="database server hostname,"
+                " overrides YBHOST env variable, the host where the tests are run")
+        args_test_optional_grp.add_argument("--case"
             , type=int, default=None
-            , help="unit test number to execute")
+            , help="unit test case number to execute")
         args_test_optional_grp.add_argument("--print_test", "--pt"
             , action="store_true"
             , help="instead of the test command display what the test ran")
@@ -525,12 +279,12 @@ ORDER BY 1
             , help="print the test output")
         args_test_optional_grp.add_argument("--print_diff", "--pd"
             , action="store_true"
-            , help="if the test fails, print the diff of the expected "
-            "verse actual result")
+            , help="if the test fails, print the diff of the expected"
+                " verse actual result")
         args_test_optional_grp.add_argument("--python_exe"
             , default=None
-            , help="python executable to run tests with, this allows testing "
-                "with different python versions, defaults to 'python3'")
+            , help="python executable to run tests with, this allows testing"
+                " with different python versions, defaults to 'python3'")
 
         args = args_handler.args_process()
 
@@ -541,13 +295,60 @@ ORDER BY 1
                 self.test_py_version = (
                     int(cmd_results.stderr.split(' ')[1].split('.')[0]))
             else:
-                sys.stderr.write("'%s' is not found or not executable..."
+                yb_common.common.error("'%s' is not found or not executable..."
                     % args.python_exe)
-                exit(2)
         else:
             self.test_py_version = 3
 
+        if not args.host and os.environ.get("YBHOST"):
+            args.host = os.environ.get("YBHOST")
+        elif not args.host and len(self.config.hosts) == 1:
+            args.host = self.config.hosts[0]
+
+        if (args.host and not (args.host in self.config.hosts)):
+            yb_common.common.error("the '%s' host is not configured for testing,"
+                " run 'test_create_host_objects.py' to create host db objects for testing"
+                    % args.host, color='white')
+        elif len(self.config.hosts) == 0:
+            yb_common.common.error("currently there are no hosts configures for testing,"
+                " run 'test_create_host_objects.py' to create host db objects for testing"
+                    , color='white')
+        elif len(self.config.hosts) > 1 and not args.host:
+            yb_common.common.error("currently there is more than 1 host(%s) configures for testing,"
+                " use the --host option or YBHOST environment variable to select a host"
+                    % self.config.hosts, color='white')
+
+        if bool(args.name) == args.all: # exclusive or
+            yb_common.common.error("either the option --test_name or --all must be specified not both")
+
+        self.test_case_files = []
+        if args.name:
+            test_case_file_path = '%s/test_cases__%s.py' % (path, args.name)
+            if os.access(test_case_file_path, os.R_OK):
+                self.test_case_files.append(test_case_file_path)
+            else:
+                yb_common.common.error("test case '%s' has no test case file '%s'..."
+                    % (args.name, test_case_file_path))
+        else:
+            for test_case_file_path in glob.glob("%s/test_cases__*.py" % path):
+                if os.access(test_case_file_path, os.R_OK):
+                    self.test_case_files.append(test_case_file_path)
+        self.test_case_files.sort()
+
+        self.args = args
         return args
+
+
+    def init_config(self):
+        configFilePath = '%s/%s' % (os.path.expanduser('~'), '.YbEasyCli')
+
+        config = configparser.ConfigParser()
+        config.read(configFilePath)
+        config.hosts = []
+        for section in config.sections():
+            if section[0:5] == 'test_':
+                config.hosts.append(section[5:])
+        self.config = config
 
 
 execute_test_action()
