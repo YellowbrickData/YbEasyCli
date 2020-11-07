@@ -22,7 +22,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 class common:
-    version = '20201022'
+    version = '20201107'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -35,20 +35,23 @@ class common:
         self.start_ts = datetime.now()
 
     @staticmethod
-    def error(msg, exit_code=1):
+    def error(msg, exit_code=1, color='red', no_exit=False):
         sys.stderr.write("%s: %s\n" % (
             text.color(common.util_file_name, style='bold')
-            , text.color(msg, 'red')))
-        exit(exit_code)
+            , text.color(msg, color)))
+        if not no_exit:
+            exit(exit_code)
 
     @staticmethod
-    def read_file(file_path):
+    def read_file(file_path, on_read_error_exit=True, color='red'):
+        data = None
         try:
             with open(file_path) as f:
                 data = f.read()
                 f.close()
         except IOError as ioe:
-            common.error(ioe)
+            if on_read_error_exit:
+                common.error(ioe)
 
         return data
 
@@ -86,7 +89,12 @@ class common:
             , stdout=subprocess.PIPE
             , stderr=subprocess.PIPE
             , shell=True)
-        (stdout, stderr) = map(bytes.decode, p.communicate())
+        #(stdout, stderr) = map(bytes.decode, p.communicate())
+
+        (stdout, stderr) = p.communicate()
+        stdout = stdout.decode("utf-8")
+        stderr = stderr.decode("utf-8")
+
         end_time = datetime.now()
 
         results = cmd_results(p.returncode, stdout, stderr)
@@ -424,11 +432,16 @@ class cmd_results:
                 common.quote_object_paths(self.stdout)
                 if quote
                 else self.stdout)
-        if self.stderr != '':
-            sys.stderr.write(text.color(self.stderr, fg='red'))
+        if self.stderr != '' :
+            common.error(self.stderr, no_exit=True)
         else:
             sys.stdout.write(tail)
 
+    def on_error_exit(self, write=True):
+        if self.stderr != '' or self.exit_code != 0:
+            if write:
+                self.write()
+            exit(self.exit_code)
 
 class db_filter_args:
     """Class that handles database objects that are used as a filter 
@@ -776,14 +789,26 @@ class db_connect:
     env_to_set = conn_args.copy()
     env_to_set['pwd'] = 'YBPASSWORD'
 
-    def __init__(self, args=None, env=None, conn_type='', connect_timeout=10):
-        """
-                :param connect_timeout: database timeout in seconds when trying to
-            connect, defaults to 10 seconds
+    def __init__(self, args=None, env=None, conn_type=''
+        , connect_timeout=10, on_fail_exit=True):
+        """Creates a validated database connection object.
+        The connection settings can be received as a set of input arguments or
+        as environment strings but not both.
+
+        :param args: db setting arguments received from the command line
+        :param env: db setting received as environment strings
+        :param conn_type: used to name the connection in the case you require
+        more than 1 db connection, like; source and destination
+        :param connect_timeout: database timeout in seconds when trying to
+        connect, defaults to 10 seconds
+        :param on_fail_exit: on a failed db connection exit with an error
+        , default to True
         """
         self.database = None
         self.schema = None
         self.connect_timeout = connect_timeout
+        self.on_fail_exit = on_fail_exit
+        self.connected = False
         self.env_pre = self.get_env()
 
         arg_conn_prefix = ('' if (conn_type=='') else ('%s_' % conn_type))
@@ -877,44 +902,55 @@ class db_connect:
             """SELECT
     CURRENT_DATABASE() AS db
     , CURRENT_SCHEMA AS schema
+    , (SELECT encoding FROM sys.database WHERE name = CURRENT_DATABASE()) AS server_encoding
     , SPLIT_PART(VERSION(), ' ', 4) AS version
     , SPLIT_PART(version, '-', 1) AS version_number
     , SPLIT_PART(version, '-', 2) AS version_release
     , SPLIT_PART(version_number, '.', 1) AS version_major
     , SPLIT_PART(version_number, '.', 2) AS version_minor
     , SPLIT_PART(version_number, '.', 3) AS version_patch
-    , usesuper
-FROM pg_user
-WHERE usename = CURRENT_USER""")
+    , rolsuper AS is_super_user
+    , rolcreaterole AS has_create_user
+    , rolcreatedb AS has_create_db
+FROM pg_catalog.pg_roles
+WHERE rolname = CURRENT_USER""")
 
         db_info = cmd_results.stdout.split('|')
         if cmd_results.exit_code == 0:
             self.database = db_info[0]
             self.schema = db_info[1]
+            self.database_encoding = db_info[2]
             # if --current_schema arg was set check if it is valid
             # the sql CURRENT_SCHEMA will return an empty string
             if len(self.schema) == 0:
                 common.error('schema "%s" does not exist'
                     % self.current_schema)
+            self.connected = True
         else:
-            common.error(cmd_results.stderr.replace('ybsql', 'util')
-                    , cmd_results.exit_code)
+            if self.on_fail_exit:
+                common.error(cmd_results.stderr.replace('util', 'ybsql')
+                        , cmd_results.exit_code)
+            else:
+                self.connect_cmd_results = cmd_results
+                return
 
-        self.ybdb_version = db_info[2]
-        self.ybdb_version_number = db_info[3]
-        self.ybdb_version_release = db_info[4]
-        self.ybdb_version_major = int(db_info[5])
-        self.ybdb_version_minor = int(db_info[6])
-        self.ybdb_version_patch = int(db_info[7])
+        self.ybdb_version = db_info[3]
+        self.ybdb_version_number = db_info[4]
+        self.ybdb_version_release = db_info[5]
+        self.ybdb_version_major = int(db_info[6])
+        self.ybdb_version_minor = int(db_info[7])
+        self.ybdb_version_patch = int(db_info[8])
         self.ybdb_version_number_int = (
             self.ybdb_version_major * 10000
             + self.ybdb_version_minor * 100
             + self.ybdb_version_patch)
-        self.is_super_user = (True if db_info[8].strip() == 't' else False)
+        self.is_super_user = (True if db_info[9].strip() == 't' else False)
+        self.has_create_user = (True if db_info[10].strip() == 't' else False)
+        self.has_create_db = (True if db_info[11].strip() == 't' else False)
 
         if common.verbose >= 1:
             print(
-                '%s: %s, %s: %s, %s: %s, %s: %s, %s: %s, %s: %s, %s: %s'
+                '%s: %s, %s: %s, %s: %s, %s: %s, %s: %s, %s: %s, %s: %s, %s: %s'
                 % (
                     text.color('Connecting to Host', style='bold')
                     , text.color(self.env['host'], fg='cyan')
@@ -928,6 +964,8 @@ WHERE usename = CURRENT_USER""")
                     , text.color(self.database, fg='cyan')
                     , text.color('Current Schema', style='bold')
                     , text.color(self.schema, fg='cyan')
+                    , text.color('DB Encoding', style='bold')
+                    , text.color(self.database_encoding, fg='cyan')
                     , text.color('YBDB', style='bold')
                     , text.color(self.ybdb_version, fg='cyan')))
         #TODO fix this block
