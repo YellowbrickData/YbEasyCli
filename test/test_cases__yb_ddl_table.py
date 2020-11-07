@@ -62,7 +62,7 @@ DISTRIBUTE ON (col1);"""
             """--with_db  --with_rowcount --table_in data_types_t --""")
         , exit_code=0
         , stdout="""--Rowcount: 1,000,000  Table: {db1}.dev.data_types_t  At: 2020-09-25 16:47:47.103207-07
-CREATE TABLE dze_db1.dev.data_types_t (
+CREATE TABLE {db1}.dev.data_types_t (
     col1 BIGINT,
     col2 INTEGER,
     col3 SMALLINT,

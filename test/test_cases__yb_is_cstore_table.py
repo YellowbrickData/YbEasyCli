@@ -13,7 +13,7 @@ test_cases = [
 
     , test_case(
         cmd="""yb_is_cstore_table.py @{argsdir}/db1 --table data_types_t"""
-        , exit_code=2
+        , exit_code=1
         , stdout=""""""
-        , stderr="""ERROR:  relation "data_types_t" does not exist""")
+        , stderr="""yb_is_cstore_table.py: ERROR:  relation "data_types_t" does not exist""")
 ]

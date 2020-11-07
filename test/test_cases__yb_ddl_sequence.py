@@ -11,7 +11,7 @@ test_cases = [
             """dev Prod --sequence_like a1_seq --""")
         , exit_code=3
         , stdout="""CREATE SEQUENCE a1_seq START WITH 1000448;"""
-        , stderr="""ERROR:  relation "prod.a1_seq" does not exist
+        , stderr="""yb_ddl_sequence.py: ERROR:  relation "prod.a1_seq" does not exist
 LINE 1: SELECT * FROM Prod.a1_seq;
                       ^
 QUERY:  SELECT * FROM Prod.a1_seq;"""
@@ -23,7 +23,7 @@ QUERY:  SELECT * FROM Prod.a1_seq;"""
             """dev Prod --with_schema --sequence_like a1_seq --""")
         , exit_code=3
         , stdout="""CREATE SEQUENCE dev.a1_seq START WITH 1000448;"""
-        , stderr="""ERROR:  relation "prod.a1_seq" does not exist
+        , stderr="""yb_ddl_sequence.py: ERROR:  relation "prod.a1_seq" does not exist
 LINE 1: SELECT * FROM Prod.a1_seq;
                       ^
 QUERY:  SELECT * FROM Prod.a1_seq;""")
@@ -34,7 +34,7 @@ QUERY:  SELECT * FROM Prod.a1_seq;""")
             """dev Prod --with_db --sequence_like a1_seq --""")
         , exit_code=3
         , stdout="""CREATE SEQUENCE {db1}.dev.a1_seq START WITH 1000448;"""
-        , stderr="""ERROR:  relation "prod.a1_seq" does not exist
+        , stderr="""yb_ddl_sequence.py: ERROR:  relation "prod.a1_seq" does not exist
 LINE 1: SELECT * FROM Prod.a1_seq;
                       ^
 QUERY:  SELECT * FROM Prod.a1_seq;""")

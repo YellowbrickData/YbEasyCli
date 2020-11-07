@@ -26,7 +26,7 @@ sys
     , test_case(
         cmd=
             """yb_rstore_query_to_cstore_table.py @{argsdir}/db1 --query 'SELECT * FROM dev.data_types_t' --table 'schema'"""
-        , exit_code=2
+        , exit_code=1
         , stdout="""-- Converting row store query to column store table."""
-        , stderr='ERROR:  table/s from column store databese are NOT permitted in the input query...')
+        , stderr='yb_rstore_query_to_cstore_table.py: ERROR:  table/s from column store databese are NOT permitted in the input query...')
 ]
