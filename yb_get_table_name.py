@@ -35,9 +35,9 @@ class get_table_name:
         else:
             args_handler = yb_common.args_handler(
                 description=
-                    'List/Verifies that the specified table exists.',
-                required_args_single=['table'],
-                optional_args_multi=['owner'])
+                    'List/Verifies that the specified table exists.'
+                , required_args_single=['table']
+                , optional_args_multi=['owner'])
 
             args_handler.args_process()
             self.db_conn = yb_common.db_connect(args_handler.args)

@@ -74,7 +74,7 @@ class chunk_dml_by_date_part:
         self.args_handler.args_add_connection_group()
 
         args_chunk_r_grp = self.args_handler.args_parser.add_argument_group(
-            'chunking required arguments')
+            'required chunking arguments')
         args_chunk_r_grp.add_argument(
             "--table", required=True
             , help="table name, the name may be qualified if needed")
@@ -97,7 +97,7 @@ class chunk_dml_by_date_part:
             , help="the minimum rows that each chunk should contain")
 
         args_chunk_o_grp = self.args_handler.args_parser.add_argument_group(
-            'chunking optional arguments')
+            'optional chunking arguments')
         args_chunk_o_grp.add_argument("--verbose_chunk_off", action="store_false"
             , help="don't print additional chunking details, defaults to FALSE")
         args_chunk_o_grp.add_argument("--null_chunk_off", action="store_false"

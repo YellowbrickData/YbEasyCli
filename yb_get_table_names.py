@@ -34,7 +34,7 @@ class get_table_names:
         if db_conn:
             self.db_conn = db_conn
             self.db_filter_args = db_filter_args
-        else:
+        else:            
             args_handler = yb_common.args_handler(
                 description=
                     'List/Verifies that the specified table/s exist.'

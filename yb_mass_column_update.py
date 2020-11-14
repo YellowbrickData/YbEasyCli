@@ -86,7 +86,7 @@ class mass_column_update:
         self.args_handler.args_add_optional()
         self.args_handler.args_add_connection_group()
 
-        args_mass_r_grp = self.args_handler.args_parser.add_argument_group('mass update required arguments')
+        args_mass_r_grp = self.args_handler.args_parser.add_argument_group('required mass update arguments')
         args_mass_r_grp.add_argument(
             "--update_where_clause", required=True
             , help=("update column only if this boolean clause is satisfied, like: "
@@ -100,7 +100,7 @@ class mass_column_update:
                 "Note: the special use of the string '<columnname>' ")
         )
 
-        args_mass_o_grp = self.args_handler.args_parser.add_argument_group('mass update optional arguments')
+        args_mass_o_grp = self.args_handler.args_parser.add_argument_group('optional mass update arguments')
         args_mass_o_grp.add_argument(
             "--exec_updates"
             , action='store_true'

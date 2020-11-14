@@ -74,7 +74,7 @@ class chunk_dml_by_integer:
         self.args_handler.args_add_connection_group()
 
         args_chunk_r_grp = self.args_handler.args_parser.add_argument_group(
-            'chunking required arguments')
+            'required chunking arguments')
         args_chunk_r_grp.add_argument(
             "--table", required=True
             , help="table name, the name may be qualified if needed")
@@ -93,7 +93,7 @@ class chunk_dml_by_integer:
             , help="the minimum rows that each chunk should contain")
 
         args_chunk_o_grp = self.args_handler.args_parser.add_argument_group(
-            'chunking optional arguments')
+            'optional chunking arguments')
         args_chunk_o_grp.add_argument("--table_where_clause", default="TRUE"
             , help="filter the records to chunk, if this filter is applied it should also be"
                 " part of dml provided")

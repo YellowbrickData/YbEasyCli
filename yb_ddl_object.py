@@ -59,7 +59,7 @@ class ddl_object:
         self.args_handler.args_add_optional()
         self.args_handler.args_add_connection_group()
         
-        args_ddl_grp = self.args_handler.args_parser.add_argument_group('DDL arguments')
+        args_ddl_grp = self.args_handler.args_parser.add_argument_group('optional DDL arguments')
         args_ddl_grp.add_argument("--with_schema",
                                   action='store_true',
                                   help="add the schema name to the %s DDL"
