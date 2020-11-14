@@ -3,6 +3,8 @@
 and command execution that are common to all utilities in this package.
 """
 
+from yb_example_usage import example_usage
+
 import argparse
 import getpass
 import os
@@ -22,7 +24,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 class common:
-    version = '20201107'
+    version = '20201113'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -202,8 +204,9 @@ class args_handler:
                 , optional_args_multi, positional_args_usage)
 
     def init_default(self
-        , description, required_args_single, optional_args_single
-        , optional_args_multi, positional_args_usage):
+        , description, required_args_single
+        , optional_args_single, optional_args_multi
+        , positional_args_usage):
         """Build all the requested database arguments
 
         :param description: Help description
@@ -237,6 +240,22 @@ class args_handler:
     def formatter(self, prog):
         return argparse.RawDescriptionHelpFormatter(prog, width=100)
 
+    def args_usage_example(self):
+        if common.util_name in example_usage.examples.keys():
+            usage = example_usage.examples[common.util_name]
+            text = ('example usage:'
+                + '\n  ./%s %s' % (common.util_file_name, usage['cmd_line_args']))
+            
+            if 'file_args' in usage.keys():
+                for file_dict in usage['file_args']:
+                    for file in file_dict.keys():
+                        text = text + "\n\n  file '%s' contains:" % file
+                        for line in file_dict[file].split('\n'):
+                            text =  text + '\n    ' + line
+        else:
+            text = None
+        return(text)
+
     def args_process_init(self
         , description
         , positional_args_usage='[database]'
@@ -252,6 +271,10 @@ class args_handler:
             '\noptional argument file/s:'
             '\n  @arg_file             file containing arguments')
         description= '%s%s' % (description, description_epilog)
+
+        usage_example = self.args_usage_example()
+        if usage_example:
+            epilog = '%s%s' % ((epilog if epilog else ''), usage_example)
         self.args_parser = argparse.ArgumentParser(
             description=description
             , usage="%%(prog)s %s[options]" % (
@@ -316,7 +339,7 @@ class args_handler:
                     "YBPASSWORD env variable")
         else:
             conn_grp = self.args_parser.add_argument_group(
-                '%s connection arguments' % type_desc)
+                'connection %s arguments' % type_desc)
             conn_grp.add_argument(
                 "--%s_host" % type
                 , help="%s database server hostname, "
@@ -1101,16 +1124,18 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
         #   the RAISE INFO data to be returned as stdout. 
         if cmd_results.stderr.strip() != '':
             return_value = None
+            # TODO need to figure out howto split the real stderr from stderr RAISE INFO output
             stderr = ''
             stdout = cmd_results.stdout
+            stdout_lines = []
             for line in cmd_results.stderr.split('\n'):
-                if line[0:7] == 'INFO:  ':
-                    if line[0:20] == 'INFO:  >!>RETURN<!<:':
-                        return_value = line[20:].strip()
-                    else:
-                        stdout += line[7:] + '\n'
+                if line[0:20] == 'INFO:  >!>RETURN<!<:':
+                    return_value = line[20:].strip()
+                elif line[0:7] == 'INFO:  ':
+                    stdout_lines.append(line[7:])
                 else:
-                    stderr += line
+                    stdout_lines.append(line)
+            stdout += '\n'.join(stdout_lines)
 
             if not return_value:
                 common.error(cmd_results.stderr)
@@ -1132,13 +1157,60 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
 
         return cmd_results
 
-def convert_arg_line_to_args(line):
+def convert_arg_line_to_args_old(line):
+#TODO delete in the future once the new convert_arg_line_to_args proves itself
     for arg in shlex.split(line):
         if not arg.strip():
             continue
         if arg[0] == '#':
             break
         yield arg
+
+def convert_arg_line_to_args(line):
+    """This function overrides the convert_arg_line_to_args from argparse.
+    It enhances @arg files to have;
+        - # comment lines
+        - multiline arguments using python style triple double quote notation(in_hard_quote)
+    """
+    if line[0] == '#': # comment line skip
+        None
+    else:
+        if convert_arg_line_to_args.in_hard_quote:
+            convert_arg_line_to_args.dollar_str += '\n'
+        line_len = len(line)
+        loc = 0
+        args_str = ''
+        while loc < line_len:
+            # find '$$' in str
+            if line[loc:loc+3] == '"""':
+                loc += 3
+                convert_arg_line_to_args.in_hard_quote = not convert_arg_line_to_args.in_hard_quote
+                if convert_arg_line_to_args.in_hard_quote:
+                    if len(args_str) > 0:
+                        convert_arg_line_to_args.args.extend(shlex.split(args_str))
+                        args_str = ''
+                else:
+                    if len(convert_arg_line_to_args.dollar_str) > 0:
+                        convert_arg_line_to_args.args.append(convert_arg_line_to_args.dollar_str)
+                        dollar_str = ''
+            else:
+                if convert_arg_line_to_args.in_hard_quote:
+                    convert_arg_line_to_args.dollar_str += line[loc]
+                else:
+                    args_str += line[loc]
+                loc += 1
+                if loc == line_len and len(args_str) > 0:
+                    convert_arg_line_to_args.args.extend(shlex.split(args_str))
+                    args_str = ''
+
+    while convert_arg_line_to_args.arg_ct < len(convert_arg_line_to_args.args):
+        convert_arg_line_to_args.arg_ct += 1
+        yield convert_arg_line_to_args.args[convert_arg_line_to_args.arg_ct-1]
+
+convert_arg_line_to_args.in_hard_quote = False
+convert_arg_line_to_args.dollar_str = ''
+convert_arg_line_to_args.args = []
+convert_arg_line_to_args.arg_ct = 0
 
 # Standalone tests
 # Example: yb_common.py -h YB14 -U denav -D denav --verbose 3
