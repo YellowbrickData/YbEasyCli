@@ -4,7 +4,7 @@
 import os
 import sys
 import glob
-path = os.path.dirname(__file__)
+path = os.path.dirname(sys.argv[0])
 if len(path) == 0:
     path = '.'
 sys.path.append('%s/../' % path)
@@ -22,7 +22,6 @@ import yb_common
 import difflib
 from yb_common import text
 from yb_common import db_connect
-
 
 class test_case:
     """Contains structures for running tests and checking results."""
