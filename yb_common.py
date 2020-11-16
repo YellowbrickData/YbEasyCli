@@ -24,7 +24,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 class common:
-    version = '20201113'
+    version = '20201115'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -187,6 +187,39 @@ class common:
             tokens.append(token.strip())
 
         return tokens
+
+    @staticmethod
+    def apply_template(input, template, vars):
+        output = ''
+        vars.append('raw')
+        if input:
+            for line in input.strip().split('\n'):
+                if line[0:2] == '--':
+                    out_line = line
+                else:
+                    out_line = template
+                    for var in vars:
+                        if var in ('table_path', 'view_path', 'sequence_path'):
+                            value = common.quote_object_paths('.'.join(line.split('.')[0:3]))
+                        elif var == 'schema_path':
+                            value = common.quote_object_paths('.'.join(line.split('.')[0:2]))
+                        elif var == 'data_type':
+                            value = line.split('.')[5]
+                        elif var == 'ordinal':
+                            value = line.split('.')[4]
+                        elif var == 'column':
+                            value = line.split('.')[3]
+                        elif var in ('table', 'view', 'sequence'):
+                            value = line.split('.')[2]
+                        elif var == 'schema':
+                            value = line.split('.')[1]
+                        elif var == 'database':
+                            value = line.split('.')[0]
+                        elif var == 'raw':
+                            value = line
+                        out_line = out_line.replace('<%s>' % var, value)
+                output += out_line + '\n'
+        return output
 
 
 class args_handler:
@@ -455,7 +488,7 @@ class cmd_results:
                 common.quote_object_paths(self.stdout)
                 if quote
                 else self.stdout)
-        if self.stderr != '' :
+        if self.stderr != '':
             common.error(self.stderr, no_exit=True)
         else:
             sys.stdout.write(tail)

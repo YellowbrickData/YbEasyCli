@@ -26,7 +26,7 @@ class ddl_object:
     given object.
     """
 
-    def __init__(self, object_type, db_conn=None, args_handler=None, db_filter_args=None):
+    def __init__(self, object_type, db_conn=None, args_handler=None):
         """Initialize ddl_object class.
 
         This initialization performs argument parsing and login verification.
@@ -36,8 +36,7 @@ class ddl_object:
         self.object_type = object_type
         if db_conn:
             self.db_conn = db_conn
-            self.args_handler = args_handler
-            self.db_filter_args = db_filter_args
+            self.args_handler = args_handle
         else:
             self.args_handler = yb_common.args_handler()
             self.args_process()
@@ -76,7 +75,7 @@ class ddl_object:
                                   % self.object_type)
         self.args_add_by_object_type(args_ddl_grp)
 
-        self.db_filter_args = yb_common.db_filter_args(
+        self.args_handler.db_filter_args = yb_common.db_filter_args(
             required_args_single=[]
             , optional_args_single=[]
             , optional_args_multi=[self.object_type, 'schema']
@@ -116,9 +115,8 @@ class ddl_object:
                        module
         :return: A string containing the SQL DESCRIBE statement
         """
-        #if argv is double quoted it needs to also have outer single quotes
         code = ('get_{object_type}_names'
-            '(db_conn=self.db_conn, db_filter_args=self.db_filter_args)').format(
+            '(db_conn=self.db_conn, args_handler=self.args_handler)').format(
             object_type=self.object_type)
         gons = eval(code)
         gons.execute()

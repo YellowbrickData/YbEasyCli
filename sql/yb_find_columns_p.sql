@@ -30,9 +30,9 @@ SELECT
     , c.relname AS tablename
     , n.nspname AS schemaname
     , '<database>' AS databasename
-    , '"' || databasename || '"' 
-    || '."' || schemaname || '"'
-    || '."' || tablename || '"' AS tablepath
+    , databasename
+    || '.' || schemaname
+    || '.' || tablename AS tablepath
     , pg_get_userbyid(c.relowner) AS tableowner
 FROM <database>.pg_catalog.pg_class AS c
     LEFT JOIN <database>.pg_catalog.pg_namespace AS n
@@ -61,7 +61,7 @@ BEGIN
     --
     FOR v_rec_cols IN EXECUTE v_query_cols
     lOOP
-        RAISE INFO '-- Table: %, Column: %, Table Ordinal: %, Data Type: %'
+        RAISE INFO '%.%.%.%'
             , v_rec_cols.tablepath, v_rec_cols.columnname, v_rec_cols.columnordinal, v_rec_cols.datatype;
         v_col_ct := v_col_ct + 1;
     END LOOP;

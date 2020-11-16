@@ -113,4 +113,17 @@ test_cases = [
         , exit_code=0
         , stdout=''
         , stderr='')
+
+    , test_case(
+        cmd=(
+            "yb_get_view_names.py @{argsdir}/db1 --schema_in dev Prod"
+            """ --output_template "SELECT '<view_path> rows: ' || COUNT(*) FROM <view_path>;" --""")
+        , exit_code=0
+        , stdout="""SELECT '{db1}.dev.a1_v rows: ' || COUNT(*) FROM {db1}.dev.a1_v;
+SELECT '{db1}.dev.b1_v rows: ' || COUNT(*) FROM {db1}.dev.b1_v;
+SELECT '{db1}.dev.c1_v rows: ' || COUNT(*) FROM {db1}.dev.c1_v;
+SELECT '{db1}."Prod".a1_v rows: ' || COUNT(*) FROM {db1}."Prod".a1_v;
+SELECT '{db1}."Prod".b1_v rows: ' || COUNT(*) FROM {db1}."Prod".b1_v;
+SELECT '{db1}."Prod"."C1_v" rows: ' || COUNT(*) FROM {db1}."Prod"."C1_v";"""
+        , stderr='')
 ]
