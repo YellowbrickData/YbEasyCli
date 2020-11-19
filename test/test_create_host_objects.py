@@ -90,7 +90,7 @@ class create_objects:
                 break
 
         cmd_results = db_conn.ybsql_query(
-            "CREATE DATABASE {db1}; CREATE DATABASE {db2};"
+            "CREATE DATABASE {db1} ENCODING=LATIN9; CREATE DATABASE {db2} ENCODING=UTF8;"
             " ALTER DATABASE {db1} OWNER TO {user};"
             " ALTER DATABASE {db2} OWNER TO {user};"
             " GRANT CONNECT ON DATABASE {db1} TO {user};"
