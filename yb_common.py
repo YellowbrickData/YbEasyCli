@@ -24,12 +24,12 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 class common:
-    version = '20201115'
+    version = '20201118'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
     util_file_name = os.path.basename(os.path.realpath(sys.argv[0]))
-    util_name = util_file_name.split('.')[0]
+    util_name = util_file_name.split('.')[0][3:]
 
     def __init__(self):
         """Create an instance of the common library used by all utilities
@@ -93,9 +93,10 @@ class common:
             , shell=True)
         #(stdout, stderr) = map(bytes.decode, p.communicate())
 
+        #TODO change the decode to reflect coding used in the DB connection
         (stdout, stderr) = p.communicate()
-        stdout = stdout.decode("utf-8")
-        stderr = stderr.decode("utf-8")
+        stdout = stdout.decode("utf-8", errors='ignore')
+        stderr = stderr.decode("utf-8", errors='ignore')
 
         end_time = datetime.now()
 
@@ -188,9 +189,24 @@ class common:
 
         return tokens
 
+    output_tmplt_vars = {
+        'get_column_names': ['table_path', 'schema_path', 'column', 'table', 'schema', 'database']
+        , 'get_sequence_names': ['sequence_path', 'schema_path', 'sequence', 'schema', 'database']
+        , 'get_table_names': ['table_path', 'schema_path', 'table', 'schema', 'database']
+        , 'get_view_names': ['view_path', 'schema_path', 'view', 'schema', 'database']
+        , 'find_columns': ['table_path', 'schema_path', 'column', 'ordinal', 'data_type', 'table', 'schema', 'database'] 
+    }
+    output_tmplt_default = {
+        'get_column_names': '<column>'
+        , 'get_sequence_names': '<sequence_path>'
+        , 'get_table_names': '<table_path>'
+        , 'get_view_names': '<view_path>'
+        , 'find_columns': '-- Table: <table_path>, Column: <column>, Table Ordinal: <ordinal>, Data Type: <data_type>' 
+    }
     @staticmethod
-    def apply_template(input, template, vars):
+    def apply_template(input, template, util_name):
         output = ''
+        vars = common.output_tmplt_vars[util_name]
         vars.append('raw')
         if input:
             for line in input.strip().split('\n'):
@@ -264,6 +280,9 @@ class args_handler:
         self.args_add_optional()
         self.args_add_connection_group()
         
+        if common.util_name in common.output_tmplt_vars.keys():
+            self.add_output_args()
+
         self.db_filter_args = db_filter_args(
             required_args_single
             , optional_args_single
@@ -302,7 +321,8 @@ class args_handler:
         description_epilog = (
             '\n'
             '\noptional argument file/s:'
-            '\n  @arg_file             file containing arguments')
+            '\n  @arg_file             file containing arguments'
+            '\n                        to enter multi-line argument, use: --arg """multi-line value"""')
         description= '%s%s' % (description, description_epilog)
 
         usage_example = self.args_usage_example()
@@ -422,6 +442,22 @@ class args_handler:
             "--version", "-v"
             , action="version", version=common.version
             , help="display the program version and exit")
+
+    def add_output_args(self):
+        args_optional_grp = self.args_parser.add_argument_group(
+            'optional output arguments')
+
+        args_optional_grp.add_argument(
+            "--output_template", metavar='template', dest='template'
+            , help="template used to print output"
+                ", defaults to \"\"\"%s\"\"\""
+                ", template variables include; %s"
+                    % (common.output_tmplt_default[common.util_name]
+                        , '<' + '>, <'.join(common.output_tmplt_vars[common.util_name]) + '>' )
+            , default=common.output_tmplt_default[common.util_name])
+        args_optional_grp.add_argument(
+            "--exec_output", action="store_true"
+            , help="execute output as SQL, defaults to FALSE")
 
     def args_process(self):
         """Process arguments.
