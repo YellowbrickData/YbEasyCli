@@ -15,7 +15,7 @@ RETURNS BOOLEAN
 --        schemaname, tablename, columnname, datatype
 --    a_exec_updates: execute the updates, default is FALSE
 -- Note:
---    the special string '<columnname>' can be used in the arguments a_update_where_clause
+--    the special string '<column>' can be used in the arguments a_update_where_clause
 --        and a_set_clause to aid in building dynamic SQL clauses
 /*
 -- Examples usage:
@@ -23,7 +23,7 @@ RETURNS BOOLEAN
 -- for all columns which of the datatype CHARACTER and contain the string
 --     '\NULL update the values to NULL  
 SELECT yb_mass_column_update(
-    $$"<columnname>" = '\NULL'$$
+    $$"<column>" = '\NULL'$$
     , $$NULL$$
     , $$
 tableowner LIKE '%'
@@ -37,8 +37,8 @@ $$
 -- for all columns which are of the datatype CHARACTER and contain trailing
 --     spaces update the values removing the trailing spaces
 SELECT yb_mass_column_update(
-    $$LENGTH("<columnname>") <> LENGTH(RTRIM("<columnname>"))$$
-    , $$RTRIM("<columnname>")$$
+    $$LENGTH("<column>") <> LENGTH(RTRIM("<column>"))$$
+    , $$RTRIM("<column>")$$
     , $$
 tableowner LIKE '%'
 AND schemaname LIKE '%'
@@ -94,14 +94,14 @@ SELECT
     '    ' AS i1, i1 || i1 AS i2
     , DECODE(TRUE, is_first_row_in_table, 'SELECT' || CHR(13) || CHR(10) || i2, i2 || ', ')
     || REPLACE(
-        $STR2$SUM(DECODE(TRUE, <update_where_clause>, 1, 0)) AS "update_<columnname>_ct"$STR2$
-        , '<columnname>', columnname) || CHR(13) || CHR(10)
+        $STR2$SUM(DECODE(TRUE, <update_where_clause>, 1, 0)) AS "update_<column>_ct"$STR2$
+        , '<column>', columnname) || CHR(13) || CHR(10)
     || DECODE(TRUE, is_last_row_in_table, i1 || 'FROM' || CHR(13) || CHR(10) || i2 || tablepath , '')
     AS check_query
     , DECODE(TRUE, is_first_row_in_table, '', i1 || 'UNION ALL ') || 'SELECT '
     || REPLACE(REPLACE(REPLACE(
-        $STR2$<columnordinal> AS columnordinal, '<columnname>' AS columnname, '<tablepath>' AS tablepath, "update_<columnname>_ct" AS ct $STR2$
-        , '<columnname>', columnname)
+        $STR2$<columnordinal> AS columnordinal, '<column>' AS columnname, '<tablepath>' AS tablepath, "update_<column>_ct" AS ct $STR2$
+        , '<column>', columnname)
         , '<columnordinal>', columnordinal::VARCHAR)
         , '<tablepath>', tablepath)
     || 'FROM check_cte' || DECODE(TRUE, is_last_row_in_table, '', CHR(13) || CHR(10))
@@ -158,11 +158,11 @@ BEGIN
             FOR v_rec_check IN EXECUTE v_query_check
             lOOP
                 v_query_update := REPLACE(REPLACE(REPLACE(REPLACE(
-                    $STR1$UPDATE <tablepath> SET "<columnname>" = <set_clause> WHERE <update_where_clause>$STR1$
+                    $STR1$UPDATE <tablepath> SET "<column>" = <set_clause> WHERE <update_where_clause>$STR1$
                     , '<update_where_clause>', a_update_where_clause)
                     , '<set_clause>', a_set_clause)
                     , '<tablepath>', v_rec_check.tablepath)
-                    , '<columnname>', v_rec_check.columnname);
+                    , '<column>', v_rec_check.columnname);
                 IF a_exec_updates THEN
                     v_query_update := REPLACE(
                         '/* updating <ct> row/s */ ' || v_query_update
