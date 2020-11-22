@@ -15,40 +15,13 @@ Output:
       e.g., CHARACTER(10)
             INTEGER
 """
-import sys
+from yb_util import util
 
-import yb_common
-
-
-class get_column_type:
+class get_column_type(util):
     """Issue the ybsql command used to get a column's defined data type."""
 
-    def __init__(self, db_conn=None, db_filter_args=None):
-        """Initialize get_column_type class.
-
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        exec
-        """
-        if db_conn:
-            self.db_conn = db_conn
-            self.db_filter_args = db_filter_args
-        else:
-            args_handler = yb_common.args_handler(
-                description='Return the data type of the requested column.',
-                required_args_single=['table', 'column'],
-                optional_args_multi=['owner'])
-
-            args_handler.args_process()
-            self.db_conn = yb_common.db_connect(args_handler.args)
-            self.db_filter_args = args_handler.db_filter_args
-
     def execute(self):
-        filter_clause = self.db_filter_args.build_sql_filter({
-            'owner':'tableowner'
-            , 'schema':'schemaname'
-            , 'table':'tablename'
-            , 'column':'columnname'})
+        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
 
         sql_query = """
 WITH

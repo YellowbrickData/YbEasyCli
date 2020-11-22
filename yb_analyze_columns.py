@@ -13,43 +13,16 @@ OPTIONS:
 Output:
       Various column statistics for desired table/s column/s.
 """
-
 import sys
-import os
-import re
 
-import yb_common
+from yb_util import util
 
-class analyze_columns:
+class analyze_columns(util):
     """Issue the ybsql command used to analyze the data content of a table's column/s
     """
 
-    def __init__(self, db_conn=None, args_handler=None, db_filter_args=None):
-        """Initialize analyze_columns class.
-
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        exec
-        """
-        if db_conn:
-            self.db_conn = db_conn
-            self.args_handler = args_handler
-            self.db_filter_args = db_filter_args
-        else:
-            self.args_handler = yb_common.args_handler(
-                description="Analyze the data content of a table's columns."
-                , required_args_single=['table']
-                , optional_args_multi=['owner', 'schema', 'column'])
-
-            self.args_handler.args_process()
-            self.db_conn = yb_common.db_connect(self.args_handler.args)
-            self.db_filter_args = self.args_handler.db_filter_args
-
     def execute(self):
-        filter_clause = self.db_filter_args.build_sql_filter({
-            'owner':'tableowner'
-            , 'schema':'schemaname'
-            , 'column':'columnname'})
+        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
 
         sys.stdout.write('-- Running column analysis.\n')
 

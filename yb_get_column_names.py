@@ -13,51 +13,15 @@ OPTIONS:
 Output:
       The column names for the object will be listed out, one per line.
 """
+from yb_util import util
 
-import sys
-
-import yb_common
-from yb_common import common
-
-
-class get_column_names:
+class get_column_names(util):
     """Issue the ybsql command used to list the column names comprising an
     object.
     """
 
-    def __init__(self, db_conn=None, args_handler=None):
-        """Initialize get_column_names class.
-
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        exec
-        """
-        self.util_name = self.__class__.__name__
-        if db_conn:
-            self.db_conn = db_conn
-            self.args_handler = args_handler
-            if not hasattr(self.args_handler.args, 'template'):
-                self.args_handler.args.template = '<raw>'
-            if not hasattr(self.args_handler.args, 'exec_output'):
-                self.args_handler.args.exec_output = False
-        else:
-            self.args_handler = yb_common.args_handler(
-                description=
-                    'List/Verifies that the specified column names exist.',
-                optional_args_multi=['owner', 'column'],
-                positional_args_usage='[database] object')
-
-            self.args_handler.args_process()
-            self.db_conn = yb_common.db_connect(self.args_handler.args)
-        self.db_filter_args = self.args_handler.db_filter_args
-
     def execute(self):
-        filter_clause = self.db_filter_args.build_sql_filter({
-            'owner':'tableowner'
-            ,'schema':'schemaname'
-            ,'object':'objectname'
-            ,'column':'columnname'}
-            , indent='    ')
+        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
 
         sql_query = """
 WITH
@@ -90,16 +54,7 @@ ORDER BY
              , database_name = self.db_conn.database
              , object_name = self.args_handler.args.object)
 
-        self.cmd_results = self.db_conn.ybsql_query(sql_query)
-
-        if self.cmd_results.stderr == '' and self.cmd_results.exit_code == 0:
-            self.cmd_results.stdout = common.apply_template(
-                self.cmd_results.stdout
-                , self.args_handler.args.template, self.util_name)
-            if self.args_handler.args.template == common.output_tmplt_default[self.util_name]:
-                self.cmd_results.stdout = common.quote_object_paths(self.cmd_results.stdout)
-            if self.args_handler.args.exec_output:
-                self.cmd_results = self.db_conn.ybsql_query(self.cmd_results.stdout)
+        self.exec_query_and_apply_template(sql_query, quote_default=True)
 
 def main():
     gcns = get_column_names()

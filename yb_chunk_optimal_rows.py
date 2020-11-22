@@ -17,34 +17,14 @@ OUTPUT:
 NOTES:
       This calculation is experimental.
 """
-
 import sys
 
 import yb_common
+from yb_util import util
 
-class chunk_optimal_rows:
+class chunk_optimal_rows(util):
     """Issue the ybsql command to determine the optimal number of rows per chunk for a table.
     """
-
-    def __init__(self, db_conn=None, args_handler=None):
-        """Initialize chunk_optimal_rows class.
-
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        execution.
-        """
-        if db_conn:
-            self.db_conn = db_conn
-            self.args_handler = args_handler
-        else:
-            self.args_handler = yb_common.args_handler(
-                description='Determine the optimal number of rows per chunk for a table.'
-                , required_args_single=['table']
-                , optional_args_single=['database', 'schema']
-                , positional_args_usage=[])
-
-            self.args_handler.args_process()
-            self.db_conn = yb_common.db_connect(self.args_handler.args)
 
     def execute(self):
         schema = (

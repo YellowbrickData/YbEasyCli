@@ -3,8 +3,6 @@
 and command execution that are common to all utilities in this package.
 """
 
-from yb_example_usage import example_usage
-
 import argparse
 import getpass
 import os
@@ -24,7 +22,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 class common:
-    version = '20201118'
+    version = '20201120'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -189,73 +187,16 @@ class common:
 
         return tokens
 
-    output_tmplt_vars = {
-        'get_column_names': ['table_path', 'schema_path', 'column', 'table', 'schema', 'database']
-        , 'get_sequence_names': ['sequence_path', 'schema_path', 'sequence', 'schema', 'database']
-        , 'get_table_names': ['table_path', 'schema_path', 'table', 'schema', 'database']
-        , 'get_view_names': ['view_path', 'schema_path', 'view', 'schema', 'database']
-        , 'find_columns': ['table_path', 'schema_path', 'column', 'ordinal', 'data_type', 'table', 'schema', 'database'] 
-    }
-    output_tmplt_default = {
-        'get_column_names': '<column>'
-        , 'get_sequence_names': '<sequence_path>'
-        , 'get_table_names': '<table_path>'
-        , 'get_view_names': '<view_path>'
-        , 'find_columns': '-- Table: <table_path>, Column: <column>, Table Ordinal: <ordinal>, Data Type: <data_type>' 
-    }
-    @staticmethod
-    def apply_template(input, template, util_name):
-        output = ''
-        vars = common.output_tmplt_vars[util_name]
-        vars.append('raw')
-        if input:
-            for line in input.strip().split('\n'):
-                if line[0:2] == '--':
-                    out_line = line
-                else:
-                    out_line = template
-                    for var in vars:
-                        if var in ('table_path', 'view_path', 'sequence_path'):
-                            value = common.quote_object_paths('.'.join(line.split('.')[0:3]))
-                        elif var == 'schema_path':
-                            value = common.quote_object_paths('.'.join(line.split('.')[0:2]))
-                        elif var == 'data_type':
-                            value = line.split('.')[5]
-                        elif var == 'ordinal':
-                            value = line.split('.')[4]
-                        elif var == 'column':
-                            value = line.split('.')[3]
-                        elif var in ('table', 'view', 'sequence'):
-                            value = line.split('.')[2]
-                        elif var == 'schema':
-                            value = line.split('.')[1]
-                        elif var == 'database':
-                            value = line.split('.')[0]
-                        elif var == 'raw':
-                            value = line
-                        out_line = out_line.replace('<%s>' % var, value)
-                output += out_line + '\n'
-        return output
-
 
 class args_handler:
     """This class contains functions used for argument parsing
     """
-    def __init__(self
-        , description=None
-        , required_args_single=[]
-        , optional_args_single=['schema']
-        , optional_args_multi=[]
-        , positional_args_usage='[database]'):
-        if description is not None:
-            self.init_default(
-                description, required_args_single, optional_args_single
-                , optional_args_multi, positional_args_usage)
+    def __init__(self, config, init_default=True):
+        self.config = config
+        if init_default:
+            self.init_default()
 
-    def init_default(self
-        , description, required_args_single
-        , optional_args_single, optional_args_multi
-        , positional_args_usage):
+    def init_default(self):
         """Build all the requested database arguments
 
         :param description: Help description
@@ -267,6 +208,12 @@ class args_handler:
             be filtered for multiple objects, like: ['db', 'owner', 'table']
         :param positional_args_usage: positional args, defaults to '[database]'
         """
+        description = self.config['description']
+        required_args_single = self.config['required_args_single']
+        optional_args_single = self.config['optional_args_single']
+        optional_args_multi = self.config['optional_args_multi']
+        positional_args_usage = self.config['positional_args_usage']
+
         if (
             ('schema' in optional_args_single)
             and (
@@ -274,13 +221,13 @@ class args_handler:
                 or ('schema' in optional_args_multi))):
             optional_args_single.remove('schema')
 
-        self.args_process_init(description, positional_args_usage)
+        self.args_process_init()
 
         self.args_add_positional_args()
         self.args_add_optional()
         self.args_add_connection_group()
         
-        if common.util_name in common.output_tmplt_vars.keys():
+        if self.config['output_tmplt_default']:
             self.add_output_args()
 
         self.db_filter_args = db_filter_args(
@@ -292,32 +239,16 @@ class args_handler:
     def formatter(self, prog):
         return argparse.RawDescriptionHelpFormatter(prog, width=100)
 
-    def args_usage_example(self):
-        if common.util_name in example_usage.examples.keys():
-            usage = example_usage.examples[common.util_name]
-            text = ('example usage:'
-                + '\n  ./%s %s' % (common.util_file_name, usage['cmd_line_args']))
-            
-            if 'file_args' in usage.keys():
-                for file_dict in usage['file_args']:
-                    for file in file_dict.keys():
-                        text = text + "\n\n  file '%s' contains:" % file
-                        for line in file_dict[file].split('\n'):
-                            text =  text + '\n    ' + line
-        else:
-            text = None
-        return(text)
-
-    def args_process_init(self
-        , description
-        , positional_args_usage='[database]'
-        , epilog=None):
+    def args_process_init(self, epilog=None):
         """Create an ArgumentParser object.
 
         :param description: Text to display before the argument help
         :param positional_args_usage: Description of how positional arguments
                                       are used
         """
+        description = self.config['description']
+        positional_args_usage = self.config['positional_args_usage']
+
         description_epilog = (
             '\n'
             '\noptional argument file/s:'
@@ -452,12 +383,28 @@ class args_handler:
             , help="template used to print output"
                 ", defaults to \"\"\"%s\"\"\""
                 ", template variables include; %s"
-                    % (common.output_tmplt_default[common.util_name]
-                        , '<' + '>, <'.join(common.output_tmplt_vars[common.util_name]) + '>' )
-            , default=common.output_tmplt_default[common.util_name])
+                    % (self.config['output_tmplt_default']
+                        , '<' + '>, <'.join(self.config['output_tmplt_vars']) + '>' )
+            , default=self.config['output_tmplt_default'])
         args_optional_grp.add_argument(
             "--exec_output", action="store_true"
             , help="execute output as SQL, defaults to FALSE")
+
+    def args_usage_example(self):
+        usage = self.config['usage_example']
+        if len(usage):
+            text = ('example usage:'
+                + '\n  ./%s %s' % (common.util_file_name, usage['cmd_line_args']))
+            
+            if 'file_args' in usage.keys():
+                for file_dict in usage['file_args']:
+                    for file in file_dict.keys():
+                        text = text + "\n\n  file '%s' contains:" % file
+                        for line in file_dict[file].split('\n'):
+                            text =  text + '\n    ' + line
+        else:
+            text = None
+        return(text)
 
     def args_process(self):
         """Process arguments.

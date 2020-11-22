@@ -14,16 +14,16 @@ OPTIONS:
 Output:
       Chunked DML statements.
 """
-
 import sys
 
 import yb_common
+from yb_util import util
 
-class chunk_dml_by_integer:
+class chunk_dml_by_integer(util):
     """Issue the ybsql command used to create/execute DML chunked by an integer column
     """
 
-    def __init__(self, db_conn=None, args_handler=None):
+    def init(self, db_conn=None, args_handler=None):
         """Initialize chunk_dml_by_integer class.
 
         This initialization performs argument parsing and login verification.
@@ -34,7 +34,7 @@ class chunk_dml_by_integer:
             self.db_conn = db_conn
             self.args_handler = args_handler
         else:
-            self.args_handler = yb_common.args_handler()
+            self.args_handler = yb_common.args_handler(self.config, init_default=False)
 
             self.add_args()
 
@@ -42,8 +42,7 @@ class chunk_dml_by_integer:
             self.db_conn = yb_common.db_connect(self.args_handler.args)
 
         if '<chunk_where_clause>' not in self.args_handler.args.dml:
-            sys.stderr.write("DML must contain the string '<chunk_where_clause>'\n")
-            exit(1)
+            yb_common.common.error("DML must contain the string '<chunk_where_clause>'")
 
         if not self.args_handler.args.execute_chunk_dml:
             self.args_handler.args.pre_sql = ''
@@ -66,12 +65,10 @@ class chunk_dml_by_integer:
             , post_sql = self.args_handler.args.post_sql)
 
     def add_args(self):
-        self.args_handler.args_process_init(
-            description=('Chunk DML by INTEGER column.')
-            , positional_args_usage='')
-
+        self.args_handler.args_process_init()
         self.args_handler.args_add_optional()
         self.args_handler.args_add_connection_group()
+        self.args_handler.args_usage_example()
 
         args_chunk_r_grp = self.args_handler.args_parser.add_argument_group(
             'required chunking arguments')
@@ -112,7 +109,8 @@ class chunk_dml_by_integer:
 
 
 def main():
-    cdml = chunk_dml_by_integer()
+    cdml = chunk_dml_by_integer(init_default=False)
+    cdml.init()
 
     sys.stdout.write('-- Running DML chunking.\n')
     cdml.execute()

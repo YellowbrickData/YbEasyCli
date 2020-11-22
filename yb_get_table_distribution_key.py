@@ -18,44 +18,18 @@ Output:
       If the table is distributed on random (round-robin), then this script will
       simply return the string  RANDOM
 """
-
 import sys
 
-import yb_common
-from yb_common import text
+from yb_common import common
+from yb_util import util
 
-
-class get_table_distribution_key:
+class get_table_distribution_key(util):
     """Issue the ybsql command used to identify the column name(s) on which
     this table is distributed.
     """
 
-    def __init__(self, db_conn=None, db_filter_args=None):
-        """Initialize get_table_distribution_key class.
-
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        exec
-        """
-        if db_conn:
-            self.db_conn = db_conn
-            self.db_filter_args = db_filter_args
-        else:
-            self.args_handler = yb_common.args_handler(
-                description=
-                    'Identify the distribution column or type (random '
-                    'or replicated) of the requested table.',
-                required_args_single=['table'],
-                optional_args_multi=['owner'])
-
-            self.args_handler.args_process()
-            self.db_conn = yb_common.db_connect(self.args_handler.args)
-            self.db_filter_args = self.args_handler.db_filter_args
-
     def execute(self):
-        filter_clause = self.db_filter_args.build_sql_filter(
-            {'owner':'ownername','schema':'schemaname','table':'tablename'}
-            , indent='    ')
+        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
 
         sql_query = """
 WITH
@@ -89,21 +63,19 @@ WHERE
 
         self.cmd_results = self.db_conn.ybsql_query(sql_query)
 
+        if self.cmd_results.stdout != '':
+            if self.cmd_results.stdout.strip() in ('RANDOM', 'REPLICATED'):
+                sys.stdout.write(self.cmd_results.stdout)
+            else:
+                sys.stdout.write(common.quote_object_paths(self.cmd_results.stdout))
+        if self.cmd_results.stderr != '':
+            sys.stdout.write(text.color(self.cmd_results.stderr, fg='red'))
 
 def main():
     gtdk = get_table_distribution_key()
     gtdk.execute()
 
-    if gtdk.cmd_results.stdout != '':
-        if gtdk.cmd_results.stdout.strip() in ('RANDOM', 'REPLICATED'):
-            sys.stdout.write(gtdk.cmd_results.stdout)
-        else:
-            sys.stdout.write(yb_common.common.quote_object_paths(gtdk.cmd_results.stdout))
-    if gtdk.cmd_results.stderr != '':
-        sys.stdout.write(text.color(gtdk.cmd_results.stderr, fg='red'))
-
     exit(gtdk.cmd_results.exit_code)
-
 
 if __name__ == "__main__":
     main()

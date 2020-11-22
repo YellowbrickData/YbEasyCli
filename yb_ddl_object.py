@@ -16,17 +16,17 @@ import sys
 
 import yb_common
 from yb_common import text
+from yb_util import util
 from yb_get_table_names import get_table_names
 from yb_get_view_names import get_view_names
 from yb_get_sequence_names import get_sequence_names
 
-
-class ddl_object:
+class ddl_object(util):
     """Issue the command used to dump out the SQL/DDL that was used to create a
     given object.
     """
 
-    def __init__(self, object_type, db_conn=None, args_handler=None):
+    def init(self, object_type, db_conn=None, args_handler=None):
         """Initialize ddl_object class.
 
         This initialization performs argument parsing and login verification.
@@ -38,7 +38,7 @@ class ddl_object:
             self.db_conn = db_conn
             self.args_handler = args_handle
         else:
-            self.args_handler = yb_common.args_handler()
+            self.args_handler = yb_common.args_handler(self.config)
             self.args_process()
             self.db_conn = yb_common.db_connect(self.args_handler.args)
 
@@ -49,11 +49,7 @@ class ddl_object:
                 , help="display the current rowcount")
 
     def args_process(self):
-        self.args_handler.args_process_init(
-            description=('Return the {obj_type}/s DDL for the requested '
-                         'database.  Use {obj_type} filters to limit the set '
-                         'of tables returned.').format(obj_type=self.object_type))
-
+        self.args_handler.args_process_init()
         self.args_handler.args_add_positional_args()
         self.args_handler.args_add_optional()
         self.args_handler.args_add_connection_group()
@@ -199,8 +195,9 @@ class ddl_object:
         return new_ddl
 
 
-def main(object_type):
-    ddlo = ddl_object(object_type)
+def main(util_name):
+    ddlo = ddl_object(util_name=util_name, init_default=False)
+    ddlo.init(object_type=util_name[4:])
     ddlo.execute()
 
     ddlo.cmd_results.write()

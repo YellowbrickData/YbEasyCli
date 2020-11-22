@@ -22,14 +22,15 @@ from datetime import datetime
 
 import yb_common
 from yb_common import db_connect
+from yb_util import util
 from yb_chunk_dml_by_integer import chunk_dml_by_integer
 
-class yb_to_yb_copy_table:
+class yb_to_yb_copy_table(util):
     """Issue the command used to list the table names found in a particular
     database.
     """
 
-    def __init__(self, src_conn=None, dst_conn=None, args_handler=None):
+    def init(self, src_conn=None, dst_conn=None, args_handler=None):
         """Initialize yb_to_yb_copy_tables class.
 
         This initialization performs argument parsing and login verification.
@@ -41,26 +42,18 @@ class yb_to_yb_copy_table:
             self.dst_conn = dst_conn
             self.args_handler = args_handler
         else:
-            self.args_handler = yb_common.args_handler()
+            self.args_handler = yb_common.args_handler(self.config, init_default=False)
 
             self.add_args()
 
             self.args_handler.args_process()
 
     def add_args(self):
-        self.args_handler.args_process_init(
-            description=(
-                'Copy a table from a source cluster to a destination cluster.'
-                '\n'
-                '\nnote:'
-                '\n  If the src and dst user password differ use SRC_YBPASSWORD and DST_YBPASSWORD env variables.'
-                '\n  For manual password entry unset all env passwords or use the --src_W and --dst_W options.')
-            , positional_args_usage='')
-
+        self.args_handler.args_process_init()
         self.args_handler.args_add_optional()
-
         self.args_handler.args_add_connection_group('src', 'source')
         self.args_handler.args_add_connection_group('dst', 'destination')
+        self.args_handler.args_usage_example()
 
         copy_table_r_grp = self.args_handler.args_parser.add_argument_group('required copy table arguments')
         copy_table_r_grp.add_argument(
@@ -199,7 +192,8 @@ class yb_to_yb_copy_table:
         self.args_handler.args.column = 'rowunique'
         self.args_handler.args.table_where_clause = self.args_handler.args.where_clause
 
-        cdml = chunk_dml_by_integer(db_conn=self.src_conn, args_handler=self.args_handler)
+        cdml = chunk_dml_by_integer(init_default=False)
+        cdml.init(db_conn=self.src_conn, args_handler=self.args_handler)
         cdml.execute()
         if cdml.cmd_results.exit_code:
             cdml.cmd_results.write()
@@ -258,7 +252,8 @@ class yb_to_yb_copy_table:
         exit(0)
 
 def main():
-    ytoy = yb_to_yb_copy_table()
+    ytoy = yb_to_yb_copy_table(init_default=False)
+    ytoy.init()
 
     ytoy.set_db_connections()
 
