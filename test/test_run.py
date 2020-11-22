@@ -19,6 +19,7 @@ import re
 import shutil
 import getpass
 import yb_common
+from yb_util import util
 import difflib
 from yb_common import text
 from yb_common import db_connect
@@ -242,11 +243,13 @@ class execute_test_action:
 
         :return: An instance of the `args` class
         """
-        args_handler = yb_common.args_handler()
+        cnfg = util.configs['default'].copy()
+        cnfg['description'] = 'Run unit test cases on utility.'
+        cnfg['positional_args_usage'] = None
 
-        args_handler.args_process_init(
-            description='Run unit test cases on utility.'
-            , positional_args_usage=[])
+        args_handler = yb_common.args_handler(cnfg, init_default=False)
+
+        args_handler.args_process_init()
 
         args_handler.args_add_positional_args()
         args_handler.args_add_optional()

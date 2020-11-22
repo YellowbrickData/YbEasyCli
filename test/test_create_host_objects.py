@@ -18,6 +18,7 @@ if hasattr(__builtins__, 'raw_input'):   # for python2
     input=raw_input
 
 import getpass
+from yb_util import util
 import yb_common
 from yb_common import text
 from yb_common import db_connect
@@ -146,11 +147,13 @@ class create_objects:
 
         :return: An instance of the `args` class
         """
-        args_handler = yb_common.args_handler()
+        cnfg = util.configs['default'].copy()
+        cnfg['description'] = 'Create test user, database, and database objects.'
+        cnfg['positional_args_usage'] = None
 
-        args_handler.args_process_init(
-            description='Create test user, database, and database objects.'
-            , positional_args_usage=None)
+        args_handler = yb_common.args_handler(cnfg, init_default=False)
+
+        args_handler.args_process_init()
 
         args_handler.args_add_optional()
         args_handler.args_add_connection_group()

@@ -21,6 +21,7 @@ import re
 import shutil
 import getpass
 import yb_common
+from yb_util import util
 import difflib
 from yb_common import text
 from yb_common import db_connect
@@ -100,11 +101,13 @@ class drop_objects:
 
         :return: An instance of the `args` class
         """
-        args_handler = yb_common.args_handler()
+        cnfg = util.configs['default'].copy()
+        cnfg['description'] = 'Drop test user, database, and database objects.'
+        cnfg['positional_args_usage'] = None
 
-        args_handler.args_process_init(
-            description='Drop test user, database, and database objects.'
-            , positional_args_usage=None)
+        args_handler = yb_common.args_handler(cnfg, init_default=False)
+
+        args_handler.args_process_init()
 
         args_handler.args_add_optional()
         args_handler.args_add_connection_group()
