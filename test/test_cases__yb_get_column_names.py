@@ -85,5 +85,6 @@ MAX col16 value: 90:90:84:08:90:90
 MAX col17 value: 90:90:84:08:90:90:84:08
 MAX col18 value: true
 MAX col19 value: 20420306"""
-        , stderr='')
+        , stderr=''
+        , map_out={r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[^\s]*' : 'YYYY-MM-DD HH:MM:SS'})
 ]
