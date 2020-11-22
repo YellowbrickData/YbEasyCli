@@ -50,7 +50,6 @@ class ddl_object(util):
 
     def args_process(self):
         self.args_handler.args_process_init()
-        self.args_handler.args_add_positional_args()
         self.args_handler.args_add_optional()
         self.args_handler.args_add_connection_group()
         
@@ -73,8 +72,8 @@ class ddl_object(util):
 
         self.args_handler.db_filter_args = yb_common.db_filter_args(
             required_args_single=[]
-            , optional_args_single=[]
-            , optional_args_multi=[self.object_type, 'schema']
+            , optional_args_single=['database']
+            , optional_args_multi=['schema', self.object_type]
             , args_handler=self.args_handler)
 
         self.args_handler.args_process()

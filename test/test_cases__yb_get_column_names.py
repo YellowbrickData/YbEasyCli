@@ -1,20 +1,20 @@
 test_cases = [
     test_case(
-        cmd='yb_get_column_names.py @{argsdir}/db1 --schema dev -- a1_t'
+        cmd='yb_get_column_names.py @{argsdir}/db1 --schema_in dev --object a1_t'
         , exit_code=0
         , stdout="""col1"""
         , stderr='')
 
     , test_case(
-        cmd='yb_get_column_names.py @{argsdir}/db1 --schema dev -- a1_v'
+        cmd='yb_get_column_names.py @{argsdir}/db1 --schema_in dev --object a1_v'
         , exit_code=0
         , stdout="""col1"""
         , stderr='')
 
     , test_case(
         cmd=(
-            'yb_get_column_names.py @{argsdir}/db1 --schema dev'
-            ' -- data_types_t')
+            'yb_get_column_names.py @{argsdir}/db1 --schema_in dev'
+            ' --object data_types_t')
         , exit_code=0
         , stdout="""col1
 col2
@@ -39,8 +39,8 @@ col19"""
 
     , test_case(
         cmd=(
-            "yb_get_column_names.py @{argsdir}/db1 --schema dev"
-            " --column_NOTlike '%%1%%' -- 'data_types_t'")
+            "yb_get_column_names.py @{argsdir}/db1 --schema_in dev"
+            " --column_NOTlike '%%1%%' --object 'data_types_t'")
         , exit_code=0
         , stdout="""col2
 col3
@@ -54,17 +54,17 @@ col9"""
 
     , test_case(
         cmd=(
-            "yb_get_column_names.py @{argsdir}/db1 --schema Prod"
-            " -- {db2} C1_t")
+            "yb_get_column_names.py @{argsdir}/db1 --schema_in Prod"
+            " --database {db2} --object C1_t")
         , exit_code=0
         , stdout='"Col1"'
         , stderr='')
 
     , test_case(
         cmd=(
-            "yb_get_column_names.py @{argsdir}/db1 --schema dev"
+            "yb_get_column_names.py @{argsdir}/db1 --schema_in dev"
             """ --output_template "SELECT 'MAX <column> value: ' || MAX(<column> || '') FROM <table_path>;" """
-            " --exec_output -- data_types_t")
+            " --exec_output --object data_types_t")
         , exit_code=0
         , stdout="""MAX col1 value: 999999
 MAX col2 value: 999999

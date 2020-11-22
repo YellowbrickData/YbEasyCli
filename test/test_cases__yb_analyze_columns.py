@@ -1,5 +1,5 @@
 test_cases = [
-    test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col3 --'
+    test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col3'
         , exit_code=0
         , stdout="""-- Running column analysis.
 ANALYSIS OF: {db1}.dev.data_types_t.col3
@@ -36,7 +36,7 @@ Group: 10001, Row Count: 1,   % of Total Rows:   0.0001, Value: 10001
 		, stderr=''
 		, map_out={r'-{10,300}' : ''})
  
-    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col8 --'
+    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col8'
         , exit_code=0
         , stdout="""-- Running column analysis.
 ANALYSIS OF: {db1}.dev.data_types_t.col8
@@ -77,7 +77,7 @@ Group: 462574, Row Count: 2,   % of Total Rows:   0.0002, Value: !!!A
 		, stderr=''
 		, map_out={r'-{10,300}' : ''})
 
-    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col13 --'
+    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col13'
         , exit_code=0
         , stdout="""-- Running column analysis.
 ANALYSIS OF: {db1}.dev.data_types_t.col13
@@ -114,7 +114,7 @@ Group: 109342, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 0
 		, stderr=''
 		, map_out={r'-{10,300}' : '', r'\d{2}:\d{2}:\d{2}(\-|\+)\d{2}' : 'HH:MM:SS-TZ'})
 
-    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --'
+    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev'
         , exit_code=0
         , stdout="""-- Running column analysis.
 ANALYSIS OF: {db1}.dev.data_types_t.col1

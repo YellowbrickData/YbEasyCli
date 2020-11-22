@@ -30,7 +30,7 @@ test_cases = [
 
     , test_case(
         cmd=
-            """yb_get_column_name.py @{argsdir}/db1 --schema 'Prod' --object C1_t --column Col1 -- {db2}"""
+            """yb_get_column_name.py @{argsdir}/db1 --schema 'Prod' --object C1_t --column Col1 --database {db2}"""
         , exit_code=0
         , stdout='"Col1"'
         , stderr='')
@@ -41,6 +41,6 @@ test_cases = [
             '--column col1 extra_arg')
         , exit_code=2
         , stdout=''
-        , stderr="""usage: yb_get_column_name.py [database] [options]
-yb_get_column_name.py: error: unrecognized arguments: extra_arg""")
+        , stderr="""usage: yb_get_column_name.py [options]
+yb_get_column_name.py: error: unrecognized arguments: dze_db2 extra_arg""")
 ]

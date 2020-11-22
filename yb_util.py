@@ -12,7 +12,7 @@ class util:
             , 'required_args_single': []
             , 'optional_args_single': ['schema']
             , 'optional_args_multi': []
-            , 'positional_args_usage': '[database]'
+            , 'positional_args_usage': None
             , 'default_args': {}
             , 'usage_example': {}
             , 'output_tmplt_vars': None
@@ -23,7 +23,9 @@ class util:
         , 'analyze_columns': {
             'description': "Analyze the data content of a table's columns."
             , 'required_args_single': ['table']
+            , 'optional_args_single': ['database']
             , 'optional_args_multi': ['owner', 'schema', 'column']
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': '@$HOME/conn.args --schema_in dev --table sales --column_in store_id price --'
                 , 'file_args': [conn_args_file] }
@@ -32,8 +34,8 @@ class util:
 
         , 'check_db_views': {
             'description': 'Check for broken views.'
-            , 'positional_args_usage': []
             , 'optional_args_multi': ['owner', 'database', 'schema', 'view']
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': '@$HOME/conn.args --database_in stores'
                 , 'file_args': [conn_args_file] }
@@ -42,8 +44,8 @@ class util:
 
         , 'chunk_dml_by_date_part': {
             'description': 'Chunk DML by DATE/TIMESTAMP column.'
-            , 'positional_args_usage': []
             , 'optional_args_multi': ['owner', 'database', 'schema', 'view']
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': '@$HOME/conn.args @$HOME/yb_chunk_dml_by_date_part.args --print_chunk_dml'
                 , 'file_args': [ conn_args_file
@@ -60,8 +62,8 @@ ORDER BY sale_ts\"\"\"
 
         , 'chunk_dml_by_integer': {
             'description': 'Chunk DML by INTEGER column.'
-            , 'positional_args_usage': []
             , 'optional_args_multi': ['owner', 'database', 'schema', 'view']
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': '@$HOME/conn.args @$HOME/yb_chunk_dml_by_integer.args --print_chunk_dml'
                 , 'file_args': [ conn_args_file
@@ -77,8 +79,8 @@ ORDER BY sale_id\"\"\"
 
         , 'chunk_dml_by_yyyymmdd_integer': {
             'description': 'Chunk DML by YYYYMMDD integer column.'
-            , 'positional_args_usage': []
             , 'optional_args_multi': ['owner', 'database', 'schema', 'view']
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': '@$HOME/conn.args @$HOME/yb_chunk_dml_by_yyyymmdd_integer.args --print_chunk_dml'
                 , 'file_args': [ conn_args_file
@@ -96,7 +98,7 @@ ORDER BY sale_date_int\"\"\"
             'description': 'Determine the optimal number of rows per chunk for a table.'
             , 'required_args_single': ['table']
             , 'optional_args_single': ['database', 'schema']
-            , 'positional_args_usage': []
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': '@$HOME/conn.args --table dze_db1.dev.sales --schema dev'
                 , 'file_args': [conn_args_file] }
@@ -106,6 +108,7 @@ ORDER BY sale_date_int\"\"\"
             'description': 'Return the sequence/s DDL for the requested'
                 ' database.  Use sequence filters to limit the set'
                 ' of tables returned.'
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': "@$HOME/conn.args --current_schema dev --sequence_like '%id%' --"
                 , 'file_args': [conn_args_file] }
@@ -116,6 +119,7 @@ ORDER BY sale_date_int\"\"\"
             'description': 'Return the table/s DDL for the requested'
                 ' database.  Use table filters to limit the set'
                 ' of tables returned.'
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': "@$HOME/conn.args --current_schema dev  --table_like 'sale_%' --"
                 , 'file_args': [conn_args_file] }
@@ -126,6 +130,7 @@ ORDER BY sale_date_int\"\"\"
             'description': 'Return the view/s DDL for the requested'
                 ' database.  Use view filters to limit the set'
                 ' of tables returned.'
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': "@$HOME/conn.args --schema_in dev Prod --with_db --view_like '%sale%' --"
                 , 'file_args': [conn_args_file] }
@@ -133,8 +138,9 @@ ORDER BY sale_date_int\"\"\"
 
         , 'find_columns': {
             'description': 'List column names and column attributes for filtered columns.'
+            , 'optional_args_single': ['database']
             , 'optional_args_multi': ['owner', 'schema', 'table', 'column', 'datatype']
-            , 'positional_args_usage': '[database]'
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': "@$HOME/conn.args --datatype_like 'CHAR%' 'TIME%' --"
                 , 'file_args': [conn_args_file] }
@@ -148,7 +154,8 @@ ORDER BY sale_date_int\"\"\"
         , 'get_column_name': {
             'description': 'List/Verifies that the specified table/view column name if it exists.'
             , 'required_args_single': ['object', 'column']
-            , 'optional_args_multi': ['owner']
+            , 'optional_args_single': ['owner', 'database', 'schema', ]
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': "@$HOME/conn.args --schema dev --object sales --column price --"
                 , 'file_args': [conn_args_file] }
@@ -157,8 +164,10 @@ ORDER BY sale_date_int\"\"\"
 
         , 'get_column_names': {
             'description': 'List/Verifies that the specified column names exist.'
-            , 'optional_args_multi': ['owner', 'column']
-            , 'positional_args_usage': '[database] object'
+            , 'required_args_single': ['object']
+            , 'optional_args_single': ['database']
+            , 'optional_args_multi': ['owner', 'schema', 'column']
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': "@$HOME/conn.args --schema dev -- sales"
                 , 'file_args': [conn_args_file] }
@@ -171,7 +180,8 @@ ORDER BY sale_date_int\"\"\"
         , 'get_column_type': {
             'description': 'Return the data type of the requested column.'
             , 'required_args_single': ['table', 'column']
-            , 'optional_args_multi': ['owner']
+            , 'optional_args_single': ['owner', 'database', 'schema']
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': "@$HOME/conn.args --schema dev --table sales --column price --"
                 , 'file_args': [conn_args_file] }
@@ -180,7 +190,9 @@ ORDER BY sale_date_int\"\"\"
 
         , 'get_sequence_names': {
             'description': 'List/Verifies that the specified sequence/s exist.'
-            , 'optional_args_multi': ['sequence', 'owner', 'schema']
+            , 'optional_args_single': ['database']
+            , 'optional_args_multi': ['owner', 'schema', 'sequence']
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': "@$HOME/conn.args --schema_in dev Prod --sequence_like '%price%' --sequence_NOTlike '%id%' --"
                 , 'file_args': [conn_args_file] }
@@ -193,7 +205,8 @@ ORDER BY sale_date_int\"\"\"
         , 'get_table_distribution_key': {
             'description': 'Identify the distribution column or type (random or replicated) of the requested table.'
             , 'required_args_single': ['table']
-            , 'optional_args_multi': ['owner']
+            , 'optional_args_single': ['owner', 'database', 'schema']
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': "@$HOME/conn.args --schema Prod --table sales --"
                 , 'file_args': [conn_args_file] }
@@ -203,7 +216,8 @@ ORDER BY sale_date_int\"\"\"
         , 'get_table_name': {
             'description': 'List/Verifies that the specified table exists.'
             , 'required_args_single': ['table']
-            , 'optional_args_multi': ['owner']
+            , 'optional_args_single': ['owner', 'database', 'schema']
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': '@$HOME/conn.args --current_schema dev --table sales --'
                 , 'file_args': [conn_args_file] }
@@ -212,7 +226,9 @@ ORDER BY sale_date_int\"\"\"
 
         , 'get_table_names': {
             'description': 'List/Verifies that the specified table/s exist.'
+            , 'optional_args_single': ['database']
             , 'optional_args_multi': ['owner', 'schema', 'table']
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': "@$HOME/conn.args --schema Prod --table sales --"
                 , 'file_args': [conn_args_file] }
@@ -225,7 +241,8 @@ ORDER BY sale_date_int\"\"\"
         , 'get_view_name': {
             'description': 'List/Verifies that the specified view exists.'
             , 'required_args_single': ['view']
-            , 'optional_args_multi': ['owner']
+            , 'optional_args_single': ['owner', 'database', 'schema']
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': '@$HOME/conn.args --schema Prod --view sales_v --'
                 , 'file_args': [conn_args_file] }
@@ -234,7 +251,9 @@ ORDER BY sale_date_int\"\"\"
 
         , 'get_view_names': {
             'description': 'List/Verifies that the specified view/s exist.'
+            , 'optional_args_single': ['database']
             , 'optional_args_multi': ['owner', 'schema', 'view']
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': '@$HOME/conn.args --schema_in dev Prod --'
                 , 'file_args': [conn_args_file] }
@@ -246,7 +265,7 @@ ORDER BY sale_date_int\"\"\"
 
         , 'is_cstore_table': {
             'description': 'Determine if a table is stored as a column store table.'
-            , 'positional_args_usage': ''
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': '@$HOME/conn.args --table sys.blade --'
                 , 'file_args': [conn_args_file] }
@@ -259,6 +278,7 @@ ORDER BY sale_date_int\"\"\"
                 '\nnote:'
                 '\n  Mass column updates may cause performance issues due to the change '
                 '\n  of how the data is ordered in storage.')
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': "@$HOME/conn.args --datatype_like 'CHAR%' --update_where_clause \"<columnname> = 'NULL'\" --set_clause NULL --"
                 , 'file_args': [conn_args_file] }
@@ -267,7 +287,7 @@ ORDER BY sale_date_int\"\"\"
 
         , 'rstore_query_to_cstore_table': {
             'description': 'Convert row store query to column store table.'
-            , 'positional_args_usage': ''
+            , 'positional_args_usage': None
             , 'usage_example': {
                 'cmd_line_args': '@$HOME/conn.args @$HOME/sys_schema.args --'
                 , 'file_args': [conn_args_file
@@ -276,7 +296,6 @@ SELECT name
 FROM sys.schema
 \"\"\"
 --table 'sys_schema'"""} ] }
-
         }
 
         , 'yb_to_yb_copy_table': {

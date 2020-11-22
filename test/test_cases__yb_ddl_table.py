@@ -1,6 +1,6 @@
 test_cases = [
     test_case(
-        cmd='yb_ddl_table.py @{argsdir}/db1 --current_schema dev --table_like a1_t --'
+        cmd='yb_ddl_table.py @{argsdir}/db1 --current_schema dev --table_like a1_t'
         , exit_code=0
         , stdout="""CREATE TABLE a1_t (
     col1 INTEGER
@@ -11,7 +11,7 @@ DISTRIBUTE ON (col1);"""
     , test_case(
         cmd=
             ('yb_ddl_table.py @{argsdir}/db1 --current_schema dev '
-            """--schema_in dev Prod --table_like a1_t --""")
+            """--schema_in dev Prod --table_like a1_t""")
         , exit_code=0
         , stdout="""CREATE TABLE a1_t (
     col1 INTEGER
@@ -27,7 +27,7 @@ DISTRIBUTE ON (col1);"""
     , test_case(
         cmd=
             ('yb_ddl_table.py @{argsdir}/db1 --current_schema dev '
-            """--schema_in dev Prod --with_schema --table_like a1_t --""")
+            """--schema_in dev Prod --with_schema --table_like a1_t""")
         , exit_code=0
         , stdout="""CREATE TABLE dev.a1_t (
     col1 INTEGER
@@ -43,7 +43,7 @@ DISTRIBUTE ON (col1);"""
     , test_case(
         cmd=
             ('yb_ddl_table.py @{argsdir}/db1 --current_schema dev '
-            """--schema_in dev Prod --with_db --table_like a1_t --""")
+            """--schema_in dev Prod --with_db --table_like a1_t""")
         , exit_code=0
         , stdout="""CREATE TABLE {db1}.dev.a1_t (
     col1 INTEGER
@@ -59,7 +59,7 @@ DISTRIBUTE ON (col1);"""
     , test_case(
         cmd=
             ('yb_ddl_table.py @{argsdir}/db1 --schema_in dev '
-            """--with_db  --with_rowcount --table_in data_types_t --""")
+            """--with_db  --with_rowcount --table_in data_types_t""")
         , exit_code=0
         , stdout="""--Rowcount: 1,000,000  Table: {db1}.dev.data_types_t  At: 2020-09-25 16:47:47.103207-07
 CREATE TABLE {db1}.dev.data_types_t (
