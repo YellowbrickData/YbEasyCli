@@ -11,6 +11,22 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 10001
 Min Value              : 1
 Max Value              : 10001
+-- Completed column analysis."""
+        , stderr=''
+        , map_out={r'-{10,300}' : ''})
+ 
+    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col3 --with_grouping'
+        , exit_code=0
+        , stdout="""-- Running column analysis.
+ANALYSIS OF: {db1}.dev.data_types_t.col3
+-------------------------------------------------
+Column Position Ordinal: 3
+Data Type              : SMALLINT
+Row Count              : 1000000
+Row Count with NULLS   : 0
+Row Distinct Count     : 10001
+Min Value              : 1
+Max Value              : 10001
 Group: 1,     Row Count: 100, % of Total Rows:   0.0100, Value: 10
 Group: 2,     Row Count: 100, % of Total Rows:   0.0100, Value: 100
 Group: 3,     Row Count: 100, % of Total Rows:   0.0100, Value: 1000
@@ -33,10 +49,10 @@ Group: 9999,  Row Count: 100, % of Total Rows:   0.0100, Value: 9999
 Group: 10000, Row Count: 99,  % of Total Rows:   0.0099, Value: 1
 Group: 10001, Row Count: 1,   % of Total Rows:   0.0001, Value: 10001
 -- Completed column analysis."""
-		, stderr=''
-		, map_out={r'-{10,300}' : ''})
+        , stderr=''
+        , map_out={r'-{10,300}' : ''})
  
-    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col8'
+    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col8 --with_grouping'
         , exit_code=0
         , stdout="""-- Running column analysis.
 ANALYSIS OF: {db1}.dev.data_types_t.col8
@@ -77,7 +93,7 @@ Group: 462574, Row Count: 2,   % of Total Rows:   0.0002, Value: !!!A
 		, stderr=''
 		, map_out={r'-{10,300}' : ''})
 
-    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col13'
+    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col13 --with_grouping'
         , exit_code=0
         , stdout="""-- Running column analysis.
 ANALYSIS OF: {db1}.dev.data_types_t.col13
@@ -114,7 +130,7 @@ Group: 109342, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 0
 		, stderr=''
 		, map_out={r'-{10,300}' : '', r'\d{2}:\d{2}:\d{2}(\-|\+)\d{2}' : 'HH:MM:SS-TZ'})
 
-    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev'
+    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --with_grouping'
         , exit_code=0
         , stdout="""-- Running column analysis.
 ANALYSIS OF: {db1}.dev.data_types_t.col1
