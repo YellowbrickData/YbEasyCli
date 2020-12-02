@@ -192,8 +192,7 @@ class yb_to_yb_copy_table(util):
         self.args_handler.args.column = 'rowunique'
         self.args_handler.args.table_where_clause = self.args_handler.args.where_clause
 
-        cdml = chunk_dml_by_integer(init_default=False)
-        cdml.init(db_conn=self.src_conn, args_handler=self.args_handler)
+        cdml = chunk_dml_by_integer(db_conn=self.src_conn, args_handler=self.args_handler)
         cdml.execute()
         if cdml.cmd_results.exit_code:
             cdml.cmd_results.write()

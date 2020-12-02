@@ -23,31 +23,6 @@ class chunk_dml_by_integer(util):
     """Issue the ybsql command used to create/execute DML chunked by an integer column
     """
 
-    def init(self, db_conn=None, args_handler=None):
-        """Initialize chunk_dml_by_integer class.
-
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        execution.
-        """
-        if db_conn:
-            self.db_conn = db_conn
-            self.args_handler = args_handler
-        else:
-            self.args_handler = yb_common.args_handler(self.config, init_default=False)
-
-            self.add_args()
-
-            self.args_handler.args_process()
-            self.db_conn = yb_common.db_connect(self.args_handler.args)
-
-        if '<chunk_where_clause>' not in self.args_handler.args.dml:
-            yb_common.common.error("DML must contain the string '<chunk_where_clause>'")
-
-        if not self.args_handler.args.execute_chunk_dml:
-            self.args_handler.args.pre_sql = ''
-            self.args_handler.args.post_sql = ''
-
     def execute(self):
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_chunk_dml_by_integer_p'
@@ -64,12 +39,7 @@ class chunk_dml_by_integer(util):
             , pre_sql = self.args_handler.args.pre_sql
             , post_sql = self.args_handler.args.post_sql)
 
-    def add_args(self):
-        self.args_handler.args_process_init()
-        self.args_handler.args_add_optional()
-        self.args_handler.args_add_connection_group()
-        self.args_handler.args_usage_example()
-
+    def additional_args(self):
         args_chunk_r_grp = self.args_handler.args_parser.add_argument_group(
             'required chunking arguments')
         args_chunk_r_grp.add_argument(
@@ -107,10 +77,16 @@ class chunk_dml_by_integer(util):
         args_chunk_o_grp.add_argument("--post_sql", default=''
             , help="SQL to run after the chunking DML, only runs if execute_chunk_dml is set")
 
+    def additional_args_process(self):
+        if '<chunk_where_clause>' not in self.args_handler.args.dml:
+            yb_common.common.error("DML must contain the string '<chunk_where_clause>'")
+
+        if not self.args_handler.args.execute_chunk_dml:
+            self.args_handler.args.pre_sql = ''
+            self.args_handler.args.post_sql = ''
 
 def main():
-    cdml = chunk_dml_by_integer(init_default=False)
-    cdml.init()
+    cdml = chunk_dml_by_integer()
 
     sys.stdout.write('-- Running DML chunking.\n')
     cdml.execute()

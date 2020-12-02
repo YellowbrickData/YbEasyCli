@@ -26,24 +26,6 @@ class rstore_query_to_cstore_table(util):
     memory query to a column store table.
     """
 
-    def init(self, db_conn=None, args_handler=None):
-        """Initialize get_table_name class.
-
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        exec
-        """
-        if db_conn:
-            self.db_conn = db_conn
-            self.args_handler = args_handler
-        else:
-            self.args_handler = yb_common.args_handler(self.config, init_default=False)
-
-            self.add_args()
-
-            self.args_handler.args_process()
-            self.db_conn = yb_common.db_connect(self.args_handler.args)
-
     def execute(self):
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_rstore_query_to_cstore_table_p'
@@ -56,12 +38,7 @@ class rstore_query_to_cstore_table(util):
             , pre_sql = self.args_handler.args.pre_sql
             , post_sql = self.args_handler.args.post_sql)
 
-    def add_args(self):
-        self.args_handler.args_process_init()
-        self.args_handler.args_add_optional()
-        self.args_handler.args_add_connection_group()
-        self.args_handler.args_usage_example()
-
+    def additional_args(self):
         args_required_grp = self.args_handler.args_parser.add_argument_group(
             'required arguments')
         args_required_grp.add_argument(
@@ -86,8 +63,7 @@ class rstore_query_to_cstore_table(util):
             , help="SQL to run after the creation of the destination table")
 
 def main():
-    rsqtocst = rstore_query_to_cstore_table(init_default=False)
-    rsqtocst.init()
+    rsqtocst = rstore_query_to_cstore_table()
 
     sys.stdout.write('-- Converting row store query to column store table.\n')
     rsqtocst.execute()

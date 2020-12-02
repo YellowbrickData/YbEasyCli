@@ -34,25 +34,9 @@ class ddl_object(util):
         execution.
         """
         self.object_type = object_type
-        if db_conn:
-            self.db_conn = db_conn
-            self.args_handler = args_handle
-        else:
-            self.args_handler = yb_common.args_handler(self.config)
-            self.args_process()
-            self.db_conn = yb_common.db_connect(self.args_handler.args)
+        self.init_default(db_conn, args_handler)
 
-    def args_add_by_object_type(self, args_grp):
-        if self.object_type == 'table':
-            args_grp.add_argument("--with_rowcount"
-                , action="store_true"
-                , help="display the current rowcount")
-
-    def args_process(self):
-        self.args_handler.args_process_init()
-        self.args_handler.args_add_optional()
-        self.args_handler.args_add_connection_group()
-        
+    def additional_args(self):
         args_ddl_grp = self.args_handler.args_parser.add_argument_group('optional DDL arguments')
         args_ddl_grp.add_argument("--with_schema",
                                   action='store_true',
@@ -68,16 +52,12 @@ class ddl_object(util):
         args_ddl_grp.add_argument("--db_name",
                                   help="set a new database name to the %s DDL"
                                   % self.object_type)
-        self.args_add_by_object_type(args_ddl_grp)
+        if self.object_type == 'table':
+            args_ddl_grp.add_argument("--with_rowcount"
+                , action="store_true"
+                , help="display the current rowcount")
 
-        self.args_handler.db_filter_args = yb_common.db_filter_args(
-            required_args_single=[]
-            , optional_args_single=['database']
-            , optional_args_multi=['schema', self.object_type]
-            , args_handler=self.args_handler)
-
-        self.args_handler.args_process()
-
+    def additional_args_process(self):
         if self.args_handler.args.schema_name:
             self.args_handler.args.with_schema = True
         if self.args_handler.args.db_name:

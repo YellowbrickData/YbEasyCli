@@ -22,7 +22,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 class common:
-    version = '20201122'
+    version = '20201201'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -226,7 +226,10 @@ class args_handler:
         self.args_add_positional_args()
         self.args_add_optional()
         self.args_add_connection_group()
-        
+
+#        self.config['additional_args'](self.args_parser)
+        self.config['additional_args']()
+
         if self.config['output_tmplt_default']:
             self.add_output_args()
 
