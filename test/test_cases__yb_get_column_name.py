@@ -42,5 +42,5 @@ test_cases = [
         , exit_code=2
         , stdout=''
         , stderr="""usage: yb_get_column_name.py [options]
-yb_get_column_name.py: error: unrecognized arguments: dze_db2 extra_arg""")
+yb_get_column_name.py: error: unrecognized arguments: {db2} extra_arg""")
 ]
