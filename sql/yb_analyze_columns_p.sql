@@ -1,4 +1,8 @@
-CREATE PROCEDURE yb_analyze_columns_p(a_dbname VARCHAR, a_tablename VARCHAR, a_filter_clause VARCHAR)
+CREATE PROCEDURE yb_analyze_columns_p(
+    a_dbname VARCHAR
+    , a_tablename VARCHAR
+    , a_filter_clause VARCHAR
+    , a_with_grouping BOOLEAN DEFAULT TRUE)
 RETURNS BOOLEAN
 LANGUAGE plpgsql AS $$
 DECLARE
@@ -135,8 +139,9 @@ FROM
             --
             IF v_rec_aggs.count = v_rec_aggs.count_distinct THEN
                 RAISE INFO 'Unique                 : TRUE';
-            ELSE
-                IF v_rec_tables.data_type != 'BOOLEAN'
+            ELSE 
+                IF a_with_grouping
+                    AND v_rec_tables.data_type != 'BOOLEAN'
                     AND v_rec_aggs.min_value <> v_rec_aggs.max_value THEN
                     v_ct := 1;
                     v_query := REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE('
