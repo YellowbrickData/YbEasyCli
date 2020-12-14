@@ -1,9 +1,10 @@
 test_cases = [
-    test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col3'
+    test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col3 --output_format 3 --level 2'
         , exit_code=0
         , stdout="""-- Running column analysis.
 ANALYSIS OF: {db1}.dev.data_types_t.col3
 -------------------------------------------------
+Column is: NULLABLE
 Column Position Ordinal: 3
 Data Type              : SMALLINT
 Row Count              : 1000000
@@ -11,15 +12,59 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 10001
 Min Value              : 1
 Max Value              : 10001
+Is Unique              : FALSE
 -- Completed column analysis."""
         , stderr=''
         , map_out={r'-{10,300}' : ''})
  
-    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col3 --with_grouping'
+    , test_case(cmd="yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_like 'col1%' --output_format 1 --level 1"
+        , exit_code=0
+        , stdout="""-- Running column analysis.
+database    column                    table  data                         is          bytes
+                                      order  type                         1null         max
+                                                                          2dist
+                                                                          3sort
+                                                                          4clust
+                                                                          5part
+----------  ----------------------  -------  ---------------------------  --------  -------
+{db1}     dev.data_types_t.col1         1  BIGINT                       XX---           8
+{db1}     dev.data_types_t.col10       10  DATE                         X----           4
+{db1}     dev.data_types_t.col11       11  TIME WITHOUT TIME ZONE       X----           8
+{db1}     dev.data_types_t.col12       12  TIMESTAMP WITHOUT TIME ZONE  X----           8
+{db1}     dev.data_types_t.col13       13  TIMESTAMP WITH TIME ZONE     X----           8
+{db1}     dev.data_types_t.col14       14  IPV4                         X----           4
+{db1}     dev.data_types_t.col15       15  IPV6                         X----          16
+{db1}     dev.data_types_t.col16       16  MACADDR                      X----           8
+{db1}     dev.data_types_t.col17       17  MACADDR8                     X----           8
+{db1}     dev.data_types_t.col18       18  BOOLEAN                      X----           1
+{db1}     dev.data_types_t.col19       19  INTEGER                      X----           4
+-- Completed column analysis."""
+        , stderr='')
+  
+    , test_case(cmd="yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_like 'col1%' --output_format 2 --level 2"
+        , exit_code=0
+        , stdout="""-- Running column analysis.
+database|column|table_order|data_type|is_1null_2dist_3sort_4clust_5part|bytes_max|count_rows|count_nulls|count_distinct|char_bytes_min|char_bytes_max|char_bytes_avg|char_bytes_total|max_len_int|max_len_frac|is_uniq
+{db1}|dev.data_types_t.col1|1|BIGINT|XX---|8|1000000|0|1000000|||||||X
+{db1}|dev.data_types_t.col10|10|DATE|X----|4|1000000|0|2410|||||||-
+{db1}|dev.data_types_t.col11|11|TIME WITHOUT TIME ZONE|X----|8|1000000|0|2419|||||||-
+{db1}|dev.data_types_t.col12|12|TIMESTAMP WITHOUT TIME ZONE|X----|8|1000000|0|109343|||||||-
+{db1}|dev.data_types_t.col13|13|TIMESTAMP WITH TIME ZONE|X----|8|1000000|0|109342|||||||-
+{db1}|dev.data_types_t.col14|14|IPV4|X----|4|1000000|0|462574|||||||-
+{db1}|dev.data_types_t.col15|15|IPV6|X----|16|1000000|0|462574|||||||-
+{db1}|dev.data_types_t.col16|16|MACADDR|X----|8|1000000|0|462574|||||||-
+{db1}|dev.data_types_t.col17|17|MACADDR8|X----|8|1000000|0|462574|||||||-
+{db1}|dev.data_types_t.col18|18|BOOLEAN|X----|1|1000000|0|2|||||||-
+{db1}|dev.data_types_t.col19|19|INTEGER|X----|4|1000000|0|2410|||||||-
+-- Completed column analysis."""
+        , stderr='')
+ 
+    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col3 --output_format 3 --level 3'
         , exit_code=0
         , stdout="""-- Running column analysis.
 ANALYSIS OF: {db1}.dev.data_types_t.col3
 -------------------------------------------------
+Column is: NULLABLE
 Column Position Ordinal: 3
 Data Type              : SMALLINT
 Row Count              : 1000000
@@ -27,6 +72,7 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 10001
 Min Value              : 1
 Max Value              : 10001
+Is Unique              : FALSE
 Group: 1,     Row Count: 100, % of Total Rows:   0.0100, Value: 10
 Group: 2,     Row Count: 100, % of Total Rows:   0.0100, Value: 100
 Group: 3,     Row Count: 100, % of Total Rows:   0.0100, Value: 1000
@@ -52,11 +98,12 @@ Group: 10001, Row Count: 1,   % of Total Rows:   0.0001, Value: 10001
         , stderr=''
         , map_out={r'-{10,300}' : ''})
  
-    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col8 --with_grouping'
+    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col8 --output_format 3 --level 3'
         , exit_code=0
         , stdout="""-- Running column analysis.
 ANALYSIS OF: {db1}.dev.data_types_t.col8
 ------------------------------------------
+Column is: NULLABLE
 Column Position Ordinal: 8
 Data Type              : CHARACTER VARYING(256)
 Row Count              : 1000000
@@ -66,8 +113,9 @@ Min Value              : !!!!
 Max Value              : {{{{u)
 Min Length             : 4
 Max Length             : 4
-Average Length         : 4.0
-Total Bytes            : 4000000
+Average Length         : 4
+Total Character Bytes  : 4000000
+Is Unique              : FALSE
 Group: 1,      Row Count: 984, % of Total Rows:   0.0984, Value: 9!!!
 Group: 2,      Row Count: 198, % of Total Rows:   0.0198, Value: :!!R
 Group: 3,      Row Count: 122, % of Total Rows:   0.0122, Value: 8!!!
@@ -93,11 +141,12 @@ Group: 462574, Row Count: 2,   % of Total Rows:   0.0002, Value: !!!A
 		, stderr=''
 		, map_out={r'-{10,300}' : ''})
 
-    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col13 --with_grouping'
+    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col13  --output_format 3 --level 3'
         , exit_code=0
         , stdout="""-- Running column analysis.
 ANALYSIS OF: {db1}.dev.data_types_t.col13
 ------------------------------------------------------
+Column is: NULLABLE
 Column Position Ordinal: 13
 Data Type              : TIMESTAMP WITH TIME ZONE
 Row Count              : 1000000
@@ -105,6 +154,7 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 109342
 Min Value              : 2020-01-01 03:00:01-08
 Max Value              : 2021-12-02 17:48:01-08
+Is Unique              : FALSE
 Group: 1,      Row Count: 324618, % of Total Rows:  32.4618, Value: 2020-01-01 03:00:01-08
 Group: 2,      Row Count: 200,    % of Total Rows:   0.0200, Value: 2020-01-08 03:00:01-08
 Group: 3,      Row Count: 198,    % of Total Rows:   0.0198, Value: 2020-01-04 15:00:01-08
@@ -130,11 +180,12 @@ Group: 109342, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 0
 		, stderr=''
 		, map_out={r'-{10,300}' : '', r'\d{2}:\d{2}:\d{2}(\-|\+)\d{2}' : 'HH:MM:SS-TZ'})
 
-    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --with_grouping'
+    , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --level 3'
         , exit_code=0
         , stdout="""-- Running column analysis.
 ANALYSIS OF: {db1}.dev.data_types_t.col1
------------------------------------------------------
+
+Column is: NULLABLE, DISTRIBUTION KEY
 Column Position Ordinal: 1
 Data Type              : BIGINT
 Row Count              : 1000000
@@ -142,11 +193,12 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 1000000
 Min Value              : 1
 Max Value              : 1000000
-Unique                 : TRUE
+Is Unique              : TRUE
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col2
------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 2
 Data Type              : INTEGER
 Row Count              : 1000000
@@ -154,11 +206,12 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 1000000
 Min Value              : 1
 Max Value              : 1000000
-Unique                 : TRUE
+Is Unique              : TRUE
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col3
------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 3
 Data Type              : SMALLINT
 Row Count              : 1000000
@@ -166,6 +219,7 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 10001
 Min Value              : 1
 Max Value              : 10001
+Is Unique              : FALSE
 Group: 1,     Row Count: 100, % of Total Rows:   0.0100, Value: 10
 Group: 2,     Row Count: 100, % of Total Rows:   0.0100, Value: 100
 Group: 3,     Row Count: 100, % of Total Rows:   0.0100, Value: 1000
@@ -190,7 +244,8 @@ Group: 10001, Row Count: 1,   % of Total Rows:   0.0001, Value: 10001
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col4
------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 4
 Data Type              : NUMERIC(18,0)
 Row Count              : 1000000
@@ -199,6 +254,7 @@ Row Distinct Count     : 500000
 Min Value              : 1000000
 Max Value              : 250000500000
 Max Digits Integer     : 12
+Is Unique              : FALSE
 Group: 1,      Row Count: 2, % of Total Rows:   0.0002, Value: 1000000
 Group: 2,      Row Count: 2, % of Total Rows:   0.0002, Value: 100000371898
 Group: 3,      Row Count: 2, % of Total Rows:   0.0002, Value: 100001146494
@@ -223,7 +279,8 @@ Group: 500000, Row Count: 2, % of Total Rows:   0.0002, Value: 999999000
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col5
------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 5
 Data Type              : REAL
 Row Count              : 1000000
@@ -231,6 +288,7 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 979339
 Min Value              : 99.99
 Max Value              : 9.98003e+07
+Is Unique              : FALSE
 Group: 1,      Row Count: 100, % of Total Rows:   0.0100, Value: 5.00201e+07
 Group: 2,      Row Count: 100, % of Total Rows:   0.0100, Value: 5.00301e+07
 Group: 3,      Row Count: 100, % of Total Rows:   0.0100, Value: 5.00401e+07
@@ -255,7 +313,8 @@ Group: 979339, Row Count: 1,   % of Total Rows:   0.0001, Value: 1.00014e+07
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col6
------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 6
 Data Type              : DOUBLE PRECISION
 Row Count              : 1000000
@@ -263,6 +322,7 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 999999
 Min Value              : 99.99000099
 Max Value              : 99800299.8
+Is Unique              : FALSE
 Group: 1,      Row Count: 2, % of Total Rows:   0.0002, Value: 49990101.9796041
 Group: 2,      Row Count: 1, % of Total Rows:   0.0001, Value: 1000000
 Group: 3,      Row Count: 1, % of Total Rows:   0.0001, Value: 10000188.8886667
@@ -287,17 +347,19 @@ Group: 999999, Row Count: 1, % of Total Rows:   0.0001, Value: 999998.990001
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col7
------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 7
 Data Type              : UUID
 Row Count              : 1000000
 Row Count with NULLS   : 0
 Row Distinct Count     : 1000000
-Unique                 : TRUE
+Is Unique              : TRUE
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col8
------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 8
 Data Type              : CHARACTER VARYING(256)
 Row Count              : 1000000
@@ -307,8 +369,9 @@ Min Value              : !!!!
 Max Value              : {{{{u)
 Min Length             : 4
 Max Length             : 4
-Average Length         : 4.0
-Total Bytes            : 4000000
+Average Length         : 4
+Total Character Bytes  : 4000000
+Is Unique              : FALSE
 Group: 1,      Row Count: 984, % of Total Rows:   0.0984, Value: 9!!!
 Group: 2,      Row Count: 198, % of Total Rows:   0.0198, Value: :!!R
 Group: 3,      Row Count: 122, % of Total Rows:   0.0122, Value: 8!!!
@@ -333,7 +396,8 @@ Group: 462574, Row Count: 2,   % of Total Rows:   0.0002, Value: !!!A
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col9
------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 9
 Data Type              : CHARACTER(1)
 Row Count              : 1000000
@@ -343,8 +407,9 @@ Min Value              : "
 Max Value              : |
 Min Length             : 1
 Max Length             : 1
-Average Length         : 1.0
-Total Bytes            : 1000000
+Average Length         : 1
+Total Character Bytes  : 1000000
+Is Unique              : FALSE
 Group: 1,  Row Count: 200920, % of Total Rows:  20.0920, Value: :
 Group: 2,  Row Count: 85166,  % of Total Rows:   8.5166, Value: 9
 Group: 3,  Row Count: 65888,  % of Total Rows:   6.5888, Value: 8
@@ -369,7 +434,8 @@ Group: 82, Row Count: 2340,   % of Total Rows:   0.2340, Value: <
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col10
-------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 10
 Data Type              : DATE
 Row Count              : 1000000
@@ -377,6 +443,7 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 2410
 Min Value              : 2020-01-01
 Max Value              : 2042-03-06
+Is Unique              : FALSE
 Group: 1,    Row Count: 166582, % of Total Rows:  16.6582, Value: 2020-01-01
 Group: 2,    Row Count: 3812,   % of Total Rows:   0.3812, Value: 2022-04-20
 Group: 3,    Row Count: 3660,   % of Total Rows:   0.3660, Value: 2025-01-22
@@ -401,7 +468,8 @@ Group: 2410, Row Count: 22,     % of Total Rows:   0.0022, Value: 2020-07-22
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col11
-------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 11
 Data Type              : TIME WITHOUT TIME ZONE
 Row Count              : 1000000
@@ -409,6 +477,7 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 2419
 Min Value              : 01:01:01
 Max Value              : 03:16:01
+Is Unique              : FALSE
 Group: 1,    Row Count: 229770, % of Total Rows:  22.9770, Value: 01:01:01
 Group: 2,    Row Count: 1686,   % of Total Rows:   0.1686, Value: 01:13:01
 Group: 3,    Row Count: 1664,   % of Total Rows:   0.1664, Value: 01:07:01
@@ -433,7 +502,8 @@ Group: 2419, Row Count: 80,     % of Total Rows:   0.0080, Value: 01:44:22
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col12
-------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 12
 Data Type              : TIMESTAMP WITHOUT TIME ZONE
 Row Count              : 1000000
@@ -441,6 +511,7 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 109343
 Min Value              : 2020-01-01 00:00:01
 Max Value              : 2021-12-02 14:48:01
+Is Unique              : FALSE
 Group: 1,      Row Count: 324618, % of Total Rows:  32.4618, Value: 2020-01-01 00:00:01
 Group: 2,      Row Count: 200,    % of Total Rows:   0.0200, Value: 2020-01-08 00:00:01
 Group: 3,      Row Count: 198,    % of Total Rows:   0.0198, Value: 2020-01-04 12:00:01
@@ -465,39 +536,42 @@ Group: 109343, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 0
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col13
-------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 13
 Data Type              : TIMESTAMP WITH TIME ZONE
 Row Count              : 1000000
 Row Count with NULLS   : 0
 Row Distinct Count     : 109342
-Min Value              : 2020-01-01 03:00:01-08
-Max Value              : 2021-12-02 17:48:01-08
-Group: 1,      Row Count: 324618, % of Total Rows:  32.4618, Value: 2020-01-01 03:00:01-08
-Group: 2,      Row Count: 200,    % of Total Rows:   0.0200, Value: 2020-01-08 03:00:01-08
-Group: 3,      Row Count: 198,    % of Total Rows:   0.0198, Value: 2020-01-04 15:00:01-08
-Group: 4,      Row Count: 186,    % of Total Rows:   0.0186, Value: 2020-01-11 15:00:01-08
-Group: 5,      Row Count: 184,    % of Total Rows:   0.0184, Value: 2020-01-08 19:48:01-08
-Group: 6,      Row Count: 182,    % of Total Rows:   0.0182, Value: 2020-01-04 23:24:01-08
-Group: 7,      Row Count: 182,    % of Total Rows:   0.0182, Value: 2020-01-05 07:48:01-08
-Group: 8,      Row Count: 180,    % of Total Rows:   0.0180, Value: 2020-01-06 06:12:01-08
-Group: 9,      Row Count: 176,    % of Total Rows:   0.0176, Value: 2020-01-07 13:00:01-08
-Group: 10,     Row Count: 170,    % of Total Rows:   0.0170, Value: 2020-01-02 12:36:01-08
+Min Value              : 2020-01-01 HH:MM:SS-TZ
+Max Value              : 2021-12-02 HH:MM:SS-TZ
+Is Unique              : FALSE
+Group: 1,      Row Count: 324618, % of Total Rows:  32.4618, Value: 2020-01-01 HH:MM:SS-TZ
+Group: 2,      Row Count: 200,    % of Total Rows:   0.0200, Value: 2020-01-08 HH:MM:SS-TZ
+Group: 3,      Row Count: 198,    % of Total Rows:   0.0198, Value: 2020-01-04 HH:MM:SS-TZ
+Group: 4,      Row Count: 186,    % of Total Rows:   0.0186, Value: 2020-01-11 HH:MM:SS-TZ
+Group: 5,      Row Count: 184,    % of Total Rows:   0.0184, Value: 2020-01-08 HH:MM:SS-TZ
+Group: 6,      Row Count: 182,    % of Total Rows:   0.0182, Value: 2020-01-04 HH:MM:SS-TZ
+Group: 7,      Row Count: 182,    % of Total Rows:   0.0182, Value: 2020-01-05 HH:MM:SS-TZ
+Group: 8,      Row Count: 180,    % of Total Rows:   0.0180, Value: 2020-01-06 HH:MM:SS-TZ
+Group: 9,      Row Count: 176,    % of Total Rows:   0.0176, Value: 2020-01-07 HH:MM:SS-TZ
+Group: 10,     Row Count: 170,    % of Total Rows:   0.0170, Value: 2020-01-02 HH:MM:SS-TZ
 ...
-Group: 109333, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:00:47-08
-Group: 109334, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:00:51-08
-Group: 109335, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:01:04-08
-Group: 109336, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:01:17-08
-Group: 109337, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:01:25-08
-Group: 109338, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:01:55-08
-Group: 109339, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:01:58-08
-Group: 109340, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:02:21-08
-Group: 109341, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:02:25-08
-Group: 109342, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:02:31-08
+Group: 109333, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
+Group: 109334, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
+Group: 109335, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
+Group: 109336, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
+Group: 109337, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
+Group: 109338, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
+Group: 109339, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
+Group: 109340, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
+Group: 109341, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
+Group: 109342, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col14
-------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 14
 Data Type              : IPV4
 Row Count              : 1000000
@@ -505,6 +579,7 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 462574
 Min Value              : 0.0.0.0
 Max Value              : 90.90.84.8
+Is Unique              : FALSE
 Group: 1,      Row Count: 984, % of Total Rows:   0.0984, Value: 24.0.0.0
 Group: 2,      Row Count: 198, % of Total Rows:   0.0198, Value: 25.0.0.49
 Group: 3,      Row Count: 122, % of Total Rows:   0.0122, Value: 23.0.0.0
@@ -529,7 +604,8 @@ Group: 462574, Row Count: 2,   % of Total Rows:   0.0002, Value: 0.0.0.46
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col15
-------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 15
 Data Type              : IPV6
 Row Count              : 1000000
@@ -537,6 +613,7 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 462574
 Min Value              : 0000:0000:0000:0000:0000:0000:0000:0000
 Max Value              : 0090:0090:0084:0008:0090:0090:0084:0008
+Is Unique              : FALSE
 Group: 1,      Row Count: 984, % of Total Rows:   0.0984, Value: 0024:0000:0000:0000:0024:0000:0000:0000
 Group: 2,      Row Count: 198, % of Total Rows:   0.0198, Value: 0025:0000:0000:0049:0025:0000:0000:0049
 Group: 3,      Row Count: 122, % of Total Rows:   0.0122, Value: 0023:0000:0000:0000:0023:0000:0000:0000
@@ -561,7 +638,8 @@ Group: 462574, Row Count: 2,   % of Total Rows:   0.0002, Value: 0000:0000:0000:
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col16
-------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 16
 Data Type              : MACADDR
 Row Count              : 1000000
@@ -569,6 +647,7 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 462574
 Min Value              : 00:00:00:00:00:00
 Max Value              : 90:90:84:08:90:90
+Is Unique              : FALSE
 Group: 1,      Row Count: 984, % of Total Rows:   0.0984, Value: 24:00:00:00:24:00
 Group: 2,      Row Count: 198, % of Total Rows:   0.0198, Value: 25:00:00:49:25:00
 Group: 3,      Row Count: 122, % of Total Rows:   0.0122, Value: 23:00:00:00:23:00
@@ -593,7 +672,8 @@ Group: 462574, Row Count: 2,   % of Total Rows:   0.0002, Value: 00:00:00:32:00:
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col17
-------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 17
 Data Type              : MACADDR8
 Row Count              : 1000000
@@ -601,6 +681,7 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 462574
 Min Value              : 00:00:00:00:00:00:00:00
 Max Value              : 90:90:84:08:90:90:84:08
+Is Unique              : FALSE
 Group: 1,      Row Count: 984, % of Total Rows:   0.0984, Value: 24:00:00:00:24:00:00:00
 Group: 2,      Row Count: 198, % of Total Rows:   0.0198, Value: 25:00:00:49:25:00:00:49
 Group: 3,      Row Count: 122, % of Total Rows:   0.0122, Value: 23:00:00:00:23:00:00:00
@@ -625,16 +706,19 @@ Group: 462574, Row Count: 2,   % of Total Rows:   0.0002, Value: 00:00:00:32:00:
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col18
-------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 18
 Data Type              : BOOLEAN
 Row Count              : 1000000
 Row Count with NULLS   : 0
 Row Distinct Count     : 2
+Is Unique              : FALSE
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col19
-------------------------------------------------------
+
+Column is: NULLABLE
 Column Position Ordinal: 19
 Data Type              : INTEGER
 Row Count              : 1000000
@@ -642,6 +726,7 @@ Row Count with NULLS   : 0
 Row Distinct Count     : 2410
 Min Value              : 20200101
 Max Value              : 20420306
+Is Unique              : FALSE
 Group: 1,    Row Count: 166582, % of Total Rows:  16.6582, Value: 20200101
 Group: 2,    Row Count: 3812,   % of Total Rows:   0.3812, Value: 20220420
 Group: 3,    Row Count: 3660,   % of Total Rows:   0.3660, Value: 20250122
