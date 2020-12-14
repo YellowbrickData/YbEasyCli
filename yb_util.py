@@ -25,7 +25,11 @@ class util:
         }
 
         , 'analyze_columns': {
-            'description': "Analyze the data content of a table's columns."
+            'description': ("Analyze the data content of a table's columns."
+                '\n'
+                '\nnote:'
+                '\n  estimate level anaylsis requires pg_statistic table read privilege and may only display for super users'
+                '\n  count and groups level anaylsis may require large pool access and may not display for super users')
             , 'required_args_single': ['table']
             , 'optional_args_single': ['database']
             , 'optional_args_multi': ['owner', 'schema', 'column']
