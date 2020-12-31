@@ -98,8 +98,8 @@ class create_objects:
             " GRANT CONNECT ON DATABASE {db2} TO {user};".format(
                 db1 = test_db1, db2 = test_db2, user = test_user))
         cmd_results.on_error_exit()
-        print("\nCreated '%s' DB..." % yb_common.text.color(test_db1, 'cyan'))
-        print("Created '%s' DB..." % yb_common.text.color(test_db2, 'cyan'))
+        print("\nCreated '%s' as LATIN9 DB..." % yb_common.text.color(test_db1, 'cyan'))
+        print("Created '%s' as UTF8 DB..." % yb_common.text.color(test_db2, 'cyan'))
 
         config_fp = open(configFilePath, 'w')
         config.write(config_fp)
@@ -147,7 +147,7 @@ class create_objects:
 
         :return: An instance of the `args` class
         """
-        cnfg = util.configs['default'].copy()
+        cnfg = util.config_default.copy()
         cnfg['description'] = 'Create test user, database, and database objects.'
         cnfg['positional_args_usage'] = None
 
@@ -356,7 +356,7 @@ ORDER BY 1
             print(query)
             cmd_results = db2_conn.ybsql_query(query)
 
-        print("\nDropping '%s' database objects..." % yb_common.text.color(self.config.get(self.section, 'db1'), 'cyan'))
+        print("\nDropping select '%s' database objects..." % yb_common.text.color(self.config.get(self.section, 'db1'), 'cyan'))
         for query in queries_upfront_db1_drops:
             print(query)
             cmd_results = db1_conn.ybsql_query(query)

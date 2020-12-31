@@ -243,7 +243,7 @@ class execute_test_action:
 
         :return: An instance of the `args` class
         """
-        cnfg = util.configs['default'].copy()
+        cnfg = util.config_default.copy()
         cnfg['description'] = 'Run unit test cases on utility.'
         cnfg['positional_args_usage'] = None
 

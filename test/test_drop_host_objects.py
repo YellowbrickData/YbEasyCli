@@ -101,7 +101,7 @@ class drop_objects:
 
         :return: An instance of the `args` class
         """
-        cnfg = util.configs['default'].copy()
+        cnfg = util.config_default.copy()
         cnfg['description'] = 'Drop test user, database, and database objects.'
         cnfg['positional_args_usage'] = None
 
