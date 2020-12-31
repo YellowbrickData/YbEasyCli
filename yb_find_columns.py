@@ -19,6 +19,18 @@ class find_columns(util):
     """Issue the ybsql command used to list the column names comprising an
     object.
     """
+    config = {
+        'description': 'List column names and column attributes for filtered columns.'
+        , 'optional_args_single': ['database']
+        , 'optional_args_multi': ['owner', 'schema', 'table', 'column', 'datatype']
+        , 'usage_example': {
+            'cmd_line_args': "@$HOME/conn.args --datatype_like 'CHAR%' 'TIME%' --"
+            , 'file_args': [util.conn_args_file] }
+        , 'default_args': {'template': '<raw>', 'exec_output': False}
+        , 'output_tmplt_vars': ['table_path', 'schema_path', 'column', 'ordinal', 'data_type', 'table', 'schema', 'database']
+        , 'output_tmplt_default': '-- Table: <table_path>, Column: <column>, Table Ordinal: <ordinal>, Data Type: <data_type>'
+        , 'db_filter_args':
+            {'owner':'tableowner', 'schema':'schemaname', 'table':'tablename', 'column':'columnname', 'datatype':'datatype'} }
 
     def execute(self):
         filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
@@ -26,9 +38,7 @@ class find_columns(util):
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
                 'yb_find_columns_p'
                 , args = {
-                    'a_column_filter_clause' : filter_clause
-                }
-            )
+                    'a_column_filter_clause' : filter_clause } )
 
         self.apply_template()
 

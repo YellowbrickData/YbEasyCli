@@ -19,6 +19,14 @@ from yb_util import util
 
 class get_column_type(util):
     """Issue the ybsql command used to get a column's defined data type."""
+    config = {
+        'description': 'Return the data type of the requested column.'
+        , 'required_args_single': ['table', 'column']
+        , 'optional_args_single': ['owner', 'database', 'schema']
+        , 'usage_example': {
+            'cmd_line_args': "@$HOME/conn.args --schema dev --table sales --column price --"
+            , 'file_args': [util.conn_args_file] }
+        , 'db_filter_args': {'owner':'tableowner', 'schema':'schemaname', 'table':'tablename', 'column':'columnname'} }
 
     def execute(self):
         filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])

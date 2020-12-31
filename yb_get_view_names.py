@@ -19,6 +19,17 @@ class get_view_names(util):
     """Issue the ybsql command used to list the view names found in a particular
     database.
     """
+    config = {
+        'description': 'List/Verifies that the specified view/s exist.'
+        , 'optional_args_single': ['database']
+        , 'optional_args_multi': ['owner', 'schema', 'view']
+        , 'usage_example': {
+            'cmd_line_args': '@$HOME/conn.args --schema_in dev Prod --'
+            , 'file_args': [util.conn_args_file] }
+        , 'default_args': {'template': '<raw>', 'exec_output': False}
+        , 'output_tmplt_vars': ['view_path', 'schema_path', 'view', 'schema', 'database']
+        , 'output_tmplt_default': '<view_path>'
+        , 'db_filter_args': {'owner':'v.viewowner','schema':'v.schemaname','view':'v.viewname'} }
 
     def execute(self):
         filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])

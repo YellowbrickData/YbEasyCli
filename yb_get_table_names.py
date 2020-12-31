@@ -19,6 +19,17 @@ class get_table_names(util):
     """Issue the command used to list the table names found in a particular
     database.
     """
+    config = {
+        'description': 'List/Verifies that the specified table/s exist.'
+        , 'optional_args_single': ['database']
+        , 'optional_args_multi': ['owner', 'schema', 'table']
+        , 'usage_example': {
+            'cmd_line_args': "@$HOME/conn.args --schema Prod --table sales --"
+            , 'file_args': [util.conn_args_file] }
+        , 'default_args': {'template': '<raw>', 'exec_output': False}
+        , 'output_tmplt_vars': ['table_path', 'schema_path', 'table', 'schema', 'database']
+        , 'output_tmplt_default': '<table_path>'
+        , 'db_filter_args': {'owner':'c.tableowner', 'schema':'c.schemaname', 'table':'c.tablename'} }
 
     def execute(self):
         filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])

@@ -22,6 +22,19 @@ class mass_column_update(util):
     """Issue the ybsql command used to list the column names comprising an
     object.
     """
+    config = {
+        'description': (
+            'Update the value of multiple columns.'
+            '\n'
+            '\nnote:'
+            '\n  Mass column updates may cause performance issues due to the change '
+            '\n  of how the data is ordered in storage.')
+        , 'optional_args_single': []
+        , 'optional_args_multi': ['owner', 'schema', 'table', 'column', 'datatype']
+        , 'usage_example': {
+            'cmd_line_args': "@$HOME/conn.args --datatype_like 'CHAR%' --update_where_clause \"<columnname> = 'NULL'\" --set_clause NULL --"
+            , 'file_args': [util.conn_args_file] }
+        , 'db_filter_args': {'owner':'tableowner', 'schema':'schemaname', 'table':'tablename', 'column':'columnname', 'datatype':'datatype'} }
 
     def execute(self):
         filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args']

@@ -20,6 +20,7 @@ Output:
 """
 import sys
 
+import yb_common
 from yb_common import common
 from yb_util import util
 
@@ -27,6 +28,15 @@ class get_table_distribution_key(util):
     """Issue the ybsql command used to identify the column name(s) on which
     this table is distributed.
     """
+    config = {
+        'description': 'Identify the distribution column or type (random or replicated) of the requested table.'
+        , 'required_args_single': ['table']
+        , 'optional_args_single': ['owner', 'database', 'schema']
+        , 'usage_example': {
+            'cmd_line_args': "@$HOME/conn.args --schema Prod --table sales --"
+            , 'file_args': [util.conn_args_file] }
+        , 'db_filter_args': {'owner':'ownername','schema':'schemaname','table':'tablename'}
+    }
 
     def execute(self):
         filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
@@ -69,7 +79,7 @@ WHERE
             else:
                 sys.stdout.write(common.quote_object_paths(self.cmd_results.stdout))
         if self.cmd_results.stderr != '':
-            sys.stdout.write(text.color(self.cmd_results.stderr, fg='red'))
+            sys.stdout.write(yb_common.text.color(self.cmd_results.stderr, fg='red'))
 
 def main():
     gtdk = get_table_distribution_key()

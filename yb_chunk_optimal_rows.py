@@ -25,6 +25,13 @@ from yb_util import util
 class chunk_optimal_rows(util):
     """Issue the ybsql command to determine the optimal number of rows per chunk for a table.
     """
+    config = {
+        'description': 'Determine the optimal number of rows per chunk for a table.'
+        , 'required_args_single': ['table']
+        , 'optional_args_single': ['database', 'schema']
+        , 'usage_example': {
+            'cmd_line_args': '@$HOME/conn.args --table dze_db1.dev.sales --schema dev'
+            , 'file_args': [util.conn_args_file] } }
 
     def execute(self):
         schema = (

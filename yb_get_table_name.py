@@ -17,6 +17,14 @@ from yb_util import util
 
 class get_table_name(util):
     """Issue the command used to verify that the specified table exists."""
+    config = {
+        'description': 'List/Verifies that the specified table exists.'
+        , 'required_args_single': ['table']
+        , 'optional_args_single': ['owner', 'database', 'schema']
+        , 'usage_example': {
+            'cmd_line_args': '@$HOME/conn.args --current_schema dev --table sales --'
+            , 'file_args': [util.conn_args_file] }
+        , 'db_filter_args': {'owner':'c.tableowner','schema':'c.schemaname','table':'c.tablename'} }
 
     def execute(self):
         filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])

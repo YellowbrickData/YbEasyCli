@@ -22,6 +22,22 @@ from yb_util import util
 class chunk_dml_by_date_part(util):
     """Issue the ybsql command used to create/execute DML chunked by date/timestamp column
     """
+    config = {
+        'description': 'Chunk DML by DATE/TIMESTAMP column.'
+        , 'optional_args_single': []
+        , 'default_args': {'pre_sql': '', 'post_sql': ''}
+        , 'usage_example': {
+            'cmd_line_args': '@$HOME/conn.args @$HOME/yb_chunk_dml_by_date_part.args --print_chunk_dml'
+            , 'file_args': [ util.conn_args_file
+                , {'$HOME/yb_chunk_dml_by_date_part.args': """--table dze_db1.dev.sales
+--dml \"\"\"INSERT INTO sales_chunk_ordered
+SELECT *
+FROM dze_db1.dev.sales
+WHERE <chunk_where_clause>
+ORDER BY sale_ts\"\"\"
+--column 'sale_ts'
+--date_part HOUR
+--chunk_rows 100000000"""} ] } }
 
     def execute(self):
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(

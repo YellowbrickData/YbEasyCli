@@ -21,6 +21,14 @@ from yb_util import util
 class check_db_views(util):
     """Check for broken views.
     """
+    config = {
+        'description': 'Check for broken views.'
+        , 'optional_args_multi': ['owner', 'database', 'schema', 'view']
+        , 'usage_example': {
+            'cmd_line_args': '@$HOME/conn.args --database_in stores'
+            , 'file_args': [util.conn_args_file] }
+        , 'db_filter_args': {'owner':'ownername','schema':'schemaname','view':'viewname'}
+    }
 
     def execute(self):
         dbs = self.get_dbs()

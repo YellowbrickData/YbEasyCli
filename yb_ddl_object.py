@@ -25,6 +25,7 @@ class ddl_object(util):
     """Issue the command used to dump out the SQL/DDL that was used to create a
     given object.
     """
+    config = {'optional_args_single': ['database']}
 
     def init(self, object_type, db_conn=None, args_handler=None):
         """Initialize ddl_object class.
@@ -33,6 +34,19 @@ class ddl_object(util):
         It also provides access to functions such as logging and command
         execution.
         """
+        cmd_line_args = {
+            'sequence' : "@$HOME/conn.args --current_schema dev --sequence_like '%id%' --"
+            , 'table' : "@$HOME/conn.args --current_schema dev  --table_like 'sale_%' --"
+            , 'view' : "@$HOME/conn.args --schema_in dev Prod --with_db --view_like '%sale%' --"
+        }
+        self.config['description'] = ('Return the {type}/s DDL for the requested'
+                ' database.  Use {type} filters to limit the set'
+                ' of tables returned.').format(type = object_type)
+        self.config['optional_args_multi'] = ['schema', object_type]
+        self.config['usage_example'] = {
+                'cmd_line_args': cmd_line_args[object_type]
+                , 'file_args': [util.conn_args_file] }
+
         self.object_type = object_type
         self.init_default(db_conn, args_handler)
 

@@ -19,6 +19,18 @@ class get_column_names(util):
     """Issue the ybsql command used to list the column names comprising an
     object.
     """
+    config = {
+        'description': 'List/Verifies that the specified column names exist.'
+        , 'required_args_single': ['object']
+        , 'optional_args_single': ['database']
+        , 'optional_args_multi': ['owner', 'schema', 'column']
+        , 'usage_example': {
+            'cmd_line_args': "@$HOME/conn.args --schema dev -- sales"
+            , 'file_args': [util.conn_args_file] }
+        , 'default_args': {'template': '<raw>', 'exec_output': False}
+        , 'output_tmplt_vars': ['table_path', 'schema_path', 'column', 'table', 'schema', 'database']
+        , 'output_tmplt_default': '<column>'
+        , 'db_filter_args': {'owner':'tableowner', 'schema':'schemaname', 'object':'objectname', 'column':'columnname'} }
 
     def execute(self):
         filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])

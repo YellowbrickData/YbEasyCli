@@ -23,6 +23,11 @@ from yb_util import util
 class is_cstore_table(util):
     """Issue the ybsql command used to determine if a table is stored as a column store table.
     """
+    config = {
+        'description': 'Determine if a table is stored as a column store table.'
+        , 'usage_example': {
+            'cmd_line_args': '@$HOME/conn.args --table sys.blade --'
+            , 'file_args': [util.conn_args_file] } }
 
     def execute(self):
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(

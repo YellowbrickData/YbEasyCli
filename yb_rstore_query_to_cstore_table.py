@@ -25,6 +25,16 @@ class rstore_query_to_cstore_table(util):
     """Issue the ybsql command used to materialize a row store table or in
     memory query to a column store table.
     """
+    config = {
+        'description': 'Convert row store query to column store table.'
+        , 'usage_example': {
+            'cmd_line_args': '@$HOME/conn.args @$HOME/sys_schema.args --'
+            , 'file_args': [util.conn_args_file
+                , { '$HOME/sys_schema.args': """--query \"\"\"
+SELECT name
+FROM sys.schema
+\"\"\"
+--table 'sys_schema'"""} ] } }
 
     def execute(self):
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(

@@ -17,6 +17,14 @@ from yb_util import util
 
 class get_view_name(util):
     """Issue the ybsql command used to verify that the specified view exists."""
+    config = {
+        'description': 'List/Verifies that the specified view exists.'
+        , 'required_args_single': ['view']
+        , 'optional_args_single': ['owner', 'database', 'schema']
+        , 'usage_example': {
+            'cmd_line_args': '@$HOME/conn.args --schema Prod --view sales_v --'
+            , 'file_args': [util.conn_args_file] }
+        , 'db_filter_args': {'owner':'v.viewowner','schema':'v.schemaname','view':'v.viewname'} }
 
     def execute(self):
         filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])

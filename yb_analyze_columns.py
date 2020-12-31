@@ -17,10 +17,24 @@ import sys
 from tabulate import tabulate
 
 from yb_util import util
+from yb_common import common
 
 class analyze_columns(util):
     """Issue the ybsql command used to analyze the data content of a table's column/s
     """
+    config = {
+        'description': ("Analyze the data content of a table's columns."
+            '\n'
+            '\nnote:'
+            '\n  estimate level anaylsis requires pg_statistic table read privilege and may only display for super users'
+            '\n  count and groups level anaylsis may require large pool access and may not display for super users')
+        , 'required_args_single': ['table']
+        , 'optional_args_single': ['database']
+        , 'optional_args_multi': ['owner', 'schema', 'column']
+        , 'usage_example': {
+            'cmd_line_args': '@$HOME/conn.args --schema_in dev --table sales --column_in store_id price --'
+            , 'file_args': [util.conn_args_file] }
+        , 'db_filter_args': {'owner':'tableowner', 'schema':'schemaname', 'column':'columnname'} }
 
     def execute(self):
         filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
