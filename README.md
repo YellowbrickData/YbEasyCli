@@ -57,24 +57,25 @@ See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/4.0/adminis
 -   **[yb\_get\_table\_names](./yb_get_table_names.py):** List/Verifies that the specified table/s exist.
 -   **[yb\_get\_view\_name](./yb_get_view_name.py):** List/Verifies that the specified view exists.
 -   **[yb\_get\_view\_names](./yb_get_view_names.py):** List/Verifies that the specified view/s exist.
--   **[yb_is_cstore_table](./yb_is_cstore_table.py):** Determine if a table is stored as a column store table.
--   **[yb_mass_column_update](./yb_mass_column_update.py):** Update the value of multiple columns.
--   **[yb_rstore_query_to_cstore_table](./yb_rstore_query_to_cstore_table.py):** Convert row store query to column store table.
--   **[yb_to_yb_copy_table](./yb_to_yb_copy_table.py):** Copy a table from a source cluster to a destination cluster.
+-   **[yb\_is\_cstore\_table](./yb_is_cstore_table.py):** Determine if a table is stored as a column store table.
+-   **[yb\_mass\_column\_update](./yb_mass_column_update.py):** Update the value of multiple columns.
+-   **[yb\_query\_to\_stored\_proc](./yb_query_to_stored_proc.py):** Create a stored procedure for the provided query with the query privileges of the definer/creator.
+-   **[yb\_rstore\_query\_to\_cstore\_table](./yb_rstore_query_to_cstore_table.py):** Convert row store query to column store table.
+-   **[yb\_to\_yb\_copy\_table](./yb_to_yb_copy_table.py):** Copy a table from a source cluster to a destination cluster.
 
 ### Other Files
 
+-   **[yb\_util](./yb_util.py):** Parent class for all utilities
+-   **[yb\_common](./yb_common.py):** Performs functions such as argument parsing, login verification, logging,
+    and command execution that are common to all utilities in this project.
 -   **[yb\_ddl\_object](./yb_ddl_object.py):** Dump out the SQL/DDL that was used to create any database object.
     - This file is typically not executed directly, but it is relied upon by:
       1.  [yb\_ddl\_sequence](./yb_ddl_sequence.py)
       2.  [yb\_ddl\_table](./yb_ddl_table.py)
       3.  [yb\_ddl\_view](./yb_ddl_view.py)
--   **[yb\_common](./yb_common.py):** Performs functions such as argument
-    parsing, login verification, logging, and command execution that are common
-    to all utilities in this project.
 
--   **[test_create_host_objects](./test/test_create_host_objects.py):** Create test user, database, and database objects.
--   **[test_drop_host_objects](./test/test_drop_host_objects.py):** Drop test user, database, and database objects.
+-   **[test\_create\_host\_objects](./test/test_create_host_objects.py):** Create test user, database, and database objects.
+-   **[test\_drop\_host\_objects](./test/test_drop_host_objects.py):** Drop test user, database, and database objects.
 -   **[test\_run](./test/test_run.py):** Runs the test created for all utilities or a given utility.
 
 
