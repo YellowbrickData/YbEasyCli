@@ -29,6 +29,22 @@ class yb_to_yb_copy_table(util):
     """Issue the command used to list the table names found in a particular
     database.
     """
+    config = {
+        'description': (
+            'Copy a table from a source cluster to a destination cluster.'
+            '\n'
+            '\nnote:'
+            '\n  If the src and dst user password differ use SRC_YBPASSWORD and DST_YBPASSWORD env variables.'
+            '\n  For manual password entry unset all env passwords or use the --src_W and --dst_W options.')
+        , 'positional_args_usage': None
+        , 'usage_example': {
+            'cmd_line_args': "@$HOME/conn.args --unload_where_clause 'sale_id BETWEEN 1000 AND 2000' --src_table Prod.sales --dst_table dev.sales --log_dir tmp --"
+            , 'file_args': [ {'$HOME/conn.args': """--src_host yb14
+--src_dbuser dze
+--src_conn_db stores_prod
+--dst_host yb89
+--dst_dbuser dze
+--dst_conn_db stores_dev"""} ] } }
 
     def init(self, src_conn=None, dst_conn=None, args_handler=None):
         """Initialize yb_to_yb_copy_tables class.
@@ -190,6 +206,7 @@ class yb_to_yb_copy_table(util):
         self.args_handler.args.print_chunk_dml = True
         self.args_handler.args.table = yb_common.common.quote_object_paths(self.args_handler.args.src_table)
         self.args_handler.args.column = 'rowunique'
+        self.args_handler.args.column_cardinality = 'high'
         self.args_handler.args.table_where_clause = self.args_handler.args.where_clause
 
         cdml = chunk_dml_by_integer(db_conn=self.src_conn, args_handler=self.args_handler)
