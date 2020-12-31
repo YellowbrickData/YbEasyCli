@@ -6,10 +6,11 @@ map_out = {
 test_cases = [
     test_case(
         cmd=('yb_chunk_dml_by_integer.py @{argsdir}/yb_chunk_dml_by_integer__args1 '
-            '--execute_chunk_dml')
+            '--column col4 --execute_chunk_dml')
         , exit_code=0
         , stdout="""-- Running DML chunking.
 --2020-08-22 18:19:38.201736-06: Starting Integer Chunking, first calculating group counts
+--2020-08-22 18:19:38.301736-06: Build Chunk Groupings, first pass
 --2020-08-22 18:19:39.431422-06: Build Chunk DMLs
 --2020-08-22 18:19:39.522147-06: Chunk: 1, Rows: 100000, Range 1000000 <= col4 < 47500950000
 --2020-08-22 18:19:39.822828-06: Chunk: 2, Rows: 100000, Range 47500950000 <= col4 < 90000900000
@@ -38,7 +39,7 @@ test_cases = [
 
     , test_case(
         cmd=('yb_chunk_dml_by_integer.py @{argsdir}/yb_chunk_dml_by_integer__args1 '
-            '--print_chunk_dml --null_chunk_off --verbose_chunk_off')
+            '--column col4 --print_chunk_dml --null_chunk_off --verbose_chunk_off')
         , exit_code=0
         , stdout="""-- Running DML chunking.
 INSERT INTO new_chunked_table SELECT * FROM {db1}.dev.data_types_t WHERE /* chunk_clause(chunk: 1, size: 100000) >>>*/ 1000000 <= col4 AND col4 < 47500950000 /*<<< chunk_clause */;
@@ -56,10 +57,11 @@ INSERT INTO new_chunked_table SELECT * FROM {db1}.dev.data_types_t WHERE /* chun
 
     , test_case(
         cmd=('yb_chunk_dml_by_integer.py @{argsdir}/yb_chunk_dml_by_integer__args1 '
-            '--print_chunk_dml')
+            '--column col4 --print_chunk_dml')
         , exit_code=0
         , stdout="""-- Running DML chunking.
 --2020-08-22 19:26:27.672082-06: Starting Integer Chunking, first calculating group counts
+--2020-08-22 19:26:27.801736-06: Build Chunk Groupings, first pass
 --2020-08-22 19:26:28.922245-06: Build Chunk DMLs
 --2020-08-22 19:26:29.010727-06: Chunk: 1, Rows: 100000, Range 1000000 <= col4 < 47500950000
 INSERT INTO new_chunked_table SELECT * FROM {db1}.dev.data_types_t WHERE /* chunk_clause(chunk: 1, size: 100000) >>>*/ 1000000 <= col4 AND col4 < 47500950000 /*<<< chunk_clause */;
@@ -94,6 +96,40 @@ INSERT INTO new_chunked_table SELECT * FROM {db1}.dev.data_types_t WHERE col4 IS
 --Largest chunk size : 100000
 --Average chunk size : 90909
 -- Completed DML chunking."""
+        , stderr=''
+        , map_out=map_out)
+
+    , test_case(
+        cmd=('yb_chunk_dml_by_integer.py @{argsdir}/yb_chunk_dml_by_integer__args1 '
+            '--column col1 --column_cardinality high')
+        , exit_code=0
+        , stdout="""-- Running DML chunking.
+--2020-12-25 21:16:02.899221-08: Starting Integer Chunking, first calculating group counts
+--2020-12-25 21:16:03.053718-08: Build Chunk Groupings, first pass
+--2020-12-25 21:16:03.278257-08: Build Chunk DMLs
+--2020-12-25 21:16:03.280744-08: Chunk: 1, Rows: 100095, Range 1 <= col1 < 100096
+--2020-12-25 21:16:03.283273-08: Chunk: 2, Rows: 100096, Range 100096 <= col1 < 200192
+--2020-12-25 21:16:03.285346-08: Chunk: 3, Rows: 100096, Range 200192 <= col1 < 300288
+--2020-12-25 21:16:03.287403-08: Chunk: 4, Rows: 100096, Range 300288 <= col1 < 400384
+--2020-12-25 21:16:03.289469-08: Chunk: 5, Rows: 100096, Range 400384 <= col1 < 500480
+--2020-12-25 21:16:03.291527-08: Chunk: 6, Rows: 100096, Range 500480 <= col1 < 600576
+--2020-12-25 21:16:03.293583-08: Chunk: 7, Rows: 100096, Range 600576 <= col1 < 700672
+--2020-12-25 21:16:03.295636-08: Chunk: 8, Rows: 100096, Range 700672 <= col1 < 800768
+--2020-12-25 21:16:03.297689-08: Chunk: 9, Rows: 100096, Range 800768 <= col1 < 900864
+--2020-12-25 21:16:03.299731-08: Chunk: 10, Rows: 99137, Range 900864 <= col1 < 1000001
+--2020-12-25 21:16:03.300263-08: Chunk: 11, Rows: 0, col1 IS NULL
+--2020-12-25 21:16:03.300573-08: Completed Integer Chunked DML
+--Total Rows         : 1000000
+--IS NULL Rows       : 0
+--Running total check: PASSED
+--Duration           : 00:00:00.402947
+--Overhead duration  : 00:00:00.403053
+--Total Chunks       : 11
+--Min chunk size     : 100000
+--Largest chunk size : 100096
+--Average chunk size : 90909
+-- Completed DML chunking.
+"""
         , stderr=''
         , map_out=map_out)
 ]
