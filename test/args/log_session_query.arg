@@ -1,0 +1,13 @@
+--query """
+SELECT
+    s.session_id
+    , u.name AS user, d.name AS database, s.application_name
+    , s.start_time, s.end_time - s.start_time AS session_duration
+FROM
+    sys.log_session AS s
+    LEFT JOIN sys.user AS u
+        USING (user_id)
+    LEFT JOIN sys.database AS d
+        USING (database_id)
+ORDER BY session_duration DESC
+"""
