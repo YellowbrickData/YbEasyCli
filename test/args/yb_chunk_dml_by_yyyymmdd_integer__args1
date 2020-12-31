@@ -1,8 +1,0 @@
-@{argsdir}/db1
---table {db1}.dev.data_types_t
---pre_sql 'DROP TABLE IF EXISTS new_chunked_table; CREATE TEMP TABLE new_chunked_table AS SELECT * FROM {db1}.dev.data_types_t WHERE FALSE;'
---dml 'INSERT INTO new_chunked_table SELECT * FROM {db1}.dev.data_types_t WHERE <chunk_where_clause>'
---post_sql 'DROP TABLE IF EXISTS new_chunked_table;'
---column 'col19'
---chunk_rows 100000
---table {db1}.dev."data_types_t"
