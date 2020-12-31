@@ -22,7 +22,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 class common:
-    version = '20201214'
+    version = '20201230'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -198,21 +198,10 @@ class args_handler:
 
     def init_default(self):
         """Build all the requested database arguments
-
-        :param description: Help description
-        :param required_args_single: A list of required db object types that will
-            be filtered, defaults to []
-        :param optional_args_single: A list of optional db object types that will
-            be filtered for a single object, defaults to ['schema']
-        :param optional_args_multi: A list of optional db object types that will
-            be filtered for multiple objects, like: ['db', 'owner', 'table']
-        :param positional_args_usage: positional args, defaults to '[database]'
         """
-        description = self.config['description']
         required_args_single = self.config['required_args_single']
         optional_args_single = self.config['optional_args_single']
         optional_args_multi = self.config['optional_args_multi']
-        positional_args_usage = self.config['positional_args_usage']
 
         if (
             ('schema' in optional_args_single)
@@ -925,7 +914,7 @@ class db_connect:
     @staticmethod
     def get_env():
         env = {}
-        for key, value in db_connect.env_to_set.items():
+        for key in db_connect.env_to_set.keys():
             env_name = db_connect.env_to_set[key]
             env[key] = os.environ.get(env_name)
         return env
@@ -1211,7 +1200,6 @@ def convert_arg_line_to_args(line):
                 else:
                     if len(convert_arg_line_to_args.dollar_str) > 0:
                         convert_arg_line_to_args.args.append(convert_arg_line_to_args.dollar_str)
-                        dollar_str = ''
             else:
                 if convert_arg_line_to_args.in_hard_quote:
                     convert_arg_line_to_args.dollar_str += line[loc]
@@ -1234,13 +1222,6 @@ convert_arg_line_to_args.arg_ct = 0
 # Standalone tests
 # Example: yb_common.py -h YB14 -U denav -D denav --verbose 3
 if __name__ == "__main__":
-    common = common('Common Standalone Debug Run', 'object')
-    common.args_add_positional_args()
-    common.args_add_optional()
-    common.args_add_connection_group()
-    common.args_add_filter_group()
-    common.args_process()
-
     if common.verbose >= 3:
         # Print extended information on the environment running this program
         print('--->%s\n%s' % ("(common.call_cmd('lscpu')).stdout",
@@ -1249,9 +1230,3 @@ if __name__ == "__main__":
         print('--->%s\n%s' % ("platform.python_implementation()",
                               platform.python_implementation()))
         print('--->%s\n%s' % ("sys.version", sys.version))
-        print('--->%s\n%s' % ("common.args", common.args))
-        print('--->%s\n%s' % ("common.filter_clause", common.filter_clause))
-        print('--->%s\n%s' % ("common.util_dir_path", common.util_dir_path))
-        print('--->%s\n%s' % ("common.util_file_name", common.util_file_name))
-        print('--->%s\n%s' % ("common.util_name", common.util_name))
-        print('--->%s\n%s' % ("common.version", common.version))
