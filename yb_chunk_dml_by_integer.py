@@ -22,10 +22,25 @@ from yb_util import util
 class chunk_dml_by_integer(util):
     """Issue the ybsql command used to create/execute DML chunked by an integer column
     """
+    config = {
+        'description': 'Chunk DML by INTEGER column.'
+        , 'optional_args_single': []
+        , 'default_args': {'pre_sql': '', 'post_sql': ''}
+        , 'usage_example': {
+            'cmd_line_args': '@$HOME/conn.args @$HOME/yb_chunk_dml_by_integer.args --print_chunk_dml'
+            , 'file_args': [ util.conn_args_file
+                , {'$HOME/yb_chunk_dml_by_integer.args': """--table dze_db1.dev.sales
+--dml \"\"\"INSERT INTO sales_chunk_ordered
+SELECT *
+FROM dze_db1.dev.sales
+WHERE <chunk_where_clause>
+ORDER BY sale_id\"\"\"
+--column 'sale_id'
+--chunk_rows 100000000"""} ] } }
 
     def execute(self):
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
-            'yb_chunk_dml_by_integer_p'
+            'yb_chunk_dml_by_integer_%scard_p' % self.args_handler.args.column_cardinality
             , args = {
                 'a_table_name' : self.args_handler.args.table
                 , 'a_integer_column_name' : self.args_handler.args.column
@@ -61,6 +76,8 @@ class chunk_dml_by_integer(util):
 
         args_chunk_o_grp = self.args_handler.args_parser.add_argument_group(
             'optional chunking arguments')
+        args_chunk_o_grp.add_argument("--column_cardinality", choices=['low', 'high'], default="low"
+            , help="should be set to high if column cardinality is high, defaults to low")
         args_chunk_o_grp.add_argument("--table_where_clause", default="TRUE"
             , help="filter the records to chunk, if this filter is applied it should also be"
                 " part of dml provided")
