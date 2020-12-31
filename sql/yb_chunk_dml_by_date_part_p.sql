@@ -67,9 +67,8 @@ ORDER BY 1$STR$
     _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
     _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'ybutils:' || _fn_name;
 BEGIN
-    IF a_verbose = TRUE THEN
-        RAISE INFO '--%: Starting Date Part Chunking, first calculating % group counts', CLOCK_TIMESTAMP(), a_date_part;
-    END IF;
+    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags);
+    IF a_verbose = TRUE THEN RAISE INFO '--%: Starting Date Part Chunking, first calculating % group counts', CLOCK_TIMESTAMP(), a_date_part; END IF;
     --
     EXECUTE v_sql_create_tmp_group_table;
     EXECUTE v_sql_select_total_size INTO v_total_size;
@@ -80,9 +79,7 @@ BEGIN
     FETCH NEXT FROM v_rc INTO v_rec;
     v_chunk_first_val := v_rec.start_val;
     --
-    IF a_verbose = TRUE THEN
-        RAISE INFO '--%: Build Chunk DMLs', CLOCK_TIMESTAMP();
-    END IF;
+    IF a_verbose = TRUE THEN RAISE INFO '--%: Build Chunk DMLs', CLOCK_TIMESTAMP(); END IF;
     --
     LOOP
         v_chunk_size := v_chunk_size + v_rec.cnt;
@@ -97,9 +94,7 @@ BEGIN
             --
             v_exec_dml := REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(a_dml,'<chunk_where_clause>', v_sql_where_clause), '<chunk_first_val>', TO_CHAR(v_chunk_first_val,'YYYY-MM-DD HH24:MI:SS')), '<chunk_last_val>',  TO_CHAR(v_rec.next_val,'YYYY-MM-DD HH24:MI:SS')), '<chunk_size>', v_chunk_size::VARCHAR), '<chunk>', v_chunk::VARCHAR);
             --
-            IF a_print_chunk_dml = TRUE THEN
-                RAISE INFO '%;', v_exec_dml;
-            END IF;
+            IF a_print_chunk_dml = TRUE THEN RAISE INFO '%;', v_exec_dml; END IF;
             --
             IF a_execute_chunk_dml = TRUE THEN
                 v_dml_start_ts := CLOCK_TIMESTAMP();
@@ -128,9 +123,7 @@ BEGIN
         --
         v_exec_dml := REPLACE(a_dml,'<chunk_where_clause>', a_ts_column_name || ' IS NULL');
         --
-        IF a_print_chunk_dml = TRUE THEN
-            RAISE INFO '%;', v_exec_dml;
-        END IF;
+        IF a_print_chunk_dml = TRUE THEN RAISE INFO '%;', v_exec_dml; END IF;
         --
         IF a_execute_chunk_dml = TRUE THEN
             v_dml_start_ts := CLOCK_TIMESTAMP();
