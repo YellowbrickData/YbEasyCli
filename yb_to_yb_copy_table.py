@@ -241,7 +241,7 @@ class yb_to_yb_copy_table(util):
             ybload_log_file_name = self.log_file_name_template.format(
                 log_type='ybload').format(XofX=XofX)
 
-            cmd_results = yb_common.common.call_cmd(copy_cmd)
+            cmd_results = yb_common.common.call_cmd(copy_cmd, False)
 
             loaded = False
             if cmd_results.exit_code == 0:
