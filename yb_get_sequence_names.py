@@ -32,6 +32,7 @@ class get_sequence_names(util):
         , 'db_filter_args': {'owner':'sequenceowner', 'schema':'schemaname', 'sequence':'sequencename'} }
 
     def execute(self):
+        self.db_filter_args.schema_set_all_if_none()
         filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
 
         sql_query = """
@@ -52,7 +53,8 @@ SELECT
 FROM
     objct
 WHERE
-    {filter_clause}
+    schemaname NOT IN ('sys', 'pg_catalog', 'information_schema')
+    AND {filter_clause}
 ORDER BY LOWER(schemaname), LOWER(sequencename)""".format(
              filter_clause = filter_clause
              , database_name = self.db_conn.database)

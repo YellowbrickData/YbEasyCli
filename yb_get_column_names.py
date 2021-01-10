@@ -33,6 +33,7 @@ class get_column_names(util):
         , 'db_filter_args': {'owner':'tableowner', 'schema':'schemaname', 'object':'objectname', 'column':'columnname'} }
 
     def execute(self):
+        self.db_filter_args.schema_set_all_if_none()
         filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
 
         sql_query = """
@@ -58,7 +59,8 @@ SELECT
 FROM
     objct
 WHERE
-    objectname = '{object_name}'
+    schemaname NOT IN ('sys', 'pg_catalog', 'information_schema')
+    AND objectname = '{object_name}'
     AND {filter_clause}
 ORDER BY
     LOWER(schemaname), LOWER(objectname), columnnum""".format(

@@ -32,6 +32,7 @@ class get_view_names(util):
         , 'db_filter_args': {'owner':'v.viewowner','schema':'v.schemaname','view':'v.viewname'} }
 
     def execute(self):
+        self.db_filter_args.schema_set_all_if_none()
         filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
 
         sql_query = """
@@ -40,7 +41,8 @@ SELECT
 FROM
     {database_name}.pg_catalog.pg_views AS v
 WHERE
-    {filter_clause}
+    v.schemaname NOT IN ('sys', 'pg_catalog', 'information_schema')
+    AND {filter_clause}
 ORDER BY LOWER(v.schemaname), LOWER(v.viewname)""".format(
              filter_clause = filter_clause
              , database_name = self.db_conn.database)

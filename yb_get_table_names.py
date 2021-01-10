@@ -24,7 +24,7 @@ class get_table_names(util):
         , 'optional_args_single': ['database']
         , 'optional_args_multi': ['owner', 'schema', 'table']
         , 'usage_example': {
-            'cmd_line_args': "@$HOME/conn.args --schema Prod --table sales --"
+            'cmd_line_args': "@$HOME/conn.args --schema_in Prod --table_in sales --"
             , 'file_args': [util.conn_args_file] }
         , 'default_args': {'template': '<raw>', 'exec_output': False}
         , 'output_tmplt_vars': ['table_path', 'schema_path', 'table', 'schema', 'database']
@@ -32,6 +32,7 @@ class get_table_names(util):
         , 'db_filter_args': {'owner':'c.tableowner', 'schema':'c.schemaname', 'table':'c.tablename'} }
 
     def execute(self):
+        self.db_filter_args.schema_set_all_if_none()
         filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
 
         sql_query = """
@@ -42,7 +43,8 @@ FROM
     JOIN {database_name}.pg_catalog.pg_tables AS c
         ON (t.table_name = c.tablename AND t.table_schema = c.schemaname)
 WHERE
-    t.table_type='BASE TABLE'
+    c.schemaname NOT IN ('sys', 'pg_catalog', 'information_schema')
+    AND t.table_type='BASE TABLE'
     AND {filter_clause}
 ORDER BY LOWER(c.schemaname), LOWER(c.tablename)""".format(
              filter_clause = filter_clause
