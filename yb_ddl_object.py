@@ -25,6 +25,40 @@ class ddl_object(util):
     """Issue the command used to dump out the SQL/DDL that was used to create a
     given object.
     """
+
+    stored_proc_describe_query = """WITH
+stored_proc_describe AS (
+    SELECT
+        n.nspname AS schema
+        , p.proname AS stored_proc
+        , pg_catalog.pg_get_userbyid(p.proowner) AS owner
+        , pg_catalog.pg_get_functiondef(p.oid) AS ddl
+        , CASE
+            WHEN p.proisagg THEN 'agg'
+            WHEN p.proiswindow THEN 'window'
+            WHEN p.prosp THEN 'stored procedure'
+            WHEN p.prorettype = 'pg_catalog.trigger'::pg_catalog.regtype THEN 'trigger'
+                ELSE 'normal'
+        END AS type
+    FROM
+        {database}.pg_catalog.pg_proc AS p
+        LEFT JOIN {database}.pg_catalog.pg_namespace AS n
+            ON n.oid = p.pronamespace
+    WHERE
+        n.nspname NOT IN ('sys', 'pg_catalog', 'information_schema')
+        AND type = 'stored procedure'
+)
+SELECT
+     '-- Schema: ' || schema
+    || CHR(10) || 'CREATE PROCEDURE '
+    || stored_proc || REPLACE(REGEXP_REPLACE(ddl, '[^(]*', ''), '$function$', '$CODE$')
+FROM
+    stored_proc_describe
+WHERE
+    {filter_clause}
+ORDER BY LOWER(schema), LOWER(stored_proc)
+"""
+
     config = {'optional_args_single': ['database']}
 
     def init(self, object_type, db_conn=None, args_handler=None):
@@ -36,13 +70,14 @@ class ddl_object(util):
         """
         cmd_line_args = {
             'sequence' : "@$HOME/conn.args --current_schema dev --sequence_like '%id%' --"
+            , 'stored_proc' : "@$HOME/conn.args --current_schema dev --stored_proc_like '%id%' --"
             , 'table' : "@$HOME/conn.args --current_schema dev  --table_like 'sale_%' --"
             , 'view' : "@$HOME/conn.args --schema_in dev Prod --with_db --view_like '%sale%' --"
         }
         self.config['description'] = ('Return the {type}/s DDL for the requested'
                 ' database.  Use {type} filters to limit the set'
                 ' of tables returned.').format(type = object_type)
-        self.config['optional_args_multi'] = ['schema', object_type]
+        self.config['optional_args_multi'] = ['owner', 'schema', object_type]
         self.config['usage_example'] = {
                 'cmd_line_args': cmd_line_args[object_type]
                 , 'file_args': [util.conn_args_file] }
@@ -52,24 +87,20 @@ class ddl_object(util):
 
     def additional_args(self):
         args_ddl_grp = self.args_handler.args_parser.add_argument_group('optional DDL arguments')
-        args_ddl_grp.add_argument("--with_schema",
-                                  action='store_true',
-                                  help="add the schema name to the %s DDL"
-                                  % self.object_type)
-        args_ddl_grp.add_argument("--with_db",
-                                  action='store_true',
-                                  help="add the database name to the %s DDL"
-                                  % self.object_type)
-        args_ddl_grp.add_argument("--schema_name",
-                                  help="set a new schema name to the %s DDL"
-                                  % self.object_type)
-        args_ddl_grp.add_argument("--db_name",
-                                  help="set a new database name to the %s DDL"
-                                  % self.object_type)
+        args_ddl_grp.add_argument("--with_schema"
+            , action='store_true', help="add the schema name to the %s DDL" % self.object_type)
+        args_ddl_grp.add_argument("--with_db"
+            , action='store_true', help="add the database name to the %s DDL" % self.object_type)
+        args_ddl_grp.add_argument("--schema_name"
+            , help="set a new schema name to the %s DDL" % self.object_type)
+        args_ddl_grp.add_argument("--db_name"
+            , help="set a new database name to the %s DDL" % self.object_type)
         if self.object_type == 'table':
             args_ddl_grp.add_argument("--with_rowcount"
-                , action="store_true"
-                , help="display the current rowcount")
+                , action="store_true", help="display the current rowcount")
+        elif self.object_type in ('stored_proc', 'view'):
+            args_ddl_grp.add_argument("--or_replace"
+                , action="store_true", help="add the 'OR REPLACE' clause to the %s DDL" % self.object_type)
 
     def additional_args_process(self):
         if self.args_handler.args.schema_name:
@@ -104,25 +135,36 @@ class ddl_object(util):
                        module
         :return: A string containing the SQL DESCRIBE statement
         """
-        code = ('get_{object_type}_names'
-            '(db_conn=self.db_conn, args_handler=self.args_handler)').format(
-            object_type=self.object_type)
-        gons = eval(code)
-        gons.execute()
+        if self.object_type == 'stored_proc':
+            self.db_filter_args.schema_set_all_if_none()
+            filter_clause = self.db_filter_args.build_sql_filter(
+                {'schema':'schema', 'stored_proc':'stored_proc', 'owner':'owner'} )
 
-        if (gons.cmd_results.stderr != ''
-            or gons.cmd_results.exit_code != 0):
-            sys.stdout.write(text.color(gons.cmd_results.stderr, fg='red'))
-            exit(gons.cmd_results.exit_code)
+            describe_sql = ddl_object.stored_proc_describe_query.format(
+                filter_clause = filter_clause
+                , database = self.db_conn.database)
+        else:
+            code = ('get_{object_type}_names'
+                '(db_conn=self.db_conn, args_handler=self.args_handler)').format(
+                object_type=self.object_type)
+            gons = eval(code)
+            gons.execute()
 
-        objects = yb_common.common.quote_object_paths(gons.cmd_results.stdout)
-        describe_objects = []
-        if objects.strip() != '':
-            for object in objects.strip().split('\n'):
-                describe_clause = self.get_describe_sql_by_object_type(object)
-                describe_objects.append(describe_clause)
+            if (gons.cmd_results.stderr != ''
+                or gons.cmd_results.exit_code != 0):
+                sys.stdout.write(text.color(gons.cmd_results.stderr, fg='red'))
+                exit(gons.cmd_results.exit_code)
 
-        return '\n'.join(describe_objects)
+            objects = yb_common.common.quote_object_paths(gons.cmd_results.stdout)
+
+            describe_objects = []
+            if objects.strip() != '':
+                for object in objects.strip().split('\n'):
+                    describe_clause = self.get_describe_sql_by_object_type(object)
+                    describe_objects.append(describe_clause)
+            describe_sql = '\n'.join(describe_objects)
+
+        return describe_sql
 
     def ddl_modifications(self, ddl, args):
         """
@@ -173,12 +215,16 @@ class ddl_object(util):
                 , 'boolean'
             ]
             for data_type in d_types:
-                line = re.sub(r"( )" + data_type + "(,?$|\()",
-                              r"\1%s\2" % data_type.upper(), line)
+                line = re.sub(r"( )" + data_type + r"(,?$|\()",
+                    r"\1%s\2" % data_type.upper(), line)
 
             new_ddl.append(line)
 
         new_ddl = '\n'.join(new_ddl).strip() + '\n'
+
+        if self.object_type in('stored_proc', 'view') and self.args_handler.args.or_replace:
+            typ = {'view':'VIEW','stored_proc':'PROCEDURE'}[self.object_type]
+            new_ddl = new_ddl.replace('CREATE %s'%typ, 'CREATE OR REPLACE %s'%typ)
 
         #remove DDL comments at the beginning of each object definition
         new_ddl = re.sub(r"--( |-).*?\n", "", new_ddl)
