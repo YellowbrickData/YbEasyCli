@@ -56,7 +56,7 @@ class common:
         return data
 
     @staticmethod
-    def call_cmd(cmd_str, stack_level=2):
+    def call_cmd(cmd_str, escape_dollar=True, stack_level=2):
         """Spawn a new process to execute the given command.
 
         Example: results = call_cmd('env | grep -i path')
@@ -82,6 +82,9 @@ class common:
         elif common.verbose >= 1:
             print('%s: %s'
                 % (text.color('Executing', style='bold'), cmd_str))
+
+        if escape_dollar:
+            cmd_str = cmd_str.replace('$','\$')
 
         start_time = datetime.now()
         p = subprocess.Popen(
@@ -1074,6 +1077,7 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
         if not matches:
             common.error("Stored proc '%s' regex parse failed." % stored_proc)
 
+        stored_proc_name          = matches.group(2)
         stored_proc_args          = matches.group(3)
         #TODO currently return_type only handles 1 word like; BOOLEAN
         stored_proc_return_type   = matches.group(6).upper()
@@ -1081,7 +1085,7 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
         stored_proc_return        = matches.group(9)
         stored_proc_after_return  = matches.group(10)
 
-        anonymous_block = pre_sql + 'DO $$\nDECLARE\n    --arguments\n'
+        anonymous_block = pre_sql + '--proc: %s\nDO $$\nDECLARE\n    --arguments\n' % stored_proc_name
         if stored_proc_return_type not in ('BOOLEAN', 'BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
             common.error('Unhandled proc return_type: %s' % stored_proc_return_type)
  
@@ -1122,9 +1126,6 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
             % (
                 stored_proc_before_return, return_marker, stored_proc_return
                 , stored_proc_after_return, post_sql))
-
-        anonymous_block = re.sub(r'\$([a-zA-Z0-9]*)\$', r'\$\1\$'
-            , anonymous_block)
 
         cmd_results = self.ybsql_query(anonymous_block)
 
