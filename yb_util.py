@@ -82,7 +82,7 @@ class util:
                 else:
                     out_line = template
                     for var in vars:
-                        if var in ('table_path', 'view_path', 'sequence_path'):
+                        if var in ('table_path', 'view_path', 'sequence_path', 'stored_proc_path'):
                             value = common.quote_object_paths('.'.join(line.split('.')[0:3]))
                         elif var == 'schema_path':
                             value = common.quote_object_paths('.'.join(line.split('.')[0:2]))
@@ -92,7 +92,7 @@ class util:
                             value = line.split('.')[4]
                         elif var == 'column':
                             value = line.split('.')[3]
-                        elif var in ('table', 'view', 'sequence'):
+                        elif var in ('table', 'view', 'sequence', 'stored_proc'):
                             value = line.split('.')[2]
                         elif var == 'schema':
                             value = line.split('.')[1]
