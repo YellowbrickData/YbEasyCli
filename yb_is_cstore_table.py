@@ -25,6 +25,8 @@ class is_cstore_table(util):
     """
     config = {
         'description': 'Determine if a table is stored as a column store table.'
+        , 'required_args_single': ['table']
+        , 'optional_args_single': []
         , 'usage_example': {
             'cmd_line_args': '@$HOME/conn.args --table sys.blade --'
             , 'file_args': [util.conn_args_file] } }
@@ -37,12 +39,6 @@ class is_cstore_table(util):
 
         self.cmd_results.write()
         print(self.cmd_results.proc_return)
-
-    def additional_args(self):
-        args_required_grp = self.args_handler.args_parser.add_argument_group('required arguments')
-        args_required_grp.add_argument(
-            "--table", required=True
-            , help="table name, the name ot the table to test")
 
 def main():
     iscst = is_cstore_table()
