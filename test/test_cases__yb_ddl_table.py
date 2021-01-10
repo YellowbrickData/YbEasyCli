@@ -1,6 +1,6 @@
 test_cases = [
     test_case(
-        cmd='yb_ddl_table.py @{argsdir}/db1 --current_schema dev --table_like a1_t'
+        cmd='yb_ddl_table.py @{argsdir}/db1 --schema_in dev --table_like a1_t'
         , exit_code=0
         , stdout="""CREATE TABLE a1_t (
     col1 INTEGER

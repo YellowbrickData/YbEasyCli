@@ -1,10 +1,10 @@
 test_cases = [
     test_case(
-        cmd='yb_ddl_view.py @{argsdir}/db1 --current_schema dev --view_like a1_v'
+        cmd='yb_ddl_view.py @{argsdir}/db1 --schema_in dev --view_like a1_v'
         , exit_code=0
         , stdout="""CREATE VIEW a1_v AS
  SELECT a1_t.col1
-   FROM a1_t;"""
+   FROM dev.a1_t;"""
         , stderr='')
 
     , test_case(
