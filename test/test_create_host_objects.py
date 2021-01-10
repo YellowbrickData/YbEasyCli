@@ -287,6 +287,108 @@ FROM
 ORDER BY 1
 """
 
+        ddl_test_raise_p = """CREATE PROCEDURE %s."test_Raise_p"(
+    dummy_test_arg_1 BIGINT DEFAULT 1
+    , dummy_test_arg_2 VARCHAR(1) DEFAULT 'xxxx'
+)
+    RETURNS INTEGER
+    SET client_min_messages=NOTICE
+    LANGUAGE 'plpgsql'
+AS $CODE$
+BEGIN
+    RAISE INFO 'Test RAISE INFO, is always displayed regardless of client_min_message!';
+    RAISE INFO '';
+    --
+    RAISE DEBUG 'Test RAISE DEBUG!';
+    RAISE LOG 'Test RAISE LOG!';
+    RAISE NOTICE 'Test RAISE NOTICE!';
+    RAISE WARNING 'Test RAISE WARNING!';
+    RAISE EXCEPTION 'Test RAISE EXCEPTION!';
+    RETURN -1;
+END;$CODE$
+"""
+
+        ddl_test_error_p = """CREATE OR REPLACE PROCEDURE %s.test_error_p(
+    dummy_test_arg_1 BIGINT DEFAULT 1
+)
+    LANGUAGE 'plpgsql'
+    AS $CODE$
+DECLARE
+    v_rec RECORD;
+    v_state TEXT;
+    v_msg TEXT;
+    v_detail TEXT;
+    v_hint TEXT;
+    v_context TEXT;
+BEGIN
+    EXECUTE 'SELECT * FROM "Does Not Exist"' INTO v_rec;
+EXCEPTION
+    WHEN SQLSTATE '42P01' THEN
+        GET STACKED DIAGNOSTICS
+            v_state   = returned_sqlstate,
+            v_msg     = message_text,
+            v_detail  = pg_exception_detail,
+            v_hint    = pg_exception_hint,
+            v_context = pg_exception_context;
+        RAISE INFO 'SQLERRM ====> %%', SQLERRM;
+        RAISE INFO 'SQLSTATE ===> %%', SQLSTATE;
+        RAISE INFO 'v_state ====> %%', v_state;
+        RAISE INFO 'v_msg ======> %%', v_msg;
+        RAISE INFO 'v_detail ===> %%', v_detail;
+        RAISE INFO 'v_hint =====> %%', v_hint;
+        RAISE INFO 'v_context ==> %%', v_context;
+    WHEN OTHERS THEN
+        NULL;
+END;$CODE$
+"""
+
+        ddl_query_definer_p = """CREATE PROCEDURE %s.query_definer_p(
+    BIGINT DEFAULT 1
+    , NUMERIC(10,2) DEFAULT 1
+)
+    LANGUAGE 'plpgsql' 
+    VOLATILE
+    SECURITY DEFINER
+AS $CODE$
+DECLARE
+    v_rec RECORD;
+BEGIN
+    FOR v_rec IN SELECT * FROM sys.query
+    LOOP
+        RAISE INFO '%%', v_rec;
+    END LOOP;
+END;$CODE$
+"""
+
+        ddl_get_data_types_p = """CREATE PROCEDURE %s.get_data_types_p()
+ LANGUAGE plpgsql
+AS $CODE$
+DECLARE
+ v_rec RECORD;
+BEGIN
+    SELECT * INTO v_rec FROM dev.data_types_t WHERE FALSE;
+    RAISE INFO '%%', pg_typeof(v_rec.col1);
+    RAISE INFO '%%', pg_typeof(v_rec.col2);
+    RAISE INFO '%%', pg_typeof(v_rec.col3);
+    RAISE INFO '%%', pg_typeof(v_rec.col4);
+    RAISE INFO '%%', pg_typeof(v_rec.col5);
+    RAISE INFO '%%', pg_typeof(v_rec.col6);
+    RAISE INFO '%%', pg_typeof(v_rec.col7);
+    RAISE INFO '%%', pg_typeof(v_rec.col8);
+    RAISE INFO '%%', pg_typeof(v_rec.col9);
+    RAISE INFO '%%, pg_typeof(v_rec.col10);
+    RAISE INFO '%%', pg_typeof(v_rec.col11);
+    RAISE INFO '%%', pg_typeof(v_rec.col12);
+    RAISE INFO '%%', pg_typeof(v_rec.col13);
+    RAISE INFO '%%', pg_typeof(v_rec.col14);
+    RAISE INFO '%%', pg_typeof(v_rec.col15);
+    RAISE INFO '%%', pg_typeof(v_rec.col16);
+    RAISE INFO '%%', pg_typeof(v_rec.col17);
+    RAISE INFO '%%', pg_typeof(v_rec.col18);
+    RAISE INFO '%%', pg_typeof(v_rec.col19);
+END;$CODE$
+"""
+
         queries_create_objects_db1 = [
             'CREATE SCHEMA dev'
             , 'CREATE TABLE dev.a1_t (col1 INT) DISTRIBUTE ON (col1)'
@@ -295,6 +397,10 @@ ORDER BY 1
             , 'CREATE TABLE dev.dist_random_t (col1 INT) DISTRIBUTE RANDOM'
             , 'CREATE TABLE dev.dist_replicate_t (col1 INT) DISTRIBUTE REPLICATE'
             , ddl_dev_types_t % 'dev'
+            , ddl_test_raise_p % 'dev'
+            , ddl_test_error_p % 'dev'
+            , ddl_query_definer_p % 'dev'
+            , ddl_get_data_types_p % 'dev'
             , 'CREATE VIEW dev.a1_v AS SELECT * FROM dev.a1_t'
             , 'CREATE VIEW dev.b1_v AS SELECT * FROM dev.b1_t'
             , 'CREATE VIEW dev.c1_v AS SELECT * FROM dev.c1_t'
@@ -306,6 +412,10 @@ ORDER BY 1
             , 'CREATE TABLE "Prod".b1_t (col1 INT) DISTRIBUTE ON (col1)'
             , 'CREATE TABLE "Prod"."C1_t" ("Col1" INT) DISTRIBUTE ON ("Col1")'
             , ddl_dev_types_t % '"Prod"'
+            , ddl_test_raise_p % '"Prod"'
+            , ddl_test_error_p % '"Prod"'
+            , ddl_query_definer_p % '"Prod"'
+            , ddl_get_data_types_p % '"Prod"'
             , 'CREATE VIEW "Prod".a1_v AS SELECT * FROM "Prod".a1_t'
             , 'CREATE VIEW "Prod".b1_v AS SELECT * FROM "Prod".b1_t'
             , 'CREATE VIEW "Prod"."C1_v" AS SELECT * FROM "Prod"."C1_t"'
