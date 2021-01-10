@@ -155,6 +155,10 @@ class execute_test_action:
         self.init_config()
         args = self.init_args()
         get(args, self.config)
+        # print(get.format) --debug, will return a dictionary
+
+        db_conn = self.get_db_conn(get.format)
+        self.ybdb_version_major = db_conn.ybdb_version_major
 
         self.check_args_dir()
 
@@ -226,12 +230,12 @@ class execute_test_action:
                     data = file.read().format(**get.format)
                     open('%s/%s' % (dd, filename), "w").write(data)
 
-    def get_db_conn(self, user=None, pwd=None, db_conn=None):
+    def get_db_conn(self, conf_dict):
         env = db_connect.create_env(
-            dbuser=user
-            , pwd=pwd
-            , conn_db=db_conn
-            , host=get.host)
+            dbuser=conf_dict['user_name']
+            , pwd=conf_dict['user_password']
+            , conn_db=conf_dict['db1']
+            , host=conf_dict['host'])
         return db_connect(env=env)
 
     def init_args(self):
