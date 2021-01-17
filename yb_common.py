@@ -22,7 +22,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 class common:
-    version = '20210109'
+    version = '20210117'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -376,10 +376,10 @@ class args_handler:
         args_optional_grp.add_argument(
             "--output_template", metavar='template', dest='template'
             , help="template used to print output"
-                ", defaults to \"\"\"%s\"\"\""
+                ", defaults to '%s'"
                 ", template variables include; %s"
                     % (self.config['output_tmplt_default']
-                        , '<' + '>, <'.join(self.config['output_tmplt_vars']) + '>' )
+                        , '{' + '}, {'.join(self.config['output_tmplt_vars']) + '}' )
             , default=self.config['output_tmplt_default'])
         args_optional_grp.add_argument(
             "--exec_output", action="store_true"
@@ -953,7 +953,6 @@ WHERE rolname = CURRENT_USER""")
         if cmd_results.exit_code == 0:
             self.database = db_info[0]
             self.schema = db_info[1]
-            self.database_encoding = db_info[2]
             # if --current_schema arg was set check if it is valid
             # the sql CURRENT_SCHEMA will return an empty string
             if len(self.schema) == 0:
@@ -968,19 +967,23 @@ WHERE rolname = CURRENT_USER""")
                 self.connect_cmd_results = cmd_results
                 return
 
-        self.ybdb_version = db_info[3]
-        self.ybdb_version_number = db_info[4]
-        self.ybdb_version_release = db_info[5]
-        self.ybdb_version_major = int(db_info[6])
-        self.ybdb_version_minor = int(db_info[7])
-        self.ybdb_version_patch = int(db_info[8])
-        self.ybdb_version_number_int = (
-            self.ybdb_version_major * 10000
-            + self.ybdb_version_minor * 100
-            + self.ybdb_version_patch)
-        self.is_super_user = (True if db_info[9].strip() == 't' else False)
-        self.has_create_user = (True if db_info[10].strip() == 't' else False)
-        self.has_create_db = (True if db_info[11].strip() == 't' else False)
+        self.ybdb = {
+            'version': db_info[3]
+            , 'version_number': db_info[4]
+            , 'version_release': db_info[5]
+            , 'version_major': int(db_info[6])
+            , 'version_minor': int(db_info[7])
+            , 'version_patch': int(db_info[8])
+            , 'version_number_int': (
+                int(db_info[6])
+                + int(db_info[7])
+                + int(db_info[8]))
+            , 'is_super_user': (True if db_info[9].strip() == 't' else False)
+            , 'has_create_user': (True if db_info[10].strip() == 't' else False)
+            , 'has_create_db': (True if db_info[11].strip() == 't' else False)
+            , 'user': self.env['dbuser']
+            , 'host': self.env['host']
+            , 'database_encoding': db_info[2] }
 
         if common.verbose >= 1:
             print(
@@ -993,15 +996,15 @@ WHERE rolname = CURRENT_USER""")
                     , text.color('DB User', style='bold')
                     , text.color(self.env['dbuser'], fg='cyan')
                     , text.color('Super User', style='bold')
-                    , text.color(self.is_super_user, fg='cyan')
+                    , text.color(self.ybdb['is_super_user'], fg='cyan')
                     , text.color('Database', style='bold')
                     , text.color(self.database, fg='cyan')
                     , text.color('Current Schema', style='bold')
                     , text.color(self.schema, fg='cyan')
                     , text.color('DB Encoding', style='bold')
-                    , text.color(self.database_encoding, fg='cyan')
+                    , text.color(self.ybdb['database_encoding'], fg='cyan')
                     , text.color('YBDB', style='bold')
-                    , text.color(self.ybdb_version, fg='cyan')))
+                    , text.color(self.ybdb['version'], fg='cyan')))
         #TODO fix this block
         """
         if self.common.args.verbose >= 2:
@@ -1181,7 +1184,7 @@ def convert_arg_line_to_args(line):
         - # comment lines
         - multiline arguments using python style triple double quote notation(in_hard_quote)
     """
-    if line[0] == '#': # comment line skip
+    if len(line) and line[0] == '#': # comment line skip
         None
     else:
         if convert_arg_line_to_args.in_hard_quote:
