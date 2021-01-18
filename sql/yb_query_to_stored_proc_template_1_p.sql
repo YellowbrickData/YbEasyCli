@@ -1,6 +1,9 @@
 CREATE OR REPLACE PROCEDURE <stored_proc_name>(_limit BIGINT DEFAULT <limit_default>)
-RETURNS SETOF <stored_proc_name>_t AS
-$PROC$
+    RETURNS SETOF <stored_proc_name>_t
+    LANGUAGE 'plpgsql' 
+    VOLATILE
+    SECURITY DEFINER
+AS $PROC$
 DECLARE
     --
     _sql          TEXT := '';
@@ -40,9 +43,4 @@ FROM
     _sql := REPLACE($STR$ SET ybd_query_tags  TO '<tags>' $STR$, '<tags>', _prev_tags);
     EXECUTE _sql ;
     --
-END;
-$PROC$
-LANGUAGE 'plpgsql' 
-VOLATILE
-CALLED ON NULL INPUT
-SECURITY DEFINER
+END;$PROC$;
