@@ -1,4 +1,6 @@
-map_out={r'\d{4}-[^S]*' : '', r'\s*\d{1,2}:\d{2}:\d{2}\s*\(.*' : ''}
+map_out={r'\d{4}-[^S]*' : ''
+    , r'\s*\d{1,2}:\d{2}:\d{2}\s*\(.*' : ''
+    , r'\d\.\d\.\d-\d{1,5}' : 'X.X.X-XXXXX'}
 test_cases = [
     test_case(
         cmd="""yb_to_yb_copy_table.py @{argsdir}/src_db1_dst_db2 --unload_where_clause "col1 <= 2560" """
@@ -12,10 +14,19 @@ test_cases = [
         cmd="""yb_to_yb_copy_table.py @{argsdir}/src_db1_dst_db2 --unload_where_clause "col1 <= 2560" """
             """ --src_table dev.data_types_t --dst_table Prod.data_types_t --chunk_rows 1000"""
             """ --delimiter '0x01' --log_dir tmp --log_prefix data_type_t_"""
-        , exit_code=0
-        , stdout="""2020-10-11 16:50:57.095 [ INFO] <main>  SUCCESSFUL BULK LOAD: Loaded 1000 good rows in   0:00:06 (READ: 43.59KB/s WRITE: 23.43KB/s)
+        , exit_code=1
+        , stdout=""
+        , stderr="""yb_to_yb_copy_table.py: The '--chunk_rows' option is only supported on YBDB version 4 or higher. The source db is running YBDB 3.3.2-23096..."""
+        , map_out=map_out)
+        if self.ybdb_version_major < 4
+        else test_case(
+            cmd="""yb_to_yb_copy_table.py @{argsdir}/src_db1_dst_db2 --unload_where_clause "col1 <= 2560" """
+                """ --src_table dev.data_types_t --dst_table Prod.data_types_t --chunk_rows 1000"""
+                """ --delimiter '0x01' --log_dir tmp --log_prefix data_type_t_"""
+            , exit_code=0
+            , stdout="""2020-10-11 16:50:57.095 [ INFO] <main>  SUCCESSFUL BULK LOAD: Loaded 1000 good rows in   0:00:06 (READ: 43.59KB/s WRITE: 23.43KB/s)
 2020-10-11 16:51:04.219 [ INFO] <main>  SUCCESSFUL BULK LOAD: Loaded 1000 good rows in   0:00:06 (READ: 43.88KB/s WRITE: 23.61KB/s)
 2020-10-11 16:51:11.391 [ INFO] <main>  SUCCESSFUL BULK LOAD: Loaded 560 good rows in   0:00:06 (READ: 24.65KB/s WRITE: 13.22KB/s)"""
-        , stderr=''
-        , map_out=map_out)
+            , stderr=''
+            , map_out=map_out)
 ]
