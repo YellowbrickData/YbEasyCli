@@ -31,8 +31,8 @@ SELECT
     , n.nspname AS schemaname
     , '<database>' AS databasename
     , databasename
-    || '.' || schemaname
-    || '.' || tablename AS tablepath
+    || '|' || schemaname
+    || '|' || tablename AS tablepath
     , pg_get_userbyid(c.relowner) AS tableowner
 FROM <database>.pg_catalog.pg_class AS c
     LEFT JOIN <database>.pg_catalog.pg_namespace AS n
@@ -57,15 +57,13 @@ $STR1$
 BEGIN
     EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags);
     --RAISE INFO 'v_query_cols: %', v_query_cols; --DEBUG
-    RAISE INFO '-- Running: yb_find_columns';
     --
     FOR v_rec_cols IN EXECUTE v_query_cols
     lOOP
-        RAISE INFO '%.%.%.%'
-            , v_rec_cols.tablepath, v_rec_cols.columnname, v_rec_cols.columnordinal, v_rec_cols.datatype;
+        RAISE INFO '%|%|%|%|%'
+            , v_rec_cols.columnordinal, v_rec_cols.tablepath, v_rec_cols.columnname, v_rec_cols.datatype, v_rec_cols.tableowner;
         v_col_ct := v_col_ct + 1;
     END LOOP;
-    RAISE INFO '-- % column/s found', v_col_ct;
     --
     -- Reset ybd_query_tags back to its previous value
     EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _prev_tags);

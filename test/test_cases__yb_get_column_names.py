@@ -63,7 +63,7 @@ col9"""
     , test_case(
         cmd=(
             "yb_get_column_names.py @{argsdir}/db1 --schema_in dev"
-            """ --output_template "SELECT 'MAX <column> value: ' || MAX(<column> || '') FROM <table_path>;" """
+            """ --output_template "SELECT 'MAX {{column}} value: ' || MAX({{column}} || '') FROM {{object_path}};" """
             " --exec_output --object data_types_t")
         , exit_code=0
         , stdout="""MAX col1 value: 999999

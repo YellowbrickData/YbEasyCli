@@ -27,12 +27,13 @@ class find_columns(util):
             'cmd_line_args': "@$HOME/conn.args --datatype_like 'CHAR%' 'TIME%' --"
             , 'file_args': [util.conn_args_file] }
         , 'default_args': {'template': '<raw>', 'exec_output': False}
-        , 'output_tmplt_vars': ['table_path', 'schema_path', 'column', 'ordinal', 'data_type', 'table', 'schema', 'database']
-        , 'output_tmplt_default': '-- Table: <table_path>, Column: <column>, Table Ordinal: <ordinal>, Data Type: <data_type>'
+        , 'output_tmplt_vars': ['column_path', 'table_path', 'schema_path', 'column', 'ordinal', 'data_type', 'table_ordinal', 'schema', 'database', 'owner']
+        , 'output_tmplt_default': '-- Table: {table_path}, Column: {column}, Table Ordinal: {table_ordinal}, Data Type: {data_type}'
         , 'db_filter_args':
             {'owner':'tableowner', 'schema':'schemaname', 'table':'tablename', 'column':'columnname', 'datatype':'datatype'} }
 
     def execute(self):
+        self.db_filter_args.schema_set_all_if_none()
         filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
 
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
@@ -40,14 +41,31 @@ class find_columns(util):
                 , args = {
                     'a_column_filter_clause' : filter_clause } )
 
-        self.apply_template()
+        rows_as_dict_str = ''
+        self.col_ct = 0
+        if len(self.cmd_results.stdout.strip()):
+            for line in self.cmd_results.stdout.strip().split('\n'):
+                self.col_ct += 1
+                row = line.split('|')
+                rows_as_dict_str += ( ('' if self.col_ct == 1 else ', ') + '{'
+                    + ("'ordinal': %d" % self.col_ct)
+                    + (', "table_ordinal": ""\" %s ""\" ' % row[0])
+                    + (', "database": ""\" %s ""\" '      % row[1])
+                    + (', "schema": ""\" %s ""\" '        % row[2])
+                    + (', "table": ""\" %s ""\" '         % row[3])
+                    + (', "column": ""\" %s ""\" '        % row[4])
+                    + (', "data_type": ""\" %s ""\" '     % row[5])
+                    + (', "owner": ""\" %s ""\" '         % row[6]) + '}\n' )
+
+        return self.apply_template(rows_as_dict_str)
 
 def main():
     fcs = find_columns()
-    fcs.execute()
+    print('-- Running: yb_find_columns')
 
-    fcs.cmd_results.write()
+    print(fcs.execute().strip())
 
+    print('-- %d column/s found' % fcs.col_ct)
     exit(fcs.cmd_results.exit_code)
 
 

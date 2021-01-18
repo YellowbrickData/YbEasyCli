@@ -192,12 +192,11 @@ class yb_to_yb_copy_table(util):
             , ybload_cmd = ybload_cmd)
 
     def chunk_table_unload_sql(self, table_unload_sql):
-        if self.src_conn.ybdb_version_major < 4:
-            print(yb_common.text.color(
+        if self.src_conn.ybdb['version_major'] < 4:
+            yb_common.common.error(yb_common.text.color(
                 "The '--chunk_rows' option is only supported on YBDB version 4 or higher."
-                " The source db is running YBDB %s..." % self.src_conn.ybdb_version
+                " The source db is running YBDB %s..." % self.src_conn.ybdb['version']
                 , 'yellow'))
-            exit(1)
 
         self.args_handler.args.dml = ("%s AND <chunk_where_clause>" % table_unload_sql)
         self.args_handler.args.execute_chunk_dml = False

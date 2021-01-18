@@ -26,37 +26,46 @@ class get_table_names(util):
         , 'usage_example': {
             'cmd_line_args': "@$HOME/conn.args --schema_in Prod --table_in sales --"
             , 'file_args': [util.conn_args_file] }
-        , 'default_args': {'template': '<raw>', 'exec_output': False}
-        , 'output_tmplt_vars': ['table_path', 'schema_path', 'table', 'schema', 'database']
-        , 'output_tmplt_default': '<table_path>'
+        , 'default_args': {'template': '{table_path}', 'exec_output': False}
+        , 'output_tmplt_vars': ['table_path', 'schema_path', 'table', 'schema', 'database', 'owner']
+        , 'output_tmplt_default': '{table_path}'
         , 'db_filter_args': {'owner':'c.tableowner', 'schema':'c.schemaname', 'table':'c.tablename'} }
 
     def execute(self):
         self.db_filter_args.schema_set_all_if_none()
-        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
+        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'], indent='        ')
 
         sql_query = """
-SELECT
-    '{database_name}.' || c.schemaname || '.' || c.tablename AS table_path
-FROM
-    {database_name}.information_schema.tables AS t
-    JOIN {database_name}.pg_catalog.pg_tables AS c
-        ON (t.table_name = c.tablename AND t.table_schema = c.schemaname)
-WHERE
-    c.schemaname NOT IN ('sys', 'pg_catalog', 'information_schema')
-    AND t.table_type='BASE TABLE'
-    AND {filter_clause}
-ORDER BY LOWER(c.schemaname), LOWER(c.tablename)""".format(
+WITH
+data as (
+    SELECT
+        ROW_NUMBER() OVER (ORDER BY LOWER(c.schemaname), LOWER(c.tablename)) AS ordinal
+        , DECODE(ordinal, 1, '', ', ')
+        || '{{' || '"ordinal": ' || ordinal::VARCHAR || ''
+        || ',"owner":""\" '    || c.tableowner || ' ""\"'
+        || ',"database":""\" ' || '{database}' || ' ""\"'
+        || ',"schema":""\" '   || c.schemaname || ' ""\"'
+        || ',"table":""\" '    || c.tablename  || ' ""\"' || '}}' AS data
+    FROM
+        {database}.information_schema.tables AS t
+        JOIN {database}.pg_catalog.pg_tables AS c
+            ON (t.table_name = c.tablename AND t.table_schema = c.schemaname)
+    WHERE
+        c.schemaname NOT IN ('sys', 'pg_catalog', 'information_schema')
+        AND t.table_type='BASE TABLE'
+        AND {filter_clause}
+)
+SELECT data FROM data ORDER BY ordinal""".format(
              filter_clause = filter_clause
-             , database_name = self.db_conn.database)
+             , database = self.db_conn.database)
 
-        self.exec_query_and_apply_template(sql_query)
+        self.cmd_results = self.db_conn.ybsql_query(sql_query)
+        return self.exec_query_and_apply_template(sql_query)
 
 def main():
     gtns = get_table_names()
-    gtns.execute()
-
-    gtns.cmd_results.write()
+    
+    print(gtns.execute())
 
     exit(gtns.cmd_results.exit_code)
 

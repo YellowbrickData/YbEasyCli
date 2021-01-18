@@ -15,6 +15,7 @@ except:
     import ConfigParser as configparser  # for python2
 
 import time
+import string
 import re
 import shutil
 import getpass
@@ -24,10 +25,18 @@ import difflib
 from yb_common import text
 from yb_common import db_connect
 
+class SafeDict(dict):
+    def __missing__(self, key):
+        return '{' + key + '}'
+
 class test_case:
     """Contains structures for running tests and checking results."""
     def __init__(self, cmd, exit_code, stdout, stderr, comment='', map_out={}):
         self.cmd = cmd.format(**get.format)
+        # fix output_template args in test cases where they are double brackets 
+        # TODO fix this so that double brackets aren't required
+        self.cmd = self.cmd.replace('{{', '{').replace('}}', '}')
+        
         self.exit_code = exit_code
         self.stdout = stdout.format(**get.format)
         self.stderr = stderr.format(**get.format)
@@ -158,7 +167,7 @@ class execute_test_action:
         # print(get.format) --debug, will return a dictionary
 
         db_conn = self.get_db_conn(get.format)
-        self.ybdb_version_major = db_conn.ybdb_version_major
+        self.ybdb_version_major = db_conn.ybdb['version_major']
 
         self.check_args_dir()
 

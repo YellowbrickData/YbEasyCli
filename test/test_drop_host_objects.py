@@ -33,7 +33,7 @@ class drop_objects:
         args.conn_db = 'yellowbrick'
         db_conn = yb_common.db_connect(args)
 
-        if not(db_conn.has_create_user and db_conn.has_create_db):
+        if not(db_conn.ybdb['has_create_user'] and db_conn.ybdb['has_create_db']):
             yb_common.common.error('You must login as a user with create database/'
                 'user permission to drop the test database/user objects...')
 

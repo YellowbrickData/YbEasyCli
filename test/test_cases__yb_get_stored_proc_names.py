@@ -14,14 +14,14 @@ test_cases = [
         , stdout="""{db1}."Prod"."test_Raise_p" """
         , stderr='')
 
-    , test_case(cmd="yb_get_stored_proc_names.py @{argsdir}/db1 --output_template 'database: <database>, schema: <schema>, proc: <stored_proc>'"
+    , test_case(cmd="yb_get_stored_proc_names.py @{argsdir}/db1 --output_template 'database: {{database}}, schema: {{schema}}, proc: {{stored_proc}}'"
         , exit_code=0
         , stdout="""database: {db1}, schema: dev, proc: query_definer_p
 database: {db1}, schema: dev, proc: test_error_p
-database: {db1}, schema: dev, proc: test_Raise_p
-database: {db1}, schema: Prod, proc: query_definer_p
-database: {db1}, schema: Prod, proc: test_error_p
-database: {db1}, schema: Prod, proc: test_Raise_p"""
+database: {db1}, schema: dev, proc: "test_Raise_p"
+database: {db1}, schema: "Prod", proc: query_definer_p
+database: {db1}, schema: "Prod", proc: test_error_p
+database: {db1}, schema: "Prod", proc: "test_Raise_p" """
         , stderr='')
 
     , test_case(cmd='yb_get_stored_proc_names.py @{argsdir}/db1 --host no_host'
@@ -61,9 +61,9 @@ connection arguments:
 
 optional output arguments:
   --output_template template
-                        template used to print output, defaults to \"\"\"<stored_proc_path>\"\"\",
-                        template variables include; <stored_proc_path>, <schema_path>,
-                        <stored_proc>, <schema>, <database>
+                        template used to print output, defaults to '{{stored_proc_path}}', template
+                        variables include; {{stored_proc_path}}, {{schema_path}}, {{stored_proc}},
+                        {{schema}}, {{database}}, {{owner}}
   --exec_output         execute output as SQL, defaults to FALSE
 
 optional database object filter arguments:

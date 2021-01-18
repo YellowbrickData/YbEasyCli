@@ -13,6 +13,9 @@ wrapper scripts that utilize this module. These include
 import os
 import re
 import sys
+import copy
+# fix for deepcopy in python 2.7
+copy._deepcopy_dispatch[type(re.compile(''))] = lambda r, _: r
 
 import yb_common
 from yb_common import text
@@ -29,10 +32,11 @@ class ddl_object(util):
     stored_proc_describe_query = """WITH
 stored_proc_describe AS (
     SELECT
-        n.nspname AS schema
+        ROW_NUMBER() OVER (ORDER BY LOWER(n.nspname), LOWER(p.proname)) AS ordinal
+        , n.nspname AS schema
         , p.proname AS stored_proc
         , pg_catalog.pg_get_userbyid(p.proowner) AS owner
-        , pg_catalog.pg_get_functiondef(p.oid) AS ddl
+        , pg_catalog.pg_get_functiondef(p.oid) AS raw_ddl
         , CASE
             WHEN p.proisagg THEN 'agg'
             WHEN p.proiswindow THEN 'window'
@@ -40,6 +44,9 @@ stored_proc_describe AS (
             WHEN p.prorettype = 'pg_catalog.trigger'::pg_catalog.regtype THEN 'trigger'
                 ELSE 'normal'
         END AS type
+        , '-- Schema: ' || schema
+        || CHR(10) || 'CREATE PROCEDURE '
+        || stored_proc || REPLACE(REGEXP_REPLACE(raw_ddl, '[^(]*', ''), '$function$', '$CODE$') AS ddl
     FROM
         {database}.pg_catalog.pg_proc AS p
         LEFT JOIN {database}.pg_catalog.pg_namespace AS n
@@ -47,19 +54,24 @@ stored_proc_describe AS (
     WHERE
         n.nspname NOT IN ('sys', 'pg_catalog', 'information_schema')
         AND type = 'stored procedure'
+        AND {filter_clause}
 )
 SELECT
-     '-- Schema: ' || schema
-    || CHR(10) || 'CREATE PROCEDURE '
-    || stored_proc || REPLACE(REGEXP_REPLACE(ddl, '[^(]*', ''), '$function$', '$CODE$')
+    DECODE(ordinal, 1, '', ', ')
+    || '{{' || '"ordinal": '  || ordinal::VARCHAR || ''
+    || ',"owner":""\" '       || owner        || ' ""\"'
+    || ',"database":""\" '    || '{database}' || ' ""\"'
+    || ',"schema":""\" '      || schema       || ' ""\"'
+    || ',"stored_proc":""\" ' || stored_proc  || ' ""\"'
+    || ',"ddl":""\" '         || ddl          || ' ""\"' || '}}' AS data
 FROM
     stored_proc_describe
-WHERE
-    {filter_clause}
 ORDER BY LOWER(schema), LOWER(stored_proc)
 """
 
-    config = {'optional_args_single': ['database']}
+    config = {
+        'optional_args_single': ['database']
+        , 'output_tmplt_default': '{ddl}{^M}' }
 
     def init(self, object_type, db_conn=None, args_handler=None):
         """Initialize ddl_object class.
@@ -81,6 +93,9 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
         self.config['usage_example'] = {
                 'cmd_line_args': cmd_line_args[object_type]
                 , 'file_args': [util.conn_args_file] }
+        self.config['output_tmplt_vars'] = ['%s_path' % object_type
+            , 'schema_path', 'ddl', 'ordinal'
+            , object_type, 'schema', 'database', 'owner']
 
         self.object_type = object_type
         self.init_default(db_conn, args_handler)
@@ -110,29 +125,38 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
 
     def execute(self):
         describe_sql = self.get_describe_sql()
-        self.cmd_results = self.db_conn.ybsql_query(describe_sql)
+        output = self.exec_query_and_apply_template(describe_sql)
 
-        if self.cmd_results.stdout != '':
-            self.cmd_results.stdout = self.ddl_modifications(
-                self.cmd_results.stdout, self.args_handler.args)
+        if output != '':
+            output = self.ddl_modifications(
+                output, self.args_handler.args)
+        return output
 
-    def get_describe_sql_by_object_type(self, object):
-        describe_clause = 'DESCRIBE %s ONLY DDL;\n\\echo' % object
+    def object_meta_data_to_ybsql_py_dict(self, meta_data):
+        # 'object_path|ordinal|owner|database|schema|object'
+        ybsql_py_key_values = []
 
-        if self.object_type == 'table':
-            if self.args_handler.args.with_rowcount:
-                rowcount_sql = ('SELECT COUNT(*) FROM %s' % object)
-                cmd_results = self.db_conn.ybsql_query(rowcount_sql)
-                describe_clause = """SELECT '--Rowcount: %s  Table: %s  At: ' || NOW() || '';\n%s""" % (
-                    format(int(cmd_results.stdout), ",d"), object, describe_clause)
+        ybsql_py_key_values.append(self.sql_to_ybsql_py_key_value('ddl'
+            , 'DESCRIBE %s ONLY DDL;' % meta_data[0] ) )
 
-        return describe_clause
+        if self.object_type == 'table' and self.args_handler.args.with_rowcount:
+            ybsql_py_key_values.append(self.sql_to_ybsql_py_key_value('rowcount'
+                , 'SELECT COUNT(*) FROM %s;' % meta_data[0] ) )
+
+        ybsql_py_key_values.extend(
+            self.dict_to_ybsql_py_key_values(
+                { 'ordinal':            meta_data[1]
+                    , 'owner':          meta_data[2]
+                    , 'database':       meta_data[3]
+                    , 'schema':         meta_data[4]
+                    , self.object_type: meta_data[5] } ) )
+
+        py_dict = self.ybsql_py_key_values_to_py_dict(ybsql_py_key_values)
+        return py_dict
 
     def get_describe_sql(self):
         """Build up SQL DESCRIBE statement/s.
 
-        :param common: The instance of the `common` class constructed in this
-                       module
         :return: A string containing the SQL DESCRIBE statement
         """
         if self.object_type == 'stored_proc':
@@ -144,25 +168,23 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
                 filter_clause = filter_clause
                 , database = self.db_conn.database)
         else:
+            args_handler = copy.deepcopy(self.args_handler)
+            args_handler.args.template = ('{%s_path}|{ordinal}|{owner}|{database}|{schema}|{%s}'
+                % (self.object_type, self.object_type))
+            args_handler.args.exec_output = False
             code = ('get_{object_type}_names'
-                '(db_conn=self.db_conn, args_handler=self.args_handler)').format(
-                object_type=self.object_type)
+                '(db_conn=self.db_conn, args_handler=args_handler)').format(
+                    object_type=self.object_type)
             gons = eval(code)
-            gons.execute()
 
-            if (gons.cmd_results.stderr != ''
-                or gons.cmd_results.exit_code != 0):
-                sys.stdout.write(text.color(gons.cmd_results.stderr, fg='red'))
-                exit(gons.cmd_results.exit_code)
-
-            objects = yb_common.common.quote_object_paths(gons.cmd_results.stdout)
+            object_meta_data_rows = gons.execute()
 
             describe_objects = []
-            if objects.strip() != '':
-                for object in objects.strip().split('\n'):
-                    describe_clause = self.get_describe_sql_by_object_type(object)
+            if object_meta_data_rows.strip() != '':
+                for object_meta_data in object_meta_data_rows.strip().split('\n'):
+                    describe_clause = self.object_meta_data_to_ybsql_py_dict(object_meta_data.split('|'))
                     describe_objects.append(describe_clause)
-            describe_sql = '\n'.join(describe_objects)
+            describe_sql = '\echo ,\n'.join(describe_objects)
 
         return describe_sql
 
@@ -237,8 +259,7 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
 def main(util_name):
     ddlo = ddl_object(util_name=util_name, init_default=False)
     ddlo.init(object_type=util_name[4:])
-    ddlo.execute()
-
-    ddlo.cmd_results.write()
+    
+    print(ddlo.execute())
 
     exit(ddlo.cmd_results.exit_code)

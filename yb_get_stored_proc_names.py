@@ -26,19 +26,20 @@ class get_stored_proc_names(util):
             'cmd_line_args': "@$HOME/conn.args --schema_in dev Prod --stored_proc_like '%price%' --stored_proc_NOTlike '%id%' --"
             , 'file_args': [util.conn_args_file] }
         , 'default_args': {'template': '<raw>', 'exec_output': False}
-        , 'output_tmplt_vars': ['stored_proc_path', 'schema_path', 'stored_proc', 'schema', 'database']
-        , 'output_tmplt_default': '<stored_proc_path>'
+        , 'output_tmplt_vars': ['stored_proc_path', 'schema_path', 'stored_proc', 'schema', 'database', 'owner']
+        , 'output_tmplt_default': '{stored_proc_path}'
         , 'db_filter_args': {'owner':'owner', 'schema':'schema', 'stored_proc':'stored_proc'} }
 
     def execute(self):
         self.db_filter_args.schema_set_all_if_none()
-        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
+        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'], indent='        ')
 
         sql_query = """
 WITH
 objct AS (
     SELECT
-        n.nspname AS schema
+        ROW_NUMBER() OVER (ORDER BY LOWER(n.nspname), LOWER(p.proname)) AS ordinal
+        , n.nspname AS schema
         , p.proname AS stored_proc
         , pg_catalog.pg_get_userbyid(p.proowner) AS owner
         , CASE
@@ -53,27 +54,28 @@ objct AS (
         LEFT JOIN {database}.pg_catalog.pg_namespace AS n
             ON n.oid = p.pronamespace
     WHERE
-        n.nspname NOT IN ('sys', 'pg_catalog', 'information_schema')
+        schema NOT IN ('sys', 'pg_catalog', 'information_schema')
         AND type = 'stored procedure'
+        AND {filter_clause}
 )
 SELECT
-    '{database}.' || schema || '.' || stored_proc
-FROM
-    objct
-WHERE
-    schema NOT IN ('sys', 'pg_catalog', 'information_schema')
-    AND {filter_clause}
-ORDER BY LOWER(schema), LOWER(stored_proc)""".format(
+    DECODE(ordinal, 1, '', ', ')
+    || '{{' || '"ordinal": ' || ordinal::VARCHAR || ''
+    || ',"owner":""\" '       || owner        || ' ""\"'
+    || ',"database":""\" '    || '{database}' || ' ""\"'
+    || ',"schema":""\" '      || schema       || ' ""\"'
+    || ',"stored_proc":""\" ' || stored_proc  || ' ""\"' || '}}' AS data
+FROM objct
+ORDER BY ordinal""".format(
              filter_clause = filter_clause
              , database = self.db_conn.database)
 
-        self.exec_query_and_apply_template(sql_query)
+        return self.exec_query_and_apply_template(sql_query)
 
 def main():
     gspn = get_stored_proc_names()
-    gspn.execute()
 
-    gspn.cmd_results.write()
+    print(gspn.execute())
 
     exit(gspn.cmd_results.exit_code)
 

@@ -27,33 +27,41 @@ class get_view_names(util):
             'cmd_line_args': '@$HOME/conn.args --schema_in dev Prod --'
             , 'file_args': [util.conn_args_file] }
         , 'default_args': {'template': '<raw>', 'exec_output': False}
-        , 'output_tmplt_vars': ['view_path', 'schema_path', 'view', 'schema', 'database']
-        , 'output_tmplt_default': '<view_path>'
+        , 'output_tmplt_vars': ['view_path', 'schema_path', 'view', 'schema', 'database', 'owner']
+        , 'output_tmplt_default': '{view_path}'
         , 'db_filter_args': {'owner':'v.viewowner','schema':'v.schemaname','view':'v.viewname'} }
 
     def execute(self):
         self.db_filter_args.schema_set_all_if_none()
-        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
+        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'], indent='        ')
 
         sql_query = """
-SELECT
-    '{database_name}.' || v.schemaname || '.' || v.viewname AS view_path
-FROM
-    {database_name}.pg_catalog.pg_views AS v
-WHERE
-    v.schemaname NOT IN ('sys', 'pg_catalog', 'information_schema')
-    AND {filter_clause}
-ORDER BY LOWER(v.schemaname), LOWER(v.viewname)""".format(
+WITH
+data as (
+    SELECT
+        ROW_NUMBER() OVER (ORDER BY LOWER(v.schemaname), LOWER(v.viewname)) AS ordinal
+        , DECODE(ordinal, 1, '', ', ')
+        || '{{' || '"ordinal": ' || ordinal::VARCHAR || ''
+        || ',"owner":""\" '    || v.viewowner  || ' ""\"'
+        || ',"database":""\" ' || '{database}' || ' ""\"'
+        || ',"schema":""\" '   || v.schemaname || ' ""\"'
+        || ',"view":""\" '     || v.viewname   || ' ""\"' || '}}' AS data
+    FROM
+        {database}.pg_catalog.pg_views AS v
+    WHERE
+        v.schemaname NOT IN ('sys', 'pg_catalog', 'information_schema')
+        AND {filter_clause}
+)
+SELECT data FROM data ORDER BY ordinal""".format(
              filter_clause = filter_clause
-             , database_name = self.db_conn.database)
+             , database = self.db_conn.database)
 
-        self.exec_query_and_apply_template(sql_query)
+        return self.exec_query_and_apply_template(sql_query)
 
 def main():
     gvns = get_view_names()
-    gvns.execute()
 
-    gvns.cmd_results.write()
+    print(gvns.execute())
 
     exit(gvns.cmd_results.exit_code)
 

@@ -26,46 +26,49 @@ class get_sequence_names(util):
         , 'usage_example': {
             'cmd_line_args': "@$HOME/conn.args --schema_in dev Prod --sequence_like '%price%' --sequence_NOTlike '%id%' --"
             , 'file_args': [util.conn_args_file] }
-        , 'default_args': {'template': '<raw>', 'exec_output': False}
-        , 'output_tmplt_vars': ['sequence_path', 'schema_path', 'sequence', 'schema', 'database']
-        , 'output_tmplt_default': '<sequence_path>'
-        , 'db_filter_args': {'owner':'sequenceowner', 'schema':'schemaname', 'sequence':'sequencename'} }
+        , 'default_args': {'template': '{sequence_path}', 'exec_output': False}
+        , 'output_tmplt_vars': ['sequence_path', 'schema_path', 'sequence', 'schema', 'database', 'owner']
+        , 'output_tmplt_default': '{sequence_path}'
+        , 'db_filter_args': {'owner':'owner', 'schema':'schema', 'sequence':'sequence'} }
 
     def execute(self):
         self.db_filter_args.schema_set_all_if_none()
-        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
+        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'], indent='        ')
 
         sql_query = """
 WITH
 objct AS (
     SELECT
-        c.relname AS sequencename
-        , n.nspname AS schemaname
-        , pg_get_userbyid(c.relowner) AS sequenceowner
-    FROM {database_name}.pg_catalog.pg_class AS c
-        LEFT JOIN {database_name}.pg_catalog.pg_namespace AS n
+        ROW_NUMBER() OVER (ORDER BY LOWER(n.nspname), LOWER(c.relname)) AS ordinal
+        , c.relname AS sequence
+        , n.nspname AS schema
+        , pg_get_userbyid(c.relowner) AS owner
+    FROM {database}.pg_catalog.pg_class AS c
+        LEFT JOIN {database}.pg_catalog.pg_namespace AS n
             ON n.oid = c.relnamespace
     WHERE
-        c.relkind IN ('S')
+        schema NOT IN ('sys', 'pg_catalog', 'information_schema')
+        AND c.relkind IN ('S')
+        AND {filter_clause}
 )
 SELECT
-    '{database_name}.' || schemaname || '.' || sequencename
-FROM
-    objct
-WHERE
-    schemaname NOT IN ('sys', 'pg_catalog', 'information_schema')
-    AND {filter_clause}
-ORDER BY LOWER(schemaname), LOWER(sequencename)""".format(
+    DECODE(ordinal, 1, '', ', ')
+    || '{{' || '"ordinal": ' || ordinal::VARCHAR || ''
+    || ',"owner":""\" '    || owner        || ' ""\"'
+    || ',"database":""\" ' || '{database}' || ' ""\"'
+    || ',"schema":""\" '   || schema       || ' ""\"'
+    || ',"sequence":""\" ' || sequence     || ' ""\"' || '}}' AS data
+FROM objct
+ORDER BY ordinal""".format(
              filter_clause = filter_clause
-             , database_name = self.db_conn.database)
+             , database = self.db_conn.database)
 
-        self.exec_query_and_apply_template(sql_query)
+        return self.exec_query_and_apply_template(sql_query)
 
 def main():
     gsn = get_sequence_names()
-    gsn.execute()
-
-    gsn.cmd_results.write()
+    
+    print(gsn.execute())
 
     exit(gsn.cmd_results.exit_code)
 

@@ -114,7 +114,7 @@ test_cases = [
     , test_case(
         cmd=(
             "yb_get_table_names.py @{argsdir}/db1 --schema_in dev Prod"
-            """ --output_template "SELECT '<table_path> rows: ' || COUNT(*) FROM <table_path>;" --exec_output""")
+            """ --output_template "SELECT '{{table_path}} rows: ' || COUNT(*) FROM {{table_path}};" --exec_output""")
         , exit_code=0
         , stdout="""{db1}.dev.a1_t rows: 0
 {db1}.dev.b1_t rows: 0

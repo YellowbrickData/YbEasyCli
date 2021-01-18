@@ -29,4 +29,18 @@ test_cases = [
 -- Table: {db1}.dev.data_types_t, Column: col13, Table Ordinal: 13, Data Type: TIMESTAMP WITH TIME ZONE
 -- 5 column/s found"""
         , stderr='')
+
+    , test_case(
+        cmd=
+            """yb_find_columns.py @{argsdir}/db1 --schema_in dev --datatype_like 'CHAR%%' 'TIME%%'"""
+            """ --output_template '{{ordinal}} of {{max_ordinal}}: {{column_path}}'"""
+        , exit_code=0
+        , stdout="""-- Running: yb_find_columns
+1 of 5: {db1}.dev.data_types_t.col8
+2 of 5: {db1}.dev.data_types_t.col9
+3 of 5: {db1}.dev.data_types_t.col11
+4 of 5: {db1}.dev.data_types_t.col12
+5 of 5: {db1}.dev.data_types_t.col13
+-- 5 column/s found"""
+        , stderr='')
 ]

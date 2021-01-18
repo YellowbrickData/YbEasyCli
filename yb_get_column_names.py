@@ -28,53 +28,56 @@ class get_column_names(util):
             'cmd_line_args': "@$HOME/conn.args --schema dev -- sales"
             , 'file_args': [util.conn_args_file] }
         , 'default_args': {'template': '<raw>', 'exec_output': False}
-        , 'output_tmplt_vars': ['table_path', 'schema_path', 'column', 'table', 'schema', 'database']
-        , 'output_tmplt_default': '<column>'
-        , 'db_filter_args': {'owner':'tableowner', 'schema':'schemaname', 'object':'objectname', 'column':'columnname'} }
+        , 'output_tmplt_vars': ['column_path', 'object_path', 'schema_path', 'column', 'table', 'schema', 'database', 'owner']
+        , 'output_tmplt_default': '{column}'
+        , 'db_filter_args': {'owner':'owner', 'schema':'schema', 'object':'object', 'column':'clmn'} }
 
     def execute(self):
         self.db_filter_args.schema_set_all_if_none()
-        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
+        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'], indent='        ')
 
         sql_query = """
 WITH
 objct AS (
     SELECT
-        a.attname AS columnname
+        ROW_NUMBER() OVER (ORDER BY LOWER(n.nspname), LOWER(c.relname), a.attnum) AS ordinal
+        , a.attname AS clmn
         , a.attnum AS columnnum
-        , c.relname AS objectname
-        , n.nspname AS schemaname
-        , pg_get_userbyid(c.relowner) AS tableowner
-    FROM {database_name}.pg_catalog.pg_class AS c
-        LEFT JOIN {database_name}.pg_catalog.pg_namespace AS n
+        , c.relname AS object
+        , n.nspname AS schema
+        , pg_get_userbyid(c.relowner) AS owner
+    FROM {database}.pg_catalog.pg_class AS c
+        LEFT JOIN {database}.pg_catalog.pg_namespace AS n
             ON n.oid = c.relnamespace
-        JOIN {database_name}.pg_catalog.pg_attribute AS a
+        JOIN {database}.pg_catalog.pg_attribute AS a
             ON a.attrelid = c.oid
     WHERE
-        c.relkind IN ('r', 'v')
+        schema NOT IN ('sys', 'pg_catalog', 'information_schema')
+        AND object = '{object}'
+        AND c.relkind IN ('r', 'v')
         AND a.attnum > 0
+        AND {filter_clause}
 )
 SELECT
-    '{database_name}.' || schemaname || '.' || objectname || '.' || columnname AS column_path
-FROM
-    objct
-WHERE
-    schemaname NOT IN ('sys', 'pg_catalog', 'information_schema')
-    AND objectname = '{object_name}'
-    AND {filter_clause}
-ORDER BY
-    LOWER(schemaname), LOWER(objectname), columnnum""".format(
+    DECODE(ordinal, 1, '', ', ')
+    || '{{' || '"ordinal": ' || ordinal::VARCHAR || ''
+    || ',"owner":""\" '    || owner        || ' ""\"'
+    || ',"database":""\" ' || '{database}' || ' ""\"'
+    || ',"schema":""\" '   || schema       || ' ""\"'
+    || ',"object":""\" '   || object       || ' ""\"'
+    || ',"column":""\" '   || clmn         || ' ""\"' || '}}' AS data
+FROM objct
+ORDER BY ordinal""".format(
              filter_clause = filter_clause
-             , database_name = self.db_conn.database
-             , object_name = self.args_handler.args.object)
+             , database = self.db_conn.database
+             , object = self.args_handler.args.object)
 
-        self.exec_query_and_apply_template(sql_query, quote_default=True)
+        return self.exec_query_and_apply_template(sql_query, quote_default=True)
 
 def main():
     gcns = get_column_names()
-    gcns.execute()
-
-    gcns.cmd_results.write()
+    
+    print(gcns.execute())
 
     exit(gcns.cmd_results.exit_code)
 
