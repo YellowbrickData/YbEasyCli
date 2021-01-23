@@ -22,7 +22,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 class common:
-    version = '20210117'
+    version = '20210122'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -254,7 +254,8 @@ class args_handler:
         usage_example = self.args_usage_example()
         if usage_example:
             epilog = '%s%s' % ((epilog if epilog else ''), usage_example)
-        self.args_parser = argparse.ArgumentParser(
+        #self.args_parser = argparse.ArgumentParser(
+        self.args_parser = UtilArgParser(
             description=description
             , usage="%%(prog)s %s[options]" % (
                 positional_args_usage + ' '
@@ -264,6 +265,7 @@ class args_handler:
             , formatter_class=self.formatter
             , epilog=epilog
             , fromfile_prefix_chars='@')
+
         self.args_parser.convert_arg_line_to_args = convert_arg_line_to_args
         self.args_parser.positional_args_usage = positional_args_usage
 
@@ -414,7 +416,6 @@ class args_handler:
         common.verbose = self.args.verbose
 
         return self.args
-
 
 class intRange:
     """Custom argparse type representing a bounded int
@@ -823,7 +824,7 @@ class db_connect:
     env_to_set = conn_args.copy()
     env_to_set['pwd'] = 'YBPASSWORD'
 
-    def __init__(self, args=None, env=None, conn_type=''
+    def __init__(self, args_handler=None, env=None, conn_type=''
         , connect_timeout=10, on_fail_exit=True):
         """Creates a validated database connection object.
         The connection settings can be received as a set of input arguments or
@@ -851,14 +852,14 @@ class db_connect:
         self.env_set_by = {}
         self.env_args = {}
   
-        if args:
+        if args_handler:
             for conn_arg in self.conn_args.keys():
                 conn_arg_qualified = '%s%s' % (arg_conn_prefix, conn_arg)
                 #if not hasattr(args, conn_arg_qualified):
                 #    sys.stderr.write('Missing Connection Argument: %s\n'
                 #        % text.color(conn_arg_qualified, fg='red'))
                 #    exit(2)
-                self.env_args[conn_arg] = getattr(args, conn_arg_qualified)
+                self.env_args[conn_arg] = getattr(args_handler.args, conn_arg_qualified)
                 self.env[conn_arg] = self.env_args[conn_arg] or self.env_pre[conn_arg]
                 if self.env_args[conn_arg]:
                     self.env_set_by[conn_arg] = 'a'
@@ -866,9 +867,9 @@ class db_connect:
                     self.env_set_by[conn_arg] = 'e'
                 else:
                     self.env_set_by[conn_arg] = 'd'
-            pwd_required = getattr(args, '%sW' % arg_conn_prefix)
+            pwd_required = getattr(args_handler.args, '%sW' % arg_conn_prefix)
             self.current_schema = getattr(
-                args, '%scurrent_schema' % arg_conn_prefix)
+                args_handler.args, '%scurrent_schema' % arg_conn_prefix)
         elif env:
             self.current_schema = None
             for env_var in env.keys():
@@ -884,7 +885,7 @@ class db_connect:
             None
 
         if not self.env['host']:
-            common.error("the host database server must "
+            args_handler.args_parser.error("the host database server must "
                 "be set using the YBHOST environment variable or with "
                 "the argument: --%shost" % arg_conn_prefix)
 
@@ -946,6 +947,7 @@ class db_connect:
     , rolsuper AS is_super_user
     , rolcreaterole AS has_create_user
     , rolcreatedb AS has_create_db
+    , CURRENT_USER AS user
 FROM pg_catalog.pg_roles
 WHERE rolname = CURRENT_USER""")
 
@@ -975,13 +977,13 @@ WHERE rolname = CURRENT_USER""")
             , 'version_minor': int(db_info[7])
             , 'version_patch': int(db_info[8])
             , 'version_number_int': (
-                int(db_info[6])
-                + int(db_info[7])
+                int(db_info[6]) * 10000
+                + int(db_info[7]) * 100
                 + int(db_info[8]))
             , 'is_super_user': (True if db_info[9].strip() == 't' else False)
             , 'has_create_user': (True if db_info[10].strip() == 't' else False)
             , 'has_create_db': (True if db_info[11].strip() == 't' else False)
-            , 'user': self.env['dbuser']
+            , 'user': db_info[12].strip()
             , 'host': self.env['host']
             , 'database_encoding': db_info[2] }
 
@@ -1169,14 +1171,11 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
 
         return cmd_results
 
-def convert_arg_line_to_args_old(line):
-#TODO delete in the future once the new convert_arg_line_to_args proves itself
-    for arg in shlex.split(line):
-        if not arg.strip():
-            continue
-        if arg[0] == '#':
-            break
-        yield arg
+class UtilArgParser(argparse.ArgumentParser):
+    def error(self, message):
+        common.error('error: %s\n' % message, no_exit=True)
+        self.print_help()
+        sys.exit(1)
 
 def convert_arg_line_to_args(line):
     """This function overrides the convert_arg_line_to_args from argparse.

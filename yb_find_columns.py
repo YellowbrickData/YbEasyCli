@@ -34,12 +34,11 @@ class find_columns(util):
 
     def execute(self):
         self.db_filter_args.schema_set_all_if_none()
-        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
 
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
                 'yb_find_columns_p'
                 , args = {
-                    'a_column_filter_clause' : filter_clause } )
+                    'a_column_filter_clause' : self.db_filter_sql() } )
 
         rows_as_dict_str = ''
         self.col_ct = 0

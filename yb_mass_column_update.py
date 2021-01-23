@@ -37,15 +37,12 @@ class mass_column_update(util):
         , 'db_filter_args': {'owner':'tableowner', 'schema':'schemaname', 'table':'tablename', 'column':'columnname', 'datatype':'datatype'} }
 
     def execute(self):
-        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args']
-            , indent='        ')
-
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_mass_column_update_p'
             , args = {
                 'a_update_where_clause' : self.args_handler.args.update_where_clause
                 , 'a_set_clause' : self.args_handler.args.set_clause
-                , 'a_column_filter_clause' : filter_clause
+                , 'a_column_filter_clause' : self.db_filter_sql()
                 , 'a_exec_updates' : ('TRUE' if self.args_handler.args.exec_updates else 'FALSE')}
             , pre_sql = self.args_handler.args.pre_sql
             , post_sql = self.args_handler.args.post_sql)

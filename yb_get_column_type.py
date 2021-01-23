@@ -29,8 +29,6 @@ class get_column_type(util):
         , 'db_filter_args': {'owner':'tableowner', 'schema':'schemaname', 'table':'tablename', 'column':'columnname'} }
 
     def execute(self):
-        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
-
         sql_query = """
 WITH
 dt AS (
@@ -40,10 +38,10 @@ dt AS (
         , c.relname AS tablename
         , n.nspname AS schemaname
         , pg_get_userbyid(c.relowner) AS tableowner
-    FROM {database_name}.pg_catalog.pg_class AS c
-        LEFT JOIN {database_name}.pg_catalog.pg_namespace AS n
+    FROM {database}.pg_catalog.pg_class AS c
+        LEFT JOIN {database}.pg_catalog.pg_namespace AS n
             ON n.oid = c.relnamespace
-        JOIN {database_name}.pg_catalog.pg_attribute AS a
+        JOIN {database}.pg_catalog.pg_attribute AS a
             ON a.attrelid = c.oid
     WHERE
         c.relkind = 'r'::CHAR
@@ -54,8 +52,8 @@ FROM
     dt
 WHERE
     {filter_clause}""".format(
-             filter_clause = filter_clause
-             , database_name = self.db_conn.database)
+            filter_clause = self.db_filter_sql()
+            , database    = self.db_conn.database)
 
         self.cmd_results = self.db_conn.ybsql_query(sql_query)
 

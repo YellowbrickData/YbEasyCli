@@ -33,8 +33,6 @@ class get_sequence_names(util):
 
     def execute(self):
         self.db_filter_args.schema_set_all_if_none()
-        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'], indent='        ')
-
         sql_query = """
 WITH
 objct AS (
@@ -60,8 +58,8 @@ SELECT
     || ',"sequence":""\" ' || sequence     || ' ""\"' || '}}' AS data
 FROM objct
 ORDER BY ordinal""".format(
-             filter_clause = filter_clause
-             , database = self.db_conn.database)
+             filter_clause = self.db_filter_sql()
+             , database    = self.db_conn.database)
 
         return self.exec_query_and_apply_template(sql_query)
 

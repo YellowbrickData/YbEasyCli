@@ -35,7 +35,7 @@ class is_cstore_table(util):
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_is_cstore_table_p'
             , args = {
-                'a_tablename' : yb_common.common.quote_object_paths(self.args_handler.args.table)})
+                'a_table' : yb_common.common.quote_object_paths(self.args_handler.args.table)})
 
         self.cmd_results.write()
         print(self.cmd_results.proc_return)

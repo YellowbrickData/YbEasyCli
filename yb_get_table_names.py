@@ -33,7 +33,6 @@ class get_table_names(util):
 
     def execute(self):
         self.db_filter_args.schema_set_all_if_none()
-        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'], indent='        ')
 
         sql_query = """
 WITH
@@ -56,7 +55,7 @@ data as (
         AND {filter_clause}
 )
 SELECT data FROM data ORDER BY ordinal""".format(
-             filter_clause = filter_clause
+             filter_clause = self.db_filter_sql()
              , database = self.db_conn.database)
 
         self.cmd_results = self.db_conn.ybsql_query(sql_query)

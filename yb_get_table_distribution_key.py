@@ -39,8 +39,6 @@ class get_table_distribution_key(util):
     }
 
     def execute(self):
-        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
-
         sql_query = """
 WITH
 tbl AS (
@@ -53,10 +51,10 @@ tbl AS (
         , c.relname AS tablename
         , n.nspname AS schemaname
         , pg_get_userbyid(c.relowner) AS ownername
-    FROM {database_name}.pg_catalog.pg_class AS c
-        LEFT JOIN {database_name}.pg_catalog.pg_namespace AS n
+    FROM {database}.pg_catalog.pg_class AS c
+        LEFT JOIN {database}.pg_catalog.pg_namespace AS n
             ON n.oid = c.relnamespace
-        LEFT JOIN {database_name}.sys.table AS t
+        LEFT JOIN {database}.sys.table AS t
             ON c.oid = t.table_id
     WHERE
         c.relkind = 'r'::CHAR
@@ -68,8 +66,8 @@ FROM
 WHERE
     distribution IS NOT NULL
     AND {filter_clause}""".format(
-             filter_clause = filter_clause
-             , database_name = self.db_conn.database)
+             filter_clause = self.db_filter_sql()
+             , database    = self.db_conn.database)
 
         self.cmd_results = self.db_conn.ybsql_query(sql_query)
 

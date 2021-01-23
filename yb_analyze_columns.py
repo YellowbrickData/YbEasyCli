@@ -37,16 +37,14 @@ class analyze_columns(util):
         , 'db_filter_args': {'owner':'tableowner', 'schema':'schemaname', 'column':'columnname'} }
 
     def execute(self):
-        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
-
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_analyze_columns_p'
             , args = {
-                'a_dbname' : self.db_conn.database
-                , 'a_tablename' : self.args_handler.args.table
-                , 'a_filter_clause' : filter_clause
-                , 'a_level' : self.args_handler.args.level
-                , 'a_delimited_output' : self.a_delimited_output})
+                'a_database'           : self.db_conn.database
+                , 'a_table'            : self.args_handler.args.table
+                , 'a_filter_clause'    : self.db_filter_sql()
+                , 'a_level'            : self.args_handler.args.level
+                , 'a_delimited_output' : self.a_delimited_output} )
 
     def additional_args(self):
         args_chunk_o_grp = self.args_handler.args_parser.add_argument_group(

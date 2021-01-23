@@ -27,8 +27,6 @@ class get_view_name(util):
         , 'db_filter_args': {'owner':'v.viewowner','schema':'v.schemaname','view':'v.viewname'} }
 
     def execute(self):
-        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
-
         sql_query = """
 SELECT
     --'<database_name>.' || v.schemaname || '.' || v.viewname AS view_path
@@ -38,7 +36,7 @@ FROM
 WHERE
     {filter_clause}
 ORDER BY LOWER(v.schemaname), LOWER(v.viewname)""".format(
-             filter_clause = filter_clause
+             filter_clause = self.db_filter_sql()
              , database_name = self.db_conn.database)
 
         self.cmd_results = self.db_conn.ybsql_query(sql_query)

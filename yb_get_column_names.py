@@ -34,7 +34,6 @@ class get_column_names(util):
 
     def execute(self):
         self.db_filter_args.schema_set_all_if_none()
-        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'], indent='        ')
 
         sql_query = """
 WITH
@@ -68,9 +67,9 @@ SELECT
     || ',"column":""\" '   || clmn         || ' ""\"' || '}}' AS data
 FROM objct
 ORDER BY ordinal""".format(
-             filter_clause = filter_clause
-             , database = self.db_conn.database
-             , object = self.args_handler.args.object)
+             filter_clause = self.db_filter_sql()
+             , database    = self.db_conn.database
+             , object      = self.args_handler.args.object)
 
         return self.exec_query_and_apply_template(sql_query, quote_default=True)
 

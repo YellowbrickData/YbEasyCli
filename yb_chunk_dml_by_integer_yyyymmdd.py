@@ -42,13 +42,13 @@ ORDER BY sale_date_int\"\"\"
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_chunk_dml_by_integer_yyyymmdd_p'
             , args = {
-                'a_table_name' : self.args_handler.args.table
-                , 'a_yyyymmdd_column_name' : self.args_handler.args.column
-                , 'a_dml' : self.args_handler.args.dml
-                , 'a_min_chunk_size' : self.args_handler.args.chunk_rows
-                , 'a_verbose' : ('TRUE' if self.args_handler.args.verbose_chunk_off else 'FALSE')
-                , 'a_add_null_chunk' : ('TRUE' if self.args_handler.args.null_chunk_off else 'FALSE')
-                , 'a_print_chunk_dml' : ('TRUE' if self.args_handler.args.print_chunk_dml else 'FALSE')
+                'a_table'               : self.args_handler.args.table
+                , 'a_yyyymmdd_column'   : self.args_handler.args.column
+                , 'a_dml'               : self.args_handler.args.dml
+                , 'a_min_chunk_size'    : self.args_handler.args.chunk_rows
+                , 'a_verbose'           : ('TRUE' if self.args_handler.args.verbose_chunk_off else 'FALSE')
+                , 'a_add_null_chunk'    : ('TRUE' if self.args_handler.args.null_chunk_off else 'FALSE')
+                , 'a_print_chunk_dml'   : ('TRUE' if self.args_handler.args.print_chunk_dml else 'FALSE')
                 , 'a_execute_chunk_dml' : ('TRUE' if self.args_handler.args.execute_chunk_dml else 'FALSE')}
             , pre_sql = self.args_handler.args.pre_sql
             , post_sql = self.args_handler.args.post_sql)

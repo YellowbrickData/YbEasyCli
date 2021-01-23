@@ -35,8 +35,6 @@ class check_db_views(util):
 
         self.db_filter_args.schema_set_all_if_none()
 
-        filter_clause = self.db_filter_args.build_sql_filter(self.config['db_filter_args'])
-
         db_ct = 0
         broken_view_ct = 0
         sys.stdout.write('-- Running broken view check.\n')
@@ -44,7 +42,7 @@ class check_db_views(util):
             db_ct += 1
             cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
                 'yb_check_db_views_p'
-                , args = {'a_filter':filter_clause}
+                , args = {'a_filter':self.db_filter_sql()}
                 , pre_sql = ('\c %s\n' % db))
 
             if cmd_results.exit_code == 0:

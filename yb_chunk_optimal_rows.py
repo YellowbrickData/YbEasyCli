@@ -47,9 +47,9 @@ class chunk_optimal_rows(util):
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_chunk_optimal_rows_p'
             , args = {
-                'a_table_name' : self.args_handler.args.table
-                , 'a_schema_name' : schema
-                , 'a_db_name' : database})
+                'a_table'      : self.args_handler.args.table
+                , 'a_schema'   : schema
+                , 'a_database' : database})
 
 def main():
     cors = chunk_optimal_rows()
