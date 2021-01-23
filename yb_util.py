@@ -1,5 +1,7 @@
 import sys
 from datetime import datetime
+from tabulate import tabulate
+import csv
 
 import yb_common
 from yb_common import common
@@ -52,7 +54,8 @@ class util:
             self.args_handler.init_default()
             self.args_handler.args_process()
             self.additional_args_process()
-            self.db_conn = yb_common.db_connect(self.args_handler.args)
+            self.db_conn = yb_common.db_connect(self.args_handler)
+
         if hasattr(self.args_handler, 'db_filter_args'):
             self.db_filter_args = self.args_handler.db_filter_args
 
@@ -110,6 +113,15 @@ class util:
             return self.cmd_results.stdout
         else:
             return output_new
+
+    @staticmethod
+    def text_to_formatted_table(text, delimiter='|', headers=[]):
+        return tabulate(
+            list(csv.reader(text.strip().split('\n'), delimiter='|') )
+            , headers=headers)
+
+    def db_filter_sql(self, db_filter_args='db_filter_args'):
+        return self.db_filter_args.build_sql_filter(self.config[db_filter_args])
 
     def additional_args(self):
         None

@@ -104,7 +104,7 @@ class yb_to_yb_copy_table(util):
         src_pwd = os.environ['SRC_YBPASSWORD'] if 'SRC_YBPASSWORD' in os.environ else None
         if src_pwd:
             os.environ['YBPASSWORD'] = src_pwd
-        self.src_conn = db_connect(args=self.args_handler.args, conn_type='src')
+        self.src_conn = db_connect(args_handler=self.args_handler, conn_type='src')
         if pwd:
             os.environ['YBPASSWORD'] = pwd
         elif src_pwd:
@@ -113,7 +113,7 @@ class yb_to_yb_copy_table(util):
         dst_pwd = os.environ['DST_YBPASSWORD'] if 'DST_YBPASSWORD' in os.environ else None
         if dst_pwd:
             os.environ['YBPASSWORD'] = dst_pwd
-        self.dst_conn = db_connect(args=self.args_handler.args, conn_type='dst')
+        self.dst_conn = db_connect(args_handler=self.args_handler, conn_type='dst')
         if pwd:
             os.environ['YBPASSWORD'] = pwd
         elif dst_pwd:
