@@ -28,9 +28,9 @@ class create_objects:
     """Initiate testing"""
 
     def __init__(self):
-        args = self.init_args()
-        args.conn_db = 'yellowbrick'
-        db_conn = yb_common.db_connect(args)
+        args_handler = self.init_args()
+        args_handler.args.conn_db = 'yellowbrick'
+        db_conn = yb_common.db_connect(args_handler)
 
         if not(db_conn.ybdb['has_create_user'] and db_conn.ybdb['has_create_db']):
             yb_common.common.error('You must login as a user with create database/'
@@ -157,9 +157,9 @@ class create_objects:
 
         args_handler.args_add_optional()
         args_handler.args_add_connection_group()
-        #args_handler.args_add_positional_args()
+        args_handler.args = args_handler.args_process()
 
-        return args_handler.args_process()
+        return args_handler
 
 
     def create_db_objects(self):
