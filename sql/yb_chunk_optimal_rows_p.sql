@@ -1,10 +1,10 @@
-DROP PROCEDURE IF EXISTS yb_chunk_optimal_rows_p(VARCHAR, VARCHAR, VARCHAR);
 CREATE OR REPLACE PROCEDURE yb_chunk_optimal_rows_p(
-    a_table_name          VARCHAR
-    , a_schema_name       VARCHAR
-    , a_db_name           VARCHAR
-) RETURNS BIGINT
-LANGUAGE plpgsql AS $$
+    a_table      VARCHAR
+    , a_schema   VARCHAR
+    , a_database VARCHAR )
+    RETURNS BIGINT
+    LANGUAGE plpgsql
+AS $$
 DECLARE
     v_blades INTEGER;
     v_chunks INTEGER;
@@ -16,8 +16,8 @@ const AS (
         <blades> AS blades
         , 1024 ^ 3 AS shard_size
         , 10 AS shards_per_blade --this is the key number in deciding how to calculate the chunk size
-        , '<schema_name>' AS schema_name
-        , '<table_name>' AS table_name
+        , '<schema>' AS schema_name
+        , '<table>' AS table_name
 )
 , chunks AS (
     SELECT
@@ -30,9 +30,9 @@ const AS (
         , DECODE(chunk_row_size, 0, 10000000, chunk_row_size)          AS chunk_row_size_min_10000000
     FROM
         sys.shardstore AS s
-        JOIN <db_name>.pg_catalog.pg_class  AS c
+        JOIN <database>.pg_catalog.pg_class  AS c
             ON s.table_id = c.oid::BIGINT
-        JOIN <db_name>.pg_catalog.pg_namespace AS n
+        JOIN <database>.pg_catalog.pg_namespace AS n
             ON c.relnamespace = n.oid
         CROSS JOIN const
     WHERE
@@ -41,9 +41,9 @@ const AS (
     GROUP BY shard_size, blades, shards_per_blade
 )
 SELECT chunks_min_1 AS chunks, chunk_row_size_min_10000000 AS chunk_row_size FROM chunks$STR$
-        , '<table_name>', a_table_name)
-        , '<schema_name>', a_schema_name)
-        , '<db_name>', a_db_name);
+        , '<table>', a_table)
+        , '<schema>', a_schema)
+        , '<database>', a_database);
     --
     _fn_name   VARCHAR(256) := 'yb_chunk_optimal_rows_p';
     _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');

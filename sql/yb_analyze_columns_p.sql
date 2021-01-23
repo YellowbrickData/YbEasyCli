@@ -1,11 +1,12 @@
 CREATE OR REPLACE PROCEDURE yb_analyze_columns_p(
-    a_dbname VARCHAR
-    , a_tablename VARCHAR
+    a_database VARCHAR
+    , a_table VARCHAR
     , a_filter_clause VARCHAR
     , a_level INTEGER DEFAULT 1
     , a_delimited_output BOOLEAN DEFAULT FALSE)
-RETURNS BOOLEAN
-LANGUAGE plpgsql AS $$
+    RETURNS BOOLEAN
+    LANGUAGE plpgsql
+AS $$
 DECLARE
     v_rec_tables RECORD;
     v_rec_aggs RECORD;
@@ -51,12 +52,12 @@ o AS (
         , s.est_rows
         , s.est_total_bytes
     FROM
-        <dbname>.pg_catalog.pg_class AS c
-        LEFT JOIN <dbname>.pg_catalog.pg_namespace AS n
+        <database>.pg_catalog.pg_class AS c
+        LEFT JOIN <database>.pg_catalog.pg_namespace AS n
             ON n.oid = c.relnamespace
-        JOIN <dbname>.pg_catalog.pg_attribute AS a
+        JOIN <database>.pg_catalog.pg_attribute AS a
             ON a.attrelid = c.oid
-        LEFT JOIN <dbname>.sys.column AS col
+        LEFT JOIN <database>.sys.column AS col
             ON c.oid = col.table_id
             AND a.attnum = col.column_id
         LEFT JOIN (<stats_query>) AS s
@@ -65,7 +66,7 @@ o AS (
     WHERE
         c.relkind IN ('r')
         AND column_num > 0
-        AND tablename LIKE '<tablename>'
+        AND tablename LIKE '<table>'
         AND <filter_clause>
 )
 SELECT
@@ -94,7 +95,7 @@ FROM
     o
 ORDER BY
     schemaname, tablename, column_num$STR$
-        , '<tablename>', a_tablename)
+        , '<table>', a_table)
         , '<filter_clause>', a_filter_clause);
     --
     v_query_stats VARCHAR(4000) := $STR$
@@ -107,8 +108,8 @@ SELECT
     , SUM(rows_columnstore)::BIGINT::VARCHAR AS est_rows
     , (MAX(stawidth) * est_rows::BIGINT)::BIGINT::VARCHAR AS est_total_bytes
 FROM
-    <dbname>.pg_catalog.pg_statistic AS stats
-    LEFT JOIN <dbname>.sys.table_storage AS strg
+    <database>.pg_catalog.pg_statistic AS stats
+    LEFT JOIN <database>.sys.table_storage AS strg
         ON starelid = strg.table_id
 GROUP BY 1, 2$STR$;
     --
@@ -139,7 +140,7 @@ BEGIN
             v_has_stats := FALSE;
             v_query := REPLACE(v_query, '<stats_query>', v_query_stats_dummy);
     END;
-    v_query := REPLACE(v_query, '<dbname>', a_dbname);
+    v_query := REPLACE(v_query, '<database>', a_database);
     --
     --RAISE INFO '%', v_query; --DEBUG
     --
@@ -223,7 +224,7 @@ BEGIN
                 END IF;
                 v_query := v_query || '
     FROM
-        ' || a_dbname || '.' || v_rec_tables.schemaname || '.' || v_rec_tables.tablename || '
+        ' || a_database || '.' || v_rec_tables.schemaname || '.' || v_rec_tables.tablename || '
                 ';
                 --
                 --RAISE INFO '%', v_query; --DEBUG
@@ -238,7 +239,7 @@ BEGIN
             END IF;
             --
             IF a_delimited_output THEN -- header for delimited output
-                v_str := a_dbname || '|' || v_rec_tables.schemaname || '.' || v_rec_tables.tablename || '.' || v_rec_tables.columnname
+                v_str := a_database || '|' || v_rec_tables.schemaname || '.' || v_rec_tables.tablename || '.' || v_rec_tables.columnname
                     || '|' || v_rec_tables.column_num || '|' || v_rec_tables.data_type
                     || '|' || DECODE(TRUE,NOT(v_rec_tables.is_not_nullable),'X','-') || DECODE(TRUE,v_rec_tables.is_distribution_key,'X','-') || DECODE(TRUE,v_rec_tables.is_sort_key,'X','-')
                     || DECODE(TRUE,v_rec_tables.is_cluster_key,'X','-') || DECODE(TRUE,v_rec_tables.is_partition_key,'X','-')
@@ -267,7 +268,7 @@ BEGIN
                     RAISE INFO '';
                     RAISE INFO '';
                 END IF;
-                SELECT 'ANALYSIS OF: ' || a_dbname || '.' || v_rec_tables.schemaname || '.' || v_rec_tables.tablename || '.' || v_rec_tables.columnname INTO v_str;
+                SELECT 'ANALYSIS OF: ' || a_database || '.' || v_rec_tables.schemaname || '.' || v_rec_tables.tablename || '.' || v_rec_tables.columnname INTO v_str;
                 RAISE INFO '%', v_str;
                 RAISE INFO '%', SUBSTR('------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------', 1, LENGTH(v_str));
                 RAISE INFO 'Column is: %', DECODE(TRUE, v_rec_tables.is_not_nullable, 'NOT NULLABLE', 'NULLABLE')
@@ -324,9 +325,9 @@ t AS (
     SELECT
         COUNT(*) AS ct
         , TO_CHAR(ROUND(ct / (<count> / 100.0), 4), ''90.9999'') AS pct
-        , <columnname>::VARCHAR AS col_value
+        , <column>::VARCHAR AS col_value
     FROM
-        <dbname>.<schemaname>.<tablename>
+        <database>.<schema>.<table>
     GROUP BY 3
     ORDER BY 1 DESC, 3 DESC
     LIMIT <group_ct>
@@ -335,9 +336,9 @@ t AS (
     SELECT
         COUNT(*) AS ct
         , TO_CHAR(ROUND(ct / (<count> / 100.0), 4), ''90.9999'') AS pct
-        , <columnname>::VARCHAR AS col_value
+        , <column>::VARCHAR AS col_value
     FROM
-        <dbname>.<schemaname>.<tablename>
+        <database>.<schema>.<table>
     GROUP BY 3
     ORDER BY 1, 3 ASC
     LIMIT <group_ct>
@@ -345,10 +346,10 @@ t AS (
 SELECT ct, pct, col_value FROM t
 UNION SELECT ct, pct, col_value FROM b
 ORDER BY 1 DESC, 3'
-                    ,'<columnname>',v_rec_tables.columnname)
-                    ,'<tablename>',v_rec_tables.tablename)
-                    ,'<schemaname>',v_rec_tables.schemaname)
-                    ,'<dbname>',a_dbname)
+                    ,'<column>',v_rec_tables.columnname)
+                    ,'<table>',v_rec_tables.tablename)
+                    ,'<schema>',v_rec_tables.schemaname)
+                    ,'<database>',a_database)
                     ,'<count>', v_rec_aggs.count::VARCHAR)
                     ,'<group_ct>',v_group_ct::VARCHAR);
                     --

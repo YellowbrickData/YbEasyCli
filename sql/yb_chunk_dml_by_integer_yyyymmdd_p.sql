@@ -1,14 +1,15 @@
 CREATE OR REPLACE PROCEDURE yb_chunk_dml_by_integer_yyyymmdd_p(
-    a_table_name             VARCHAR
-    , a_yyyymmdd_column_name VARCHAR
+    a_table                  VARCHAR
+    , a_yyyymmdd_column VARCHAR
     , a_dml                  VARCHAR
     , a_min_chunk_size       BIGINT DEFAULT
     , a_verbose              BOOLEAN DEFAULT TRUE
     , a_add_null_chunk       BOOLEAN DEFAULT FALSE
     , a_execute_chunk_dml    BOOLEAN DEFAULT FALSE
-    , a_print_chunk_dml      BOOLEAN DEFAULT FALSE
-) RETURNS BOOLEAN
-LANGUAGE plpgsql AS $$
+    , a_print_chunk_dml      BOOLEAN DEFAULT FALSE )
+    RETURNS BOOLEAN
+    LANGUAGE plpgsql
+AS $$
 DECLARE
     v_rc REFCURSOR;
     v_rec RECORD;
@@ -21,25 +22,25 @@ DECLARE
     v_chunk_max_size     BIGINT := 0;
     v_exec_dml TEXT;
     v_sql_where_clause  TEXT := REPLACE(
-'/* chunk_clause(chunk: <chunk>, size: <chunk_size>) >>>*/ <chunk_first_val> <= <yyyymmdd_column_name> AND <yyyymmdd_column_name> < <chunk_last_val> /*<<< chunk_clause */'
-        , '<yyyymmdd_column_name>', a_yyyymmdd_column_name);
+'/* chunk_clause(chunk: <chunk>, size: <chunk_size>) >>>*/ <chunk_first_val> <= <yyyymmdd_column> AND <yyyymmdd_column> < <chunk_last_val> /*<<< chunk_clause */'
+        , '<yyyymmdd_column>', a_yyyymmdd_column);
     v_sql_select_total_size TEXT := REPLACE(
-'SELECT COUNT(*) AS total_size FROM <table_name>'
-        , '<table_name>', a_table_name);
+'SELECT COUNT(*) AS total_size FROM <table>'
+        , '<table>', a_table);
     v_sql_select_null_count TEXT := REPLACE(REPLACE(
-'SELECT COUNT(*) AS null_count FROM <table_name> WHERE <yyyymmdd_column_name> IS NULL'
-        , '<table_name>', a_table_name)
-        , '<yyyymmdd_column_name>', a_yyyymmdd_column_name);
+'SELECT COUNT(*) AS null_count FROM <table> WHERE <yyyymmdd_column> IS NULL'
+        , '<table>', a_table)
+        , '<yyyymmdd_column>', a_yyyymmdd_column);
     v_sql_create_tmp_group_table TEXT := REPLACE(REPLACE('
 CREATE TEMPORARY TABLE chunked_groups AS
 SELECT
-    <yyyymmdd_column_name> AS start_val
+    <yyyymmdd_column> AS start_val
     , COUNT(*) AS cnt
-FROM <table_name>
+FROM <table>
 GROUP BY 1
 DISTRIBUTE ON (start_val)'
-        , '<table_name>', a_table_name)
-        , '<yyyymmdd_column_name>', a_yyyymmdd_column_name);
+        , '<table>', a_table)
+        , '<yyyymmdd_column>', a_yyyymmdd_column);
     v_sql_select_groups TEXT := $STR$
 WITH
 group_w_lead AS (
@@ -87,7 +88,7 @@ BEGIN
             END IF;
             --
             IF a_verbose = TRUE THEN
-                RAISE INFO '--%: Chunk: %, Rows: %, Range % <= % < %', CLOCK_TIMESTAMP(), v_chunk, v_chunk_size, v_chunk_first_val, a_yyyymmdd_column_name, v_rec.next_val;
+                RAISE INFO '--%: Chunk: %, Rows: %, Range % <= % < %', CLOCK_TIMESTAMP(), v_chunk, v_chunk_size, v_chunk_first_val, a_yyyymmdd_column, v_rec.next_val;
             END IF;
             --
             v_exec_dml := REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(a_dml,'<chunk_where_clause>', v_sql_where_clause), '<chunk_first_val>', v_chunk_first_val::VARCHAR), '<chunk_last_val>', v_rec.next_val::VARCHAR), '<chunk_size>', v_chunk_size::VARCHAR), '<chunk>', v_chunk::VARCHAR);
@@ -116,10 +117,10 @@ BEGIN
         v_chunk := v_chunk + 1;
         --
         IF a_verbose = TRUE THEN
-            RAISE INFO '--%: Chunk: %, Rows: %, % IS NULL', CLOCK_TIMESTAMP(), v_chunk, v_null_count, a_yyyymmdd_column_name;
+            RAISE INFO '--%: Chunk: %, Rows: %, % IS NULL', CLOCK_TIMESTAMP(), v_chunk, v_null_count, a_yyyymmdd_column;
         END IF;
         --
-        v_exec_dml := REPLACE(a_dml,'<chunk_where_clause>', a_yyyymmdd_column_name || ' IS NULL');
+        v_exec_dml := REPLACE(a_dml,'<chunk_where_clause>', a_yyyymmdd_column || ' IS NULL');
         --
         IF a_print_chunk_dml = TRUE THEN RAISE INFO '%;', v_exec_dml; END IF;
         --

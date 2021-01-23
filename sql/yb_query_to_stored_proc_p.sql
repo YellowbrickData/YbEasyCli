@@ -5,7 +5,9 @@ CREATE OR REPLACE PROCEDURE yb_query_to_stored_proc_p(
     , a_limit_default BIGINT
     , a_max_varchar_size INTEGER DEFAULT 10000
     , a_grant_execute_to VARCHAR(10000) DEFAULT 'public')
-RETURNS BOOLEAN
+    RETURNS BOOLEAN
+    LANGUAGE plpgsql
+AS $$
 --description:
 --    Create a stored procedure that runs the input a_query with the privileges of the user
 --       difining/creating the stored procedure.
@@ -17,9 +19,8 @@ RETURNS BOOLEAN
 --       truncate size of all VARCHAR columns in the destination table, defaults to 10000
 --notes:
 --    In addition to the stored procedure an empty table named a_stored_proc_name with the
---    suffix '_t' is created to support the SETOF return clause from the stored procedure.
+--    suffix '_t' is created to support the SETOF rtrn clause from the stored procedure.
 --todo: handle objects with column names in multi-case like; sys.vt_worker_storage
-LANGUAGE plpgsql AS $$
 DECLARE
     v_rec RECORD;
     v_rec_ct INTEGER := 0;

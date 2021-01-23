@@ -4,7 +4,9 @@ CREATE OR REPLACE PROCEDURE yb_rstore_query_to_cstore_table_p(
     , a_create_temp_table BOOLEAN DEFAULT FALSE
     , a_drop_table BOOLEAN DEFAULT FALSE
     , a_max_varchar_size INTEGER DEFAULT 10000)
-RETURNS BOOLEAN
+    RETURNS BOOLEAN
+    LANGUAGE plpgsql
+AS $$
 --description:
 --    Materialize a rowstore table or in memory query to a columnstore table.
 --arguments:
@@ -18,7 +20,6 @@ RETURNS BOOLEAN
 --    a_max_varchar_size:
 --       truncate size of all VARCHAR columns in the destination table, defaults to 10000
 --todo: handle objects with column names in multi-case like; sys.vt_worker_storage
-LANGUAGE plpgsql AS $$
 DECLARE
     v_rec RECORD;
     v_rec_ct INTEGER := 0;

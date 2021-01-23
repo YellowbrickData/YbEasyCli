@@ -1,6 +1,8 @@
 CREATE OR REPLACE PROCEDURE yb_find_columns(
     a_column_filter_clause VARCHAR(60000) DEFAULT 'TRUE')
-RETURNS BOOLEAN
+    RETURNS BOOLEAN
+    LANGUAGE plpgsql
+AS $$
 -- Description: Find all columns that match the filter clause
 -- Arguments:
 --    a_column_filter_clause: an SQL where clause which filters the columns to be
@@ -20,7 +22,6 @@ AND datatype LIKE '%CHARACTER%'
 $$
 );
  */
-LANGUAGE plpgsql AS $$
 DECLARE
     v_query_cols TEXT := REPLACE(REPLACE($STR1$
 SELECT

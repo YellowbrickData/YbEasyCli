@@ -1,17 +1,18 @@
 CREATE OR REPLACE PROCEDURE yb_chunk_dml_by_integer_lowcard_p(
-    a_table_name            VARCHAR
-    , a_integer_column_name VARCHAR
+    a_table                 VARCHAR
+    , a_integer_column      VARCHAR
     , a_dml                 VARCHAR
     , a_table_where_clause  VARCHAR DEFAULT 'TRUE'
     , a_min_chunk_size      BIGINT
     , a_verbose             BOOLEAN DEFAULT TRUE
     , a_add_null_chunk      BOOLEAN DEFAULT TRUE
     , a_print_chunk_dml     BOOLEAN DEFAULT FALSE
-    , a_execute_chunk_dml   BOOLEAN DEFAULT FALSE
-) RETURNS BOOLEAN
+    , a_execute_chunk_dml   BOOLEAN DEFAULT FALSE )
+    RETURNS BOOLEAN
+    LANGUAGE plpgsql
+AS $$
 -- chunks data where a_interger_column_name column contains lower cardinality data
 --     where a column value may have 1000 or more rows
-LANGUAGE plpgsql AS $$
 DECLARE
     v_rc REFCURSOR;
     v_rec RECORD;
@@ -25,29 +26,29 @@ DECLARE
     v_exec_dml           TEXT;
     v_sql_rowcount       BIGINT;
     v_sql_where_clause   TEXT := REPLACE(
-'/* chunk_clause(chunk: <chunk>, size: <chunk_size>) >>>*/ <chunk_first_val> <= <integer_column_name> AND <integer_column_name> < <chunk_last_val> /*<<< chunk_clause */'
-        , '<integer_column_name>', a_integer_column_name);
+'/* chunk_clause(chunk: <chunk>, size: <chunk_size>) >>>*/ <chunk_first_val> <= <integer_column> AND <integer_column> < <chunk_last_val> /*<<< chunk_clause */'
+        , '<integer_column>', a_integer_column);
     v_sql_select_total_size TEXT := REPLACE(REPLACE(
-'SELECT COUNT(*) AS total_size FROM <table_name> WHERE <table_where_clause>'
-        , '<table_name>', a_table_name)
+'SELECT COUNT(*) AS total_size FROM <table> WHERE <table_where_clause>'
+        , '<table>', a_table)
         , '<table_where_clause>', a_table_where_clause);
     v_sql_select_null_count TEXT := REPLACE(REPLACE(REPLACE(
-'SELECT COUNT(*) AS null_count FROM <table_name> WHERE <integer_column_name> IS NULL AND <table_where_clause> AND <table_where_clause>'
-        , '<table_name>', a_table_name)
-        , '<integer_column_name>', a_integer_column_name)
+'SELECT COUNT(*) AS null_count FROM <table> WHERE <integer_column> IS NULL AND <table_where_clause> AND <table_where_clause>'
+        , '<table>', a_table)
+        , '<integer_column>', a_integer_column)
         , '<table_where_clause>', a_table_where_clause);
     v_sql_create_tmp_group_table TEXT := REPLACE(REPLACE(REPLACE(
 'DROP TABLE IF EXISTS chunked_groups;
 CREATE TEMPORARY TABLE chunked_groups AS
 SELECT
-    <integer_column_name> AS start_val
+    <integer_column> AS start_val
     , COUNT(*) AS cnt
-FROM <table_name>
+FROM <table>
 WHERE <table_where_clause>
 GROUP BY 1
 DISTRIBUTE ON (start_val)'
-        , '<table_name>', a_table_name)
-        , '<integer_column_name>', a_integer_column_name)
+        , '<table>', a_table)
+        , '<integer_column>', a_integer_column)
         , '<table_where_clause>', a_table_where_clause);
     v_sql_create_tmp_group_w_lead_table TEXT := 
 'DROP TABLE IF EXISTS group_w_lead;
@@ -153,7 +154,7 @@ BEGIN
             END IF;
             --
             IF a_verbose = TRUE THEN
-                RAISE INFO '--%: Chunk: %, Rows: %, Range % <= % < %', CLOCK_TIMESTAMP(), v_chunk, v_chunk_size, v_chunk_first_val, a_integer_column_name, v_rec.next_val;
+                RAISE INFO '--%: Chunk: %, Rows: %, Range % <= % < %', CLOCK_TIMESTAMP(), v_chunk, v_chunk_size, v_chunk_first_val, a_integer_column, v_rec.next_val;
             END IF;
             --
             v_exec_dml := REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(a_dml,'<chunk_where_clause>', v_sql_where_clause), '<chunk_first_val>', v_chunk_first_val::VARCHAR), '<chunk_last_val>',  v_rec.next_val::VARCHAR), '<chunk_size>', v_chunk_size::VARCHAR), '<chunk>', v_chunk::VARCHAR);
@@ -182,10 +183,10 @@ BEGIN
         v_chunk := v_chunk + 1;
         --
         IF a_verbose = TRUE THEN
-            RAISE INFO '--%: Chunk: %, Rows: %, % IS NULL', CLOCK_TIMESTAMP(), v_chunk, v_null_count, a_integer_column_name;
+            RAISE INFO '--%: Chunk: %, Rows: %, % IS NULL', CLOCK_TIMESTAMP(), v_chunk, v_null_count, a_integer_column;
         END IF;
         --
-        v_exec_dml := REPLACE(a_dml, '<chunk_where_clause>', a_integer_column_name || ' IS NULL');
+        v_exec_dml := REPLACE(a_dml, '<chunk_where_clause>', a_integer_column || ' IS NULL');
         --
         IF a_print_chunk_dml = TRUE THEN
             RAISE INFO '%;', v_exec_dml;

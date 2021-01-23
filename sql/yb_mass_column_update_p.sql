@@ -3,10 +3,12 @@ CREATE OR REPLACE PROCEDURE yb_mass_column_update_p(
     , a_set_clause VARCHAR(60000)
     , a_column_filter_clause VARCHAR(60000) DEFAULT 'TRUE'
     , a_exec_updates BOOLEAN DEFAULT FALSE)
-RETURNS BOOLEAN
+    RETURNS BOOLEAN
+    LANGUAGE plpgsql
+AS $$
 -- Description: Update the value of multiple columns
 -- Arguments:
---    a_update_where_clause: an SQL clause which returns a BOOLEAN value to determine which
+--    a_update_where_clause: an SQL clause which rtrns a BOOLEAN value to determine which
 --        rows are updated
 --    a_set_clause: an SQL clause used to update the column value when
 --        a_update_where_clause evaluates to TRUE
@@ -48,7 +50,6 @@ AND datatype LIKE '%CHARACTER%'
 $$
 );
  */
-LANGUAGE plpgsql AS $$
 DECLARE
     v_query_cols TEXT := REPLACE(REPLACE(REPLACE($STR1$
 WITH

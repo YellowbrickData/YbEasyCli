@@ -1,7 +1,8 @@
 CREATE OR REPLACE PROCEDURE yb_check_db_views_p(a_filter VARCHAR DEFAULT 'TRUE')
-RETURNS BOOLEAN
+    RETURNS BOOLEAN
 -- Note: sys.view did not return all broken views, using pg_class
-LANGUAGE plpgsql AS $$
+    LANGUAGE plpgsql
+AS $$
 DECLARE
     v_rec record;
     v_query_views TEXT := REPLACE($STR1$
