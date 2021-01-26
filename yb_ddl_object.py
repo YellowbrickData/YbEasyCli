@@ -130,6 +130,12 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
         if output != '':
             output = self.ddl_modifications(
                 output, self.args_handler.args)
+
+            if self.args_handler.args.exec_output:
+                self.cmd_result = self.db_conn.ybsql_query(output)
+                self.cmd_result.on_error_exit()
+                output = self.cmd_result.stdout
+
         return output
 
     def object_meta_data_to_ybsql_py_dict(self, meta_data):
@@ -169,6 +175,7 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
                 , database = self.db_conn.database)
         else:
             args_handler = copy.deepcopy(self.args_handler)
+            args_handler.args.exec_output = False
             args_handler.args.template = ('{%s_path}|{ordinal}|{owner}|{database}|{schema}|{%s}'
                 % (self.object_type, self.object_type))
             args_handler.args.exec_output = False
@@ -262,4 +269,4 @@ def main(util_name):
     
     print(ddlo.execute())
 
-    exit(ddlo.cmd_results.exit_code)
+    exit(ddlo.cmd_result.exit_code)

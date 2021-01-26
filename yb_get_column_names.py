@@ -71,15 +71,12 @@ ORDER BY ordinal""".format(
              , database    = self.db_conn.database
              , object      = self.args_handler.args.object)
 
-        return self.exec_query_and_apply_template(sql_query, quote_default=True)
+        return self.exec_query_and_apply_template(sql_query, exec_output=self.args_handler.args.exec_output)
 
 def main():
     gcns = get_column_names()
     
     print(gcns.execute())
-
-    exit(gcns.cmd_results.exit_code)
-
 
 if __name__ == "__main__":
     main()

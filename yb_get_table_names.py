@@ -58,15 +58,12 @@ SELECT data FROM data ORDER BY ordinal""".format(
              filter_clause = self.db_filter_sql()
              , database = self.db_conn.database)
 
-        self.cmd_results = self.db_conn.ybsql_query(sql_query)
-        return self.exec_query_and_apply_template(sql_query)
+        return self.exec_query_and_apply_template(sql_query, exec_output=self.args_handler.args.exec_output)
 
 def main():
     gtns = get_table_names()
     
     print(gtns.execute())
-
-    exit(gtns.cmd_results.exit_code)
 
 
 if __name__ == "__main__":

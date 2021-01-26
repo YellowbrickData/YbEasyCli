@@ -56,7 +56,7 @@ class find_columns(util):
                     + (', "data_type": ""\" %s ""\" '     % row[5])
                     + (', "owner": ""\" %s ""\" '         % row[6]) + '}\n' )
 
-        return self.apply_template(rows_as_dict_str)
+        return self.apply_template(rows_as_dict_str, exec_output=self.args_handler.args.exec_output)
 
 def main():
     fcs = find_columns()

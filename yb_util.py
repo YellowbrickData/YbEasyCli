@@ -59,12 +59,12 @@ class util:
         if hasattr(self.args_handler, 'db_filter_args'):
             self.db_filter_args = self.args_handler.db_filter_args
 
-    def exec_query_and_apply_template(self, sql_query, quote_default=False):
-        self.cmd_results = self.db_conn.ybsql_query(sql_query)
-        self.cmd_results.on_error_exit()
-        return self.apply_template(self.cmd_results.stdout, quote_default)
+    def exec_query_and_apply_template(self, sql_query, exec_output=False):
+        self.cmd_result = self.db_conn.ybsql_query(sql_query)
+        self.cmd_result.on_error_exit()
+        return self.apply_template(self.cmd_result.stdout, exec_output)
 
-    def apply_template(self, output_raw, quote_default=False):
+    def apply_template(self, output_raw, exec_output=False):
         # convert the SQL from code(of a dictionary) to an evaluated dictionary
         rows = eval('[%s]' % output_raw)
 
@@ -79,8 +79,6 @@ class util:
             # strip vars and add double quotes to non-lower case db objects
             for k, v in row.items():
                 if k in ('column', 'database', 'object', 'owner', 'schema', 'sequence', 'stored_proc', 'table', 'view'):
-                    #and quote_default  # TODO is this condition needed
-                    #and self.args_handler.args.template == self.config['output_tmplt_default']):
                     format[k] = common.quote_object_paths(v.strip())
                 elif type(v) is str:
                     format[k] = v.strip()
@@ -103,14 +101,13 @@ class util:
             try:
                 output_new += (self.args_handler.args.template.format(**format)
                     + ('\n'))
-            #        + ('' if int(row['ordinal']) == len(rows) else '\n'))
             except KeyError as error:
                 common.error('%s template var was not found...' % error)
 
-        if self.args_handler.args.exec_output:
-            self.cmd_results = self.db_conn.ybsql_query(output_new)
-            self.cmd_results.on_error_exit()
-            return self.cmd_results.stdout
+        if exec_output:
+            self.cmd_result = self.db_conn.ybsql_query(output_new)
+            self.cmd_result.on_error_exit()
+            return self.cmd_result.stdout
         else:
             return output_new
 
@@ -142,11 +139,11 @@ WHERE
 ORDER BY
     name""".format(filter_clause = filter_clause)
 
-        cmd_results = self.db_conn.ybsql_query(sql_query)
+        cmd_result = self.db_conn.ybsql_query(sql_query)
 
-        cmd_results.on_error_exit()
+        cmd_result.on_error_exit()
 
-        dbs = cmd_results.stdout.strip()
+        dbs = cmd_result.stdout.strip()
         if dbs == '' and self.db_filter_args.has_optional_args_multi_set('database'):
             dbs = []
         elif dbs == '':

@@ -69,14 +69,14 @@ ORDER BY ordinal""".format(
              filter_clause = self.db_filter_sql()
              , database    = self.db_conn.database)
 
-        return self.exec_query_and_apply_template(sql_query)
+        return self.exec_query_and_apply_template(sql_query, exec_output=self.args_handler.args.exec_output)
 
 def main():
     gspn = get_stored_proc_names()
 
     print(gspn.execute())
 
-    exit(gspn.cmd_results.exit_code)
+    exit(gspn.cmd_result.exit_code)
 
 
 if __name__ == "__main__":
