@@ -35,11 +35,7 @@ DECLARE
     v_query TEXT;
     v_sql_name TEXT;
     --
-    _fn_name   VARCHAR(256) := 'yb_rstore_query_to_cstore_table_p';
-    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
-    _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'ybutils:' || _fn_name;
 BEGIN
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags || ':query_is_column_store');
     --check if input query is coming from column store
     --  if yes exit with warning
     BEGIN
@@ -55,7 +51,6 @@ BEGIN
     --
     -- query the first record of the input catalog table/view query(a_query)
     --   use this record to build dynamic pg/plsql and SQL
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags || ':query_first_rec');
     EXECUTE v_query_first_rec INTO v_rec;
     FOR v_rec_json IN SELECT * FROM json_each(row_to_json(v_rec))
     LOOP
@@ -95,7 +90,6 @@ $STR$
         , '<set>', v_do_set)
         , '<query_first_rec>', '$STR$' || v_query_first_rec || '$STR$');
     --RAISE INFO '%', v_query; --DEBUG
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags || ':create_columns_YYYYMMDDHHMMSS_XXX');
     EXECUTE v_query;
     --
     --
@@ -108,7 +102,6 @@ $STR$
         v_query := 'CREATE TABLE ';
     END IF;
     v_query := v_query || a_tablename || ' (';
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags || ':create_columns_data_types');
     FOR v_rec IN EXECUTE 'SELECT ordinal, LOWER(name) AS name, UPPER(data_type) AS data_type FROM ' || v_tmp_table || ' ORDER BY 1'
     LOOP
         --RAISE INFO '%', v_rec; --DEBUG
@@ -159,12 +152,9 @@ $STR$
     v_query := v_query || CHR(13) || CHR(10) || ') DISTRIBUTE RANDOM'; 
     --RAISE INFO '%', v_query; --DEBUG
     IF a_drop_table THEN
-        EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags || ':drop_cstore_if_exists');
         EXECUTE 'DROP TABLE IF EXISTS ' || a_tablename;
     END IF;
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags || ':create_cstore');
     EXECUTE v_query;
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags || ':drop_columns_data_types');
     EXECUTE 'DROP TABLE ' || v_tmp_table;
     --
     --
@@ -186,10 +176,7 @@ $STR$
         , '<values>', v_do_values)
         , '<query>', '$STR$' || a_query || '$STR$');
     --RAISE INFO '%', v_query; --DEBUG
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags || ':insert_rstore_to_cstore');
     EXECUTE v_query;
     --
-    -- Reset ybd_query_tags back to its previous value
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _prev_tags);
     RETURN TRUE;
 END$$;

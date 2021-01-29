@@ -122,10 +122,6 @@ SELECT
     , NULL::VARCHAR AS est_count_distinct
     , NULL::VARCHAR AS est_rows
     , NULL::VARCHAR AS est_total_bytes$STR$;
-    --
-    _fn_name   VARCHAR(256) := 'yb_analyze_columns_p';
-    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
-    _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'ybutils:' || _fn_name;
 BEGIN
     IF a_level = 3 THEN -- forces expanded output
         a_delimited_output := FALSE;
@@ -382,7 +378,5 @@ ORDER BY 1 DESC, 3'
         END;
     END LOOP;
     --
-    -- Reset ybd_query_tags back to its previous value
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _prev_tags);
     RETURN TRUE;
 END$$;

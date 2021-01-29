@@ -23,12 +23,7 @@ WHERE
 ORDER BY LOWER(schemaname), LOWER(viewname)
 $STR1$
         , '<filter>', a_filter);
-    --
-    _fn_name   VARCHAR(256) := 'yb_check_db_views_p';
-    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
-    _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'ybutils:' || _fn_name;
 BEGIN
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags);
     --SELECT SPLIT_PART(SPLIT_PART(VERSION(), ' ', 4), '.', 1)::INT >= 4 INTO v_is_yb_4_or_higher;
     --RAISE INFO 'View Query: %', v_query_views; --DEBUG
     --
@@ -46,7 +41,5 @@ BEGIN
         END;
     END LOOP;
     --
-    -- Reset ybd_query_tags back to its previous value
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _prev_tags);
     RETURN TRUE;
 END $$;

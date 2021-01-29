@@ -34,14 +34,9 @@ DECLARE
     v_query_first_rec TEXT := REPLACE('SELECT * FROM (<query>) AS foo WHERE FALSE LIMIT 1', '<query>', a_query);
     v_query TEXT;
     v_sql_name TEXT;
-    --
-    _fn_name   VARCHAR(256) := 'yb_query_to_stored_proc_p';
-    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
-    _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'ybutils:' || _fn_name;
 BEGIN
     -- query the first record of the input catalog table/view query(a_query)
     --   use this record to build dynamic pg/plsql and SQL
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags || ':query_first_rec');
     EXECUTE v_query_first_rec INTO v_rec;
     FOR v_rec_json IN SELECT * FROM json_each(row_to_json(v_rec))
     LOOP
@@ -81,7 +76,6 @@ $STR$
         , '<set>', v_do_set)
         , '<query_first_rec>', '$STR$' || v_query_first_rec || '$STR$');
     --RAISE INFO '%', v_query; --DEBUG
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags || ':create_columns_YYYYMMDDHHMMSS_XXX');
     EXECUTE v_query;
     --
     --
@@ -89,7 +83,6 @@ $STR$
     v_is_first_rec := TRUE;
     --EXECUTE 'DROP TABLE IF EXISTS ' || a_stored_proc_name || '_t';
     v_query := '';
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags || ':create_columns_data_types');
     FOR v_rec IN EXECUTE 'SELECT ordinal, LOWER(name) AS name, UPPER(data_type) AS data_type FROM ' || v_tmp_table || ' ORDER BY 1'
     LOOP
         --RAISE INFO '%', v_rec; --DEBUG
@@ -137,13 +130,8 @@ $STR$
     v_query := 'CREATE TABLE ' || a_stored_proc_name || '_t ('
         || v_query || CHR(13) || CHR(10) || ') DISTRIBUTE RANDOM'; 
     --RAISE INFO '%', v_query; --DEBUG
---    IF a_drop_table THEN
---        EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags || ':drop_cstore_if_exists');
     EXECUTE 'DROP TABLE IF EXISTS ' || a_stored_proc_name || '_t CASCADE';
---    END IF;
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags || ':create_cstore');
     EXECUTE v_query;
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags || ':drop_columns_data_types');
     EXECUTE 'DROP TABLE ' || v_tmp_table;
     --
     --
@@ -155,13 +143,10 @@ $STR$
         , '<select_clause>', v_select_clause)
         , '<limit_default>', a_limit_default::VARCHAR);
     --RAISE INFO '%', v_query; --DEBUG
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags || ':create_stored_proc');
     EXECUTE v_query;
     EXECUTE REPLACE(REPLACE('GRANT EXECUTE ON PROCEDURE <stored_proc_name>(_limit BIGINT) TO <roles>'
         , '<stored_proc_name>', a_stored_proc_name)
         , '<roles>', a_grant_execute_to);
     --
-    -- Reset ybd_query_tags back to its previous value
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _prev_tags);
     RETURN TRUE;
 END$$;

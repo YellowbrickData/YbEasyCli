@@ -133,10 +133,6 @@ $STR1$;
     v_query_pivot TEXT;
     v_query_update TEXT;
     v_update_ct INTEGER := 0;
-    --
-    _fn_name   VARCHAR(256) := 'yb_mass_column_update_p';
-    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
-    _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'ybutils:' || _fn_name;
 BEGIN
     --RAISE INFO 'v_query_cols: %', v_query_cols; --DEBUG
     RAISE INFO '-- Running: yb_mass_column_update';
@@ -186,7 +182,5 @@ BEGIN
         RAISE INFO '-- % column/s need to be updated', v_update_ct;
     END IF;
     --
-    -- Reset ybd_query_tags back to its previous value
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _prev_tags);
     RETURN TRUE;
 END $$;

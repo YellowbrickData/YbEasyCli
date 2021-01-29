@@ -22,12 +22,12 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 class common:
-    version = '20210125'
+    version = '20210128'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
     util_file_name = os.path.basename(os.path.realpath(sys.argv[0]))
-    util_name = util_file_name.split('.')[0][3:]
+    util_name = util_file_name.split('.')[0]
 
     def __init__(self):
         """Create an instance of the common library used by all utilities
@@ -1022,7 +1022,7 @@ WHERE rolname = CURRENT_USER""")
                             ';export YBDATABASE=%s'
                                 % os.environ.get("YBDATABASE")))
         """
-
+    ybsql_call_count = 0
     def ybsql_query(self, sql_statement
         , options = '-A -q -t -v ON_ERROR_STOP=1 -X'):
         """Run and evaluate a query using ybsql.
@@ -1039,6 +1039,9 @@ WHERE rolname = CURRENT_USER""")
                 -X: do not read startup file (~/.ybsqlrc)
         :return: The result produced by running the given command
         """
+        self.ybsql_call_count += 1
+        sql_statement = ("SET ybd_query_tags TO 'YbEasyCli:%s:ybsql(%d)';\n%s"
+            % (common.util_name, self.ybsql_call_count, sql_statement))
         if self.current_schema:
             sql_statement = "SET SCHEMA '%s';\n%s" % (
                 self.current_schema, sql_statement)

@@ -51,12 +51,7 @@ $STR1$
         , '<filter_clause>', a_column_filter_clause);
     v_rec_cols RECORD;
     v_col_ct INTEGER := 0;
-    --
-    _fn_name   VARCHAR(256) := 'yb_find_columns';
-    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
-    _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'ybutils:' || _fn_name;
 BEGIN
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags);
     --RAISE INFO 'v_query_cols: %', v_query_cols; --DEBUG
     --
     FOR v_rec_cols IN EXECUTE v_query_cols
@@ -66,7 +61,5 @@ BEGIN
         v_col_ct := v_col_ct + 1;
     END LOOP;
     --
-    -- Reset ybd_query_tags back to its previous value
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _prev_tags);
     RETURN TRUE;
 END $$;

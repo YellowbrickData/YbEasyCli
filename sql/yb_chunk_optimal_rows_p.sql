@@ -44,16 +44,10 @@ SELECT chunks_min_1 AS chunks, chunk_row_size_min_10000000 AS chunk_row_size FRO
         , '<table>', a_table)
         , '<schema>', a_schema)
         , '<database>', a_database);
-    --
-    _fn_name   VARCHAR(256) := 'yb_chunk_optimal_rows_p';
-    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
-    _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'ybutils:' || _fn_name;
 BEGIN
     EXECUTE 'SELECT COUNT(DISTINCT worker) AS blades FROM sys.shardstore' INTO v_blades;
     v_sql_chunk_row_size := REPLACE(v_sql_chunk_row_size, '<blades>', v_blades::VARCHAR);
     EXECUTE v_sql_chunk_row_size INTO v_chunks, v_chunk_row_size;
     --
-    -- Reset ybd_query_tags back to its previous value
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _prev_tags);
     RETURN v_chunk_row_size;
 END$$;

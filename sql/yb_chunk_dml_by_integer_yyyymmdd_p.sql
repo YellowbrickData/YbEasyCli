@@ -61,12 +61,7 @@ $STR$;
     v_start_ts     TIMESTAMP := CLOCK_TIMESTAMP();
     v_dml_start_ts TIMESTAMP;
     v_dml_total_duration INTERVAL := INTERVAL '0 DAYS';
-    --
-    _fn_name   VARCHAR(256) := 'yb_chunk_dml_by_yyyymmdd_integer_p';
-    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
-    _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'ybutils:' || _fn_name;
 BEGIN
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _tags);
     IF a_verbose = TRUE THEN RAISE INFO '--%: Starting YYYYMMDD Integer Date Chunking, first calculating date group counts', CLOCK_TIMESTAMP(); END IF;
     --
     EXECUTE v_sql_create_tmp_group_table;
@@ -149,7 +144,5 @@ BEGIN
         RAISE INFO '--Average chunk size : %', v_running_total_size / v_chunk;
     END IF;
     --
-    -- Reset ybd_query_tags back to its previous value
-    EXECUTE REPLACE($STR1$ SET ybd_query_tags TO '<tags>' $STR1$, '<tags>', _prev_tags);
     RETURN (v_total_size = v_running_total_size);
 END$$;
