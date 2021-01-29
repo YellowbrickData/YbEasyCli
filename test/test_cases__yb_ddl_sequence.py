@@ -26,7 +26,7 @@ QUERY:  SELECT sequence_name, start_value, increment_by, CASE WHEN increment_by 
 CREATE SEQUENCE a1_seq START WITH 1000448;
 ""\"
 ,
-"ordinal": ""\" 1 ""\"
+"ordinal": 1 
 ,
 "owner": ""\" dze ""\"
 ,
@@ -60,7 +60,7 @@ QUERY:  SELECT * FROM Prod.a1_seq;"""
 CREATE SEQUENCE a1_seq START WITH 1000448;
 ""\"
 ,
-"ordinal": ""\" 1 ""\"
+"ordinal": 1
 ,
 "owner": ""\" dze ""\"
 ,
@@ -94,7 +94,7 @@ QUERY:  SELECT * FROM Prod.a1_seq;"""
 CREATE SEQUENCE a1_seq START WITH 1000448;
 ""\"
 ,
-"ordinal": ""\" 1 ""\"
+"ordinal": 1
 ,
 "owner": ""\" dze ""\"
 ,
@@ -127,7 +127,7 @@ QUERY:  SELECT * FROM Prod.a1_seq;"""
 CREATE SEQUENCE a1_seq START WITH 1000448;
 ""\"
 ,
-"ordinal": ""\" 1 ""\"
+"ordinal": 1
 ,
 "owner": ""\" dze ""\"
 ,
@@ -160,7 +160,7 @@ QUERY:  SELECT * FROM Prod.a1_seq;"""
 CREATE SEQUENCE a1_seq START WITH 1000448;
 ""\"
 ,
-"ordinal": ""\" 1 ""\"
+"ordinal": 1
 ,
 "owner": ""\" dze ""\"
 ,
@@ -193,7 +193,7 @@ QUERY:  SELECT * FROM Prod.a1_seq;"""
 CREATE SEQUENCE a1_seq START WITH 1000448;
 ""\"
 ,
-"ordinal": ""\" 1 ""\"
+"ordinal": 1
 ,
 "owner": ""\" dze ""\"
 ,

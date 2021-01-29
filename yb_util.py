@@ -163,7 +163,11 @@ ORDER BY
 
     @staticmethod
     def sql_to_ybsql_py_key_value(key, sql):
-        return """\\echo "%s": '""\"'
+        if key in ('rowcount', 'ordinal'):
+            return """\\echo "%s":
+%s\n""" % (key, sql)
+        else:
+            return """\\echo "%s": '""\"'
 %s
 \\echo '""\"'\n""" % (key, sql)
 
@@ -171,6 +175,10 @@ ORDER BY
     def dict_to_ybsql_py_key_values(dct):
         ybsql_py_key_values = []
         for k, v in dct.items():
-            ybsql_py_key_values.append(
-                """\\echo "%s": ""\" %s ""\"\n""" % (k,v) )
+            if k in ('rowcount', 'ordinal'):
+                ybsql_py_key_values.append(
+                    """\\echo "%s": %s\n""" % (k,v) )
+            else:
+                ybsql_py_key_values.append(
+                    """\\echo "%s": ""\" %s ""\"\n""" % (k,v) )
         return ybsql_py_key_values
