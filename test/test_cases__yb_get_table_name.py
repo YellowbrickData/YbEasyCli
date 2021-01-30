@@ -73,7 +73,7 @@ example usage:
   ./yb_get_table_name.py @$HOME/conn.args --current_schema dev --table sales --
 
   file '$HOME/conn.args' contains:
-    --host yb14
+    --host yb89
     --dbuser dze
     --conn_db stores"""
         , stderr="""yb_get_table_name.py: error: unrecognized arguments: extra_pos_arg""")

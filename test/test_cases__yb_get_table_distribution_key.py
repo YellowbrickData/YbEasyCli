@@ -43,7 +43,7 @@ example usage:
   ./yb_get_table_distribution_key.py @$HOME/conn.args --schema Prod --table sales --
 
   file '$HOME/conn.args' contains:
-    --host yb14
+    --host yb89
     --dbuser dze
     --conn_db stores"""
         , stderr=(

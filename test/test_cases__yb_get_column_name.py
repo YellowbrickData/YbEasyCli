@@ -82,7 +82,7 @@ example usage:
   ./yb_get_column_name.py @$HOME/conn.args --schema dev --object sales --column price --
 
   file '$HOME/conn.args' contains:
-    --host yb14
+    --host yb89
     --dbuser dze
     --conn_db stores"""
         , stderr="""yb_get_column_name.py: error: unrecognized arguments: {db2} extra_arg""")

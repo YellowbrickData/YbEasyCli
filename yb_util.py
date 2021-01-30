@@ -10,7 +10,7 @@ def additional_args(args_parser):
     None
 
 class util:
-    conn_args_file = {'$HOME/conn.args': """--host yb14
+    conn_args_file = {'$HOME/conn.args': """--host yb89
 --dbuser dze
 --conn_db stores"""}
 

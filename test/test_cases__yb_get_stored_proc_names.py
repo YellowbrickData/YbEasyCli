@@ -98,7 +98,7 @@ example usage:
   ./yb_get_stored_proc_names.py @$HOME/conn.args --schema_in dev Prod --stored_proc_like '%price%' --stored_proc_NOTlike '%id%' --
 
   file '$HOME/conn.args' contains:
-    --host yb14
+    --host yb89
     --dbuser dze
     --conn_db stores"""
     , stderr='')
