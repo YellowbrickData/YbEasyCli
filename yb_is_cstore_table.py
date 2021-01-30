@@ -13,10 +13,6 @@ OPTIONS:
 Output:
       True/False
 """
-import sys
-import os
-import re
-
 import yb_common
 from yb_util import util
 

@@ -13,10 +13,7 @@ OPTIONS:
 Output:
       A column store table.
 """
-
 import sys
-import os
-import re
 
 import yb_common
 from yb_util import util
