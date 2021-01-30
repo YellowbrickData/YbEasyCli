@@ -59,7 +59,7 @@ DISTRIBUTE ON (col1);"""
     , test_case(
         cmd=
             ('yb_ddl_table.py @{argsdir}/db1 --schema_in dev'
-            """ --with_db  --with_rowcount --table_in data_types_t"""
+            """ --with_db  --table_in data_types_t"""
             """ --output_template '--Rowcount: {{rowcount}}  Table: {{table_path}}  At: {{timestamp}}{{^M}}{{ddl}}'""")
         , exit_code=0
         , stdout="""--Rowcount: 1000000  Table: {db1}.dev.data_types_t  At: 2020-09-25 16:47:47.103207-07

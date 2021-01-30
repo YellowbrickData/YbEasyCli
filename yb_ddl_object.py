@@ -93,9 +93,12 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
         self.config['usage_example'] = {
                 'cmd_line_args': cmd_line_args[object_type]
                 , 'file_args': [util.conn_args_file] }
-        self.config['output_tmplt_vars'] = ['%s_path' % object_type
+        self.config['output_tmplt_vars'] = []
+        if object_type == 'table':
+            self.config['output_tmplt_vars'].append('rowcount')
+        self.config['output_tmplt_vars'].extend(['%s_path' % object_type
             , 'schema_path', 'ddl', 'ordinal'
-            , object_type, 'schema', 'database', 'owner']
+            , object_type, 'schema', 'database', 'owner'])
 
         self.object_type = object_type
         self.init_default(db_conn, args_handler)
@@ -110,10 +113,7 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
             , help="set a new schema name to the %s DDL" % self.object_type)
         args_ddl_grp.add_argument("--db_name"
             , help="set a new database name to the %s DDL" % self.object_type)
-        if self.object_type == 'table':
-            args_ddl_grp.add_argument("--with_rowcount"
-                , action="store_true", help="display the current rowcount")
-        elif self.object_type in ('stored_proc', 'view'):
+        if self.object_type in ('stored_proc', 'view'):
             args_ddl_grp.add_argument("--or_replace"
                 , action="store_true", help="add the 'OR REPLACE' clause to the %s DDL" % self.object_type)
 
@@ -145,7 +145,8 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
         ybsql_py_key_values.append(self.sql_to_ybsql_py_key_value('ddl'
             , 'DESCRIBE %s ONLY DDL;' % meta_data[0] ) )
 
-        if self.object_type == 'table' and self.args_handler.args.with_rowcount:
+        if (self.object_type == 'table'
+            and self.args_handler.args.template.find('{rowcount}') >= 0):
             ybsql_py_key_values.append(self.sql_to_ybsql_py_key_value('rowcount'
                 , 'SELECT COUNT(*) FROM %s;' % meta_data[0] ) )
 
