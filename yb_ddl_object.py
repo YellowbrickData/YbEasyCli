@@ -146,7 +146,7 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
             , 'DESCRIBE %s ONLY DDL;' % meta_data[0] ) )
 
         if (self.object_type == 'table'
-            and self.args_handler.args.template.find('{rowcount}') >= 0):
+            and re.search(r'\{rowcount[\}\:]', self.args_handler.args.template) ):
             ybsql_py_key_values.append(self.sql_to_ybsql_py_key_value('rowcount'
                 , 'SELECT COUNT(*) FROM %s;' % meta_data[0] ) )
 
