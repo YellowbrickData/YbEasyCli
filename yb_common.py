@@ -13,16 +13,20 @@ import sys
 import traceback
 import shlex
 import signal
+import copy
+import pprint
+import csv
+from tabulate import tabulate
 from datetime import datetime
 
 def signal_handler(signal, frame):
-    common.error('user terminated...')
+    Common.error('user terminated...')
 
 signal.signal(signal.SIGINT, signal_handler)
 
 
-class common:
-    version = '20210128'
+class Common:
+    version = '20210214'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -37,8 +41,8 @@ class common:
     @staticmethod
     def error(msg, exit_code=1, color='red', no_exit=False):
         sys.stderr.write("%s: %s\n" % (
-            text.color(common.util_file_name, style='bold')
-            , text.color(msg, color)))
+            Text.color(Common.util_file_name, style='bold')
+            , Text.color(msg, color)))
         if not no_exit:
             exit(exit_code)
 
@@ -51,7 +55,7 @@ class common:
                 f.close()
         except IOError as ioe:
             if on_read_error_exit:
-                common.error(ioe)
+                Common.error(ioe)
 
         return data
 
@@ -66,22 +70,22 @@ class common:
                             entries (Default value = 2)
         :return: The result produced by running the given command
         """
-        if common.verbose >= 2:
+        if Common.verbose >= 2:
             trace_line = traceback.extract_stack(None, stack_level)[0]
             print(
                 '%s: %s, %s: %s, %s: %s\n%s\n%s'
                 % (
-                    text.color('--In file', style='bold')
-                    , text.color(trace_line[0], 'cyan')
-                    , text.color('Function', style='bold')
-                    , text.color(trace_line[2], 'cyan')
-                    , text.color('Line', style='bold')
-                    , text.color(trace_line[1], 'cyan')
-                    , text.color('--Executing--', style='bold')
+                    Text.color('--In file', style='bold')
+                    , Text.color(trace_line[0], 'cyan')
+                    , Text.color('Function', style='bold')
+                    , Text.color(trace_line[2], 'cyan')
+                    , Text.color('Line', style='bold')
+                    , Text.color(trace_line[1], 'cyan')
+                    , Text.color('--Executing--', style='bold')
                     , cmd_str))
-        elif common.verbose >= 1:
+        elif Common.verbose >= 1:
             print('%s: %s'
-                % (text.color('Executing', style='bold'), cmd_str))
+                % (Text.color('Executing', style='bold'), cmd_str))
 
         if escape_dollar:
             cmd_str = cmd_str.replace('$','\$')
@@ -101,22 +105,22 @@ class common:
 
         end_time = datetime.now()
 
-        results = cmd_results(p.returncode, stdout, stderr)
+        results = CmdResults(p.returncode, stdout, stderr)
 
-        if common.verbose >= 2:
+        if Common.verbose >= 2:
             print(
                 '%s: %s\n%s: %s\n%s\n%s%s\n%s'
                 % (
-                    text.color('--Execution duration', style='bold')
-                    , text.color(end_time - start_time, fg='cyan')
-                    , text.color('--Exit code', style='bold')
-                    , text.color(
+                    Text.color('--Execution duration', style='bold')
+                    , Text.color(end_time - start_time, fg='cyan')
+                    , Text.color('--Exit code', style='bold')
+                    , Text.color(
                         str(results.exit_code)
                         , fg=('red' if results.exit_code else 'cyan'))
-                    , text.color('--Stdout--', style='bold')
+                    , Text.color('--Stdout--', style='bold')
                     , results.stdout.rstrip()
-                    , text.color('--Stderr--', style='bold')
-                    , text.color(results.stderr.rstrip(), fg='red')))
+                    , Text.color('--Stderr--', style='bold')
+                    , Text.color(results.stderr.rstrip(), fg='red')))
 
         return results
 
@@ -177,21 +181,21 @@ class common:
             if str[i] in close_char and not skip_close:
                 if (len(open_char) == 0
                     or open_close_char[open_char[-1]] != str[i]):
-                    common.error('Invalid Argument List: %s' % str)
+                    Common.error('Invalid Argument List: %s' % str)
                 else:
                     open_char.pop()
             else:
                 skip_close = False
 
         if len(open_char) > 0:
-            common.error('Invalid Argument List: %s' % str)
+            Common.error('Invalid Argument List: %s' % str)
         else:
             tokens.append(token.strip())
 
         return tokens
 
 
-class args_handler:
+class ArgsHandler:
     """This class contains functions used for argument parsing
     """
     def __init__(self, config, init_default=True):
@@ -215,17 +219,19 @@ class args_handler:
 
         self.args_process_init()
 
-        self.args_add_positional_args()
+        self.args_add_positional_args() #TODO unused, may remove in the future
         self.args_add_optional()
         self.args_add_connection_group()
 
-#        self.config['additional_args'](self.args_parser)
         self.config['additional_args']()
 
         if self.config['output_tmplt_default']:
             self.add_output_args()
 
-        self.db_filter_args = db_filter_args(
+        if self.config['report_columns']:
+            self.add_report_args()
+
+        self.db_filter_args = DBFilterArgs(
             required_args_single
             , optional_args_single
             , optional_args_multi
@@ -254,7 +260,7 @@ class args_handler:
         usage_example = self.args_usage_example()
         if usage_example:
             epilog = '%s%s' % ((epilog if epilog else ''), usage_example)
-        #self.args_parser = argparse.ArgumentParser(
+
         self.args_parser = UtilArgParser(
             description=description
             , usage="%%(prog)s %s[options]" % (
@@ -368,8 +374,24 @@ class args_handler:
             , help="turn off colored text output")
         self.args_parser.add_argument(
             "--version", "-v"
-            , action="version", version=common.version
+            , action="version", version=Common.version
             , help="display the program version and exit")
+
+    def add_report_args(self):
+        args_optional_grp = self.args_parser.add_argument_group('optional report arguments')
+        args_optional_grp.add_argument("--report_type"
+            , choices=['formatted', 'psv', 'ctas', 'insert'], default='formatted'
+            , help=("formatted: output a formatted report, psv: output pipe seperated row data,"
+                " ctas: create a table containing the report data,"
+                " insert: insert report data in a an existing table, defaults to formatted") )
+        args_optional_grp.add_argument("--report_dst_table", metavar='table'
+            , help="report destination table applies for report_type 'ctas' and 'insert' only")
+        args_optional_grp.add_argument("--report_include_columns"
+            , nargs='+', metavar='column'
+            , help="list of column names to include in the report, the report will be created in the column order supplied")
+        args_optional_grp.add_argument("--report_exclude_columns"
+            , nargs='+', metavar='column'
+            , help="list of column names to exclude from the report")
 
     def add_output_args(self):
         args_optional_grp = self.args_parser.add_argument_group(
@@ -391,7 +413,7 @@ class args_handler:
         usage = self.config['usage_example']
         if len(usage):
             text = ('example usage:'
-                + '\n  ./%s %s' % (common.util_file_name, usage['cmd_line_args']))
+                + '\n  ./%s %s' % (Common.util_file_name, usage['cmd_line_args']))
             
             if 'file_args' in usage.keys():
                 for file_dict in usage['file_args']:
@@ -403,6 +425,34 @@ class args_handler:
             text = None
         return(text)
 
+    def process_report_args(self):
+        if (self.args.report_include_columns and self.args.report_exclude_columns):
+            self.args_parser.error('only --report_include_columns or --report_exclude_columns may be defined but not both')
+
+        report_columns = self.config['report_columns'].split('|')
+        if self.args.report_include_columns:
+            self.args.report_include_columns = re.sub(r'\s+', '|', ' '.join(self.args.report_include_columns).strip()).split('|')
+            for column in self.args.report_include_columns:
+                if column not in report_columns:
+                    self.args_parser.error("include column '%s' is not one of the report columns %s"
+                        % (column, pprint.PrettyPrinter().pformat(report_columns)) )
+            self.config['report_columns'] = self.args.report_include_columns
+        elif self.args.report_exclude_columns:
+            self.args.report_exclude_columns = re.sub(r'\s+', '|', ' '.join(self.args.report_exclude_columns).strip()).split('|')
+            for column in self.args.report_exclude_columns:
+                if column not in report_columns:
+                    self.args_parser.error("exclude column '%s' is not one of the report columns %s"
+                        % (column, pprint.PrettyPrinter().pformat(report_columns)) )
+            for column in self.args.report_exclude_columns:
+                report_columns.remove(column)
+            self.config['report_columns'] = report_columns
+        else:
+            self.config['report_columns'] = report_columns
+
+        if ((self.args.report_dst_table and self.args.report_type not in ['ctas', 'insert'])
+            or (self.args.report_type in ['ctas', 'insert']) and not(self.args.report_dst_table)):
+            self.args_parser.error("--report_dst_table and --report_type of 'ctas' or 'insert' must be set")
+
     def args_process(self):
         """Process arguments.
 
@@ -410,14 +460,17 @@ class args_handler:
         """
         self.args = self.args_parser.parse_args()
 
-        if self.args.nocolor:
-            text.nocolor = True
+        if self.config['report_columns']:
+            self.process_report_args()
 
-        common.verbose = self.args.verbose
+        if self.args.nocolor:
+            Text.nocolor = True
+
+        Common.verbose = self.args.verbose
 
         return self.args
 
-class intRange:
+class IntRange:
     """Custom argparse type representing a bounded int
     """
 
@@ -453,7 +506,7 @@ class intRange:
                 "Must be an integer")
 
 
-class cmd_results:
+class CmdResults:
 
     def __init__(self, exit_code, stdout, stderr):
         self.exit_code = exit_code
@@ -464,11 +517,11 @@ class cmd_results:
         sys.stdout.write(head)
         if self.stdout != '':
             sys.stdout.write(
-                common.quote_object_paths(self.stdout)
+                Common.quote_object_paths(self.stdout)
                 if quote
                 else self.stdout)
         if self.stderr != '':
-            common.error(self.stderr, no_exit=True)
+            Common.error(self.stderr, no_exit=True)
         else:
             sys.stdout.write(tail)
 
@@ -478,7 +531,7 @@ class cmd_results:
                 self.write()
             exit(self.exit_code)
 
-class db_filter_args:
+class DBFilterArgs:
     """Class that handles database objects that are used as a filter 
     """
 
@@ -765,7 +818,7 @@ class db_filter_args:
 
         return ('TRUE' if filter_clause == '' else filter_clause)
 
-class text:
+class Text:
     colors = {
         'black': 0
         , 'red': 1
@@ -797,9 +850,9 @@ class text:
         :return: A string formatted with color and style
         """
         return '\033[%d;%d;%dm' % (
-            text.styles[style.lower()]
-            , 30 + text.colors[fg.lower()]
-            , 40 + text.colors[bg.lower()])
+            Text.styles[style.lower()]
+            , 30 + Text.colors[fg.lower()]
+            , 40 + Text.colors[bg.lower()])
 
     @staticmethod
     def color(txt, fg='white', bg='black', style='no_effect'):
@@ -812,10 +865,10 @@ class text:
         :return: A string with added color
         """
         colored_text = '%s%s%s' % (
-            text.color_str(fg, bg, style), txt, text.color_str())
-        return txt if text.nocolor else colored_text
+            Text.color_str(fg, bg, style), txt, Text.color_str())
+        return txt if Text.nocolor else colored_text
 
-class db_connect:
+class DBConnect:
     conn_args = {
         'dbuser':'YBUSER'
         , 'host':'YBHOST'
@@ -857,7 +910,7 @@ class db_connect:
                 conn_arg_qualified = '%s%s' % (arg_conn_prefix, conn_arg)
                 #if not hasattr(args, conn_arg_qualified):
                 #    sys.stderr.write('Missing Connection Argument: %s\n'
-                #        % text.color(conn_arg_qualified, fg='red'))
+                #        % Text.color(conn_arg_qualified, fg='red'))
                 #    exit(2)
                 self.env_args[conn_arg] = getattr(args_handler.args, conn_arg_qualified)
                 self.env[conn_arg] = self.env_args[conn_arg] or self.env_pre[conn_arg]
@@ -894,8 +947,8 @@ class db_connect:
             if user:
                 if pwd_required or self.env_pre['pwd'] is None:
                     prompt = ("Enter the password for cluster %s, user %s: "
-                        % (text.color(self.env['host'], fg='cyan')
-                            , text.color(user, fg='cyan')))
+                        % (Text.color(self.env['host'], fg='cyan')
+                            , Text.color(user, fg='cyan')))
                     self.env['pwd'] = getpass.getpass(prompt)
                 else:
                     self.env['pwd'] = self.env_pre['pwd']
@@ -909,7 +962,7 @@ class db_connect:
     @staticmethod
     def set_env(env):
         for key, value in env.items():
-            env_name = db_connect.env_to_set[key]
+            env_name = DBConnect.env_to_set[key]
             if value:
                 os.environ[env_name] = value
             elif env_name in os.environ:
@@ -918,8 +971,8 @@ class db_connect:
     @staticmethod
     def get_env():
         env = {}
-        for key in db_connect.env_to_set.keys():
-            env_name = db_connect.env_to_set[key]
+        for key in DBConnect.env_to_set.keys():
+            env_name = DBConnect.env_to_set[key]
             env[key] = os.environ.get(env_name)
         return env
 
@@ -958,12 +1011,12 @@ WHERE rolname = CURRENT_USER""")
             # if --current_schema arg was set check if it is valid
             # the sql CURRENT_SCHEMA will return an empty string
             if len(self.schema) == 0:
-                common.error('schema "%s" does not exist'
+                Common.error('schema "%s" does not exist'
                     % self.current_schema)
             self.connected = True
         else:
             if self.on_fail_exit:
-                common.error(cmd_results.stderr.replace('util', 'ybsql')
+                Common.error(cmd_results.stderr.replace('util', 'ybsql')
                         , cmd_results.exit_code)
             else:
                 self.connect_cmd_results = cmd_results
@@ -987,29 +1040,29 @@ WHERE rolname = CURRENT_USER""")
             , 'host': self.env['host']
             , 'database_encoding': db_info[2] }
 
-        if common.verbose >= 1:
+        if Common.verbose >= 1:
             print(
                 '%s: %s, %s: %s, %s: %s, %s: %s, %s: %s, %s: %s, %s: %s, %s: %s'
                 % (
-                    text.color('Connecting to Host', style='bold')
-                    , text.color(self.env['host'], fg='cyan')
-                    , text.color('Port', style='bold')
-                    , text.color(self.env['port'], fg='cyan')
-                    , text.color('DB User', style='bold')
-                    , text.color(self.env['dbuser'], fg='cyan')
-                    , text.color('Super User', style='bold')
-                    , text.color(self.ybdb['is_super_user'], fg='cyan')
-                    , text.color('Database', style='bold')
-                    , text.color(self.database, fg='cyan')
-                    , text.color('Current Schema', style='bold')
-                    , text.color(self.schema, fg='cyan')
-                    , text.color('DB Encoding', style='bold')
-                    , text.color(self.ybdb['database_encoding'], fg='cyan')
-                    , text.color('YBDB', style='bold')
-                    , text.color(self.ybdb['version'], fg='cyan')))
+                    Text.color('Connecting to Host', style='bold')
+                    , Text.color(self.env['host'], fg='cyan')
+                    , Text.color('Port', style='bold')
+                    , Text.color(self.env['port'], fg='cyan')
+                    , Text.color('DB User', style='bold')
+                    , Text.color(self.env['dbuser'], fg='cyan')
+                    , Text.color('Super User', style='bold')
+                    , Text.color(self.ybdb['is_super_user'], fg='cyan')
+                    , Text.color('Database', style='bold')
+                    , Text.color(self.database, fg='cyan')
+                    , Text.color('Current Schema', style='bold')
+                    , Text.color(self.schema, fg='cyan')
+                    , Text.color('DB Encoding', style='bold')
+                    , Text.color(self.ybdb['database_encoding'], fg='cyan')
+                    , Text.color('YBDB', style='bold')
+                    , Text.color(self.ybdb['version'], fg='cyan')))
         #TODO fix this block
         """
-        if self.common.args.verbose >= 2:
+        if self.Common.args.verbose >= 2:
             print(
                 'export YBHOST=%s;export YBPORT=%s;export YBUSER=%s%s'
                 % (
@@ -1041,20 +1094,24 @@ WHERE rolname = CURRENT_USER""")
         """
         self.ybsql_call_count += 1
         sql_statement = ("SET ybd_query_tags TO 'YbEasyCli:%s:ybsql(%d)';\n%s"
-            % (common.util_name, self.ybsql_call_count, sql_statement))
+            % (Common.util_name, self.ybsql_call_count, sql_statement))
         if self.current_schema:
             sql_statement = "SET SCHEMA '%s';\n%s" % (
                 self.current_schema, sql_statement)
 
         # default timeout is 75 seconds changing it to self.connect_timeout
-        #   'host=<host>' string is required first to set connect timeout
+        #   'host=<host>' string is required first to set command line connect_timeout
         #   see https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING
         ybsql_cmd = """ybsql %s "host=%s connect_timeout=%d" <<eof
 %s
-eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
+eof""" % (
+            options
+            , self.env['host']
+            , self.connect_timeout
+            , sql_statement)
 
         self.set_env(self.env)
-        cmd_results = common.call_cmd(ybsql_cmd, stack_level=3)
+        cmd_results = Common.call_cmd(ybsql_cmd, stack_level=3)
         self.set_env(self.env_pre)
 
         return cmd_results
@@ -1076,14 +1133,14 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
         """
         return_marker = '>!>RETURN<!<:'
 
-        filepath = common.util_dir_path + ('/sql/%s.sql' % stored_proc)
-        stored_proc_sql = common.read_file(filepath)
+        filepath = Common.util_dir_path + ('/sql/%s.sql' % stored_proc)
+        stored_proc_sql = Common.read_file(filepath)
 
         regex = r"\s*CREATE\s*(OR\s*REPLACE)?\s*PROCEDURE\s*([a-z0-9_]+)\s*\((.*?)\)\s*((RETURNS\s*([a-zA-Z]*).*?))\s+LANGUAGE.+?(DECLARE\s*(.+))?RETURN\s*([^;]*);(.*)\$\$;"
         matches = re.search(regex, stored_proc_sql, re.IGNORECASE | re.DOTALL)
 
         if not matches:
-            common.error("Stored proc '%s' regex parse failed." % stored_proc)
+            Common.error("Stored proc '%s' regex parse failed." % stored_proc)
 
         stored_proc_name          = matches.group(2)
         stored_proc_args          = matches.group(3)
@@ -1095,9 +1152,9 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
 
         anonymous_block = pre_sql + '--proc: %s\nDO $$\nDECLARE\n    --arguments\n' % stored_proc_name
         if stored_proc_return_type not in ('BOOLEAN', 'BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
-            common.error('Unhandled proc return_type: %s' % stored_proc_return_type)
+            Common.error('Unhandled proc return_type: %s' % stored_proc_return_type)
  
-        for arg in common.split(stored_proc_args):
+        for arg in Common.split(stored_proc_args):
             matches = re.search(r'(.*)\bDEFAULT\b(.*)'
                 , arg, re.DOTALL | re.IGNORECASE)
             if matches:
@@ -1122,12 +1179,12 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
                     anonymous_block += ("    %s %s = %s;\n"
                         % (arg_name, arg_type, args[arg_name]))
                 else:
-                    common.error('Unhandled proc arg_type: %s' % arg_type)
+                    Common.error('Unhandled proc arg_type: %s' % arg_type)
             elif default_value:
                 anonymous_block += ("    %s %s = %s;\n"
                     % (arg_name, arg_type, default_value))
             else:
-                common.error("Missing proc arg: %s for proc: %s"
+                Common.error("Missing proc arg: %s for proc: %s"
                     % (arg_name, stored_proc))
 
         anonymous_block += ("    --variables\n    %sRAISE INFO '%s%%', %s;%s$$;%s"
@@ -1155,7 +1212,7 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
             stdout += '\n'.join(stdout_lines)
 
             if not return_value:
-                common.error(cmd_results.stderr)
+                Common.error(cmd_results.stderr)
 
             cmd_results.stderr = stderr
             cmd_results.stdout = stdout
@@ -1170,14 +1227,371 @@ eof""" % (options, self.env['host'], self.connect_timeout, sql_statement)
                     if return_value == '<NULL>'
                     else int(return_value))
             else:
-                common.error("Unhandled proc return_type: %s" % stored_proc_return_type)
+                Common.error("Unhandled proc return_type: %s" % stored_proc_return_type)
 
         return cmd_results
 
+class Report:
+    def __init__(self, args_handler, db_conn, columns, query):
+        self.args_handler = args_handler
+        self.db_conn = db_conn
+        self.columns = columns
+        self.query = query
+
+    @staticmethod
+    def del_data_to_list_data(del_data, delimiter='|'):
+        rows = list(csv.reader(del_data.strip().split('\n'), delimiter=delimiter))
+        headers = rows[0]
+        data = rows[1:]
+        return (headers, data)
+
+    def list_data_sort(self, headers, list_data):
+        if (hasattr(self.args_handler.args, 'report_sort_column')
+            and self.args_handler.args.report_sort_column in headers):
+            sort_index = headers.index(self.args_handler.args.report_sort_column)
+            list_data.sort(
+                key=lambda x: x[sort_index]
+                , reverse=self.args_handler.args.report_sort_reverse)
+        return (headers, list_data)
+
+    def list_data_filtered(self, headers, list_data):
+        #the include list will also reorder the columns as supplied
+        if (hasattr(self.args_handler.args, 'report_include_columns')
+            and self.args_handler.args.report_include_columns):
+            new_headers = [header for header in self.args_handler.args.report_include_columns if header in headers]
+            new_data = []
+            for i in range(0,len(list_data)):
+                new_data.append([None]*len(new_headers))
+            new_col_index = 0
+            for header in new_headers:
+                col_index = headers.index(header)
+                row_index = 0
+                for row in list_data:
+                    new_data[row_index][new_col_index] = row[col_index]
+                    row_index += 1
+                new_col_index += 1
+            list_data = new_data
+            headers = new_headers
+
+        if (hasattr(self.args_handler.args, 'report_exclude_columns')
+            and self.args_handler.args.report_exclude_columns):
+            index = len(headers)
+            for header in reversed(headers):
+                index -= 1
+                if header in self.args_handler.args.report_exclude_columns:
+                    for row in list_data:
+                        del row[index]
+            headers = [header for header in headers if header not in self.args_handler.args.report_exclude_columns]
+
+        return (headers, list_data)
+
+    def del_data_to_formatted_report(self, del_data, delimiter='|'):
+        (headers, data) = Report.del_data_to_list_data(del_data, delimiter)
+        (headers, data) = self.list_data_sort(headers, data)
+        #(headers, data) = self.list_data_filtered(headers, data)
+
+        headers_formatted = [header.replace('_', '\n') for header in headers]
+        return tabulate(data, headers=headers_formatted)
+
+    def del_data_processed(self, del_data, delimiter='|'):
+        (headers, data) = Report.del_data_to_list_data(del_data, delimiter)
+        (headers, data) = self.list_data_sort(headers, data)
+        #(headers, data) = self.list_data_filtered(headers, data)
+
+        del_data = [delimiter.join(headers)]
+        for row in data:
+            del_data.append(delimiter.join(row))
+        return '\n'.join(del_data)
+
+    def build(self):
+        query = ''
+        for column in self.columns:
+            query += '%s%s' % (('SELECT\n    ' if query == '' else '\n    , '), column)
+        query += """\nFROM (
+%s
+) AS foo""" % self.query
+
+        args = self.args_handler.args
+
+        if args.report_type in ('formatted', 'psv'):
+            #adding ybsql column headers to query
+            query = """
+\pset tuples_only off
+\pset footer off
+%s""" % query
+
+            self.cmd_results = self.db_conn.ybsql_query(query)
+            self.cmd_results.on_error_exit()
+
+            if args.report_type == 'formatted':
+                report = self.del_data_to_formatted_report(self.cmd_results.stdout)
+            elif args.report_type == 'psv':
+                report = self.del_data_processed(self.cmd_results.stdout)
+        elif args.report_type in ('ctas', 'insert'):
+            from yb_sys_query_to_user_table import sys_query_to_user_table
+
+            args_handler = copy.deepcopy(self.args_handler)
+            if args.report_type == 'ctas':
+                args_handler.args.create_table = True
+            args_handler.args.query = query
+            args_handler.args.table = args.report_dst_table
+
+            sqtout = sys_query_to_user_table(db_conn=self.db_conn, args_handler=args_handler)
+            sqtout.execute()
+            sqtout.cmd_results.on_error_exit()
+
+            report = '--Report type "%s" completed' % args.report_type
+
+        return report
+
+
+class Util:
+    conn_args_file = {'$HOME/conn.args': """--host yb89
+--dbuser dze
+--conn_db stores"""}
+
+    config = {}
+    config_default = {
+        'description': None
+        , 'required_args_single': []
+        , 'optional_args_single': ['schema']
+        , 'optional_args_multi': []
+        , 'positional_args_usage': None
+        , 'default_args': {}
+        , 'usage_example': {}
+        , 'output_tmplt_vars': None
+        , 'output_tmplt_default': None
+        , 'db_filter_args': {}
+        , 'additional_args': None
+        , 'report': None }
+
+    def __init__(self, db_conn=None, args_handler=None, init_default=True, util_name=None):
+        if util_name:
+            self.util_name = util_name
+        else:
+            self.util_name = self.__class__.__name__
+
+        for k, v in Util.config_default.items():
+            if k not in self.config.keys():
+                self.config[k] = v
+
+        if init_default:
+            self.init_default(db_conn, args_handler)
+
+    def init_default(self, db_conn=None, args_handler=None):
+        if db_conn: # util called from code with import
+            self.db_conn = db_conn
+            self.args_handler = args_handler
+            for k, v in self.config['default_args'].items():
+                if not(hasattr(self.args_handler.args, k)):
+                    setattr(self.args_handler.args, k, v)
+        else: # util called from the command line
+            self.args_handler = ArgsHandler(self.config, init_default=False)
+            self.config['additional_args'] = getattr(self, 'additional_args')
+            self.args_handler.init_default()
+            self.args_handler.args_process()
+            self.additional_args_process()
+            if Common.verbose >= 3:
+                print('args: %s' % pprint.PrettyPrinter().pformat(vars(self.args_handler.args)))
+            self.db_conn = DBConnect(self.args_handler)
+
+        if hasattr(self.args_handler, 'db_filter_args'):
+            self.db_filter_args = self.args_handler.db_filter_args
+
+    def exec_query_and_apply_template(self, sql_query, exec_output=False):
+        self.cmd_result = self.db_conn.ybsql_query(sql_query)
+        self.cmd_result.on_error_exit()
+        return self.apply_template(self.cmd_result.stdout, exec_output)
+
+    def apply_template(self, output_raw, exec_output=False):
+        # convert the SQL from code(of a dictionary) to an evaluated dictionary
+        rows = eval('[%s]' % output_raw)
+
+        additional_vars = {
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            , 'max_ordinal': len(rows)
+            , '^M': '\n' }
+
+        output_new = ''
+        for row in rows:
+            format = {}
+            # strip vars and add double quotes to non-lower case db objects
+            for k, v in row.items():
+                if k in ('column', 'database', 'object', 'owner', 'schema', 'sequence', 'stored_proc', 'table', 'view'):
+                    format[k] = Common.quote_object_paths(v.strip())
+                elif type(v) is str:
+                    format[k] = v.strip()
+                else:
+                    format[k] = v
+            # build *_path vars like table_path and schema_path
+            for var in self.config['output_tmplt_vars']:
+                path_var = var.rsplit('_',1)
+                if len(path_var) == 2 and path_var[1] == 'path':
+                    if path_var[0] in ['object', 'sequence', 'stored_proc', 'table', 'view']:
+                        format[var] = '%s.%s.%s' % (format['database'], format['schema'], format[path_var[0]])
+                    elif path_var[0] in ('schema'):
+                        format[var] = '%s.%s' % (format['database'], format['schema'])
+                    elif path_var[0] in ('column'):
+                        objct = ('table' if ('table' in format) else 'object')
+                        format[var] = '%s.%s.%s.%s' % (format['database'], format['schema'], format[objct], format[path_var[0]])
+
+            format.update(additional_vars)
+            format.update(self.db_conn.ybdb)
+            try:
+                output_new += (self.args_handler.args.template.format(**format)
+                    + ('\n'))
+            except KeyError as error:
+                Common.error('%s template var was not found...' % error)
+
+        if exec_output:
+            self.cmd_result = self.db_conn.ybsql_query(output_new)
+            self.cmd_result.on_error_exit()
+            return self.cmd_result.stdout
+        else:
+            return output_new
+
+    def db_filter_sql(self, db_filter_args='db_filter_args'):
+        return self.db_filter_args.build_sql_filter(self.config[db_filter_args])
+
+    def additional_args(self):
+        None
+
+    def additional_args_process(self):
+        None
+
+    def get_dbs(self, filter_clause=None):
+        filter_clause = self.db_filter_args.build_sql_filter({'database':'db_name'})
+
+        sql_query = """
+SELECT
+    name AS db_name
+FROM
+    sys.database
+WHERE
+    {filter_clause}
+ORDER BY
+    name""".format(filter_clause = filter_clause)
+
+        cmd_result = self.db_conn.ybsql_query(sql_query)
+        cmd_result.on_error_exit()
+
+        dbs = cmd_result.stdout.strip()
+        if dbs == '' and self.db_filter_args.has_optional_args_multi_set('database'):
+            dbs = []
+        elif dbs == '':
+            dbs = ['"' + self.db_conn.database + '"']
+        else:
+            dbs = dbs.split('\n')
+
+        return dbs
+
+    def get_cluster_info(self, return_format='dict'):
+        sql_query = """
+\pset tuples_only off
+\pset footer off
+WITH
+wrkr AS (
+    SELECT
+        worker_id
+        , COUNT(*)         AS drives
+        , SUM(total_bytes) AS wrkr_bytes
+        , MAX(chassis_id)  AS chassis_id
+        , MAX(drive) + 1   AS drives_per_wrkr
+        , MIN(total_bytes) AS bytes_drive_min
+        , MAX(total_bytes) AS bytes_drive_max
+    FROM
+        sys.drive_summary
+    WHERE drive IS NOT NULL AND total_bytes IS NOT NULL
+    GROUP BY
+        worker_id
+)
+, chassis AS (
+    SELECT
+        COUNT(*)              AS chassis
+        , MIN(chassis_wrkrs) AS min_chassis_wrkrs
+        , MAX(chassis_wrkrs) AS max_chassis_wrkrs
+    FROM (SELECT chassis_id, COUNT(*) AS chassis_wrkrs FROM wrkr GROUP BY chassis_id) as wrkrs
+)
+, clstr AS (
+    SELECT
+        MAX(chassis)                  AS chassis
+        , MIN(min_chassis_wrkrs)      AS min_chassis_wrkrs
+        , MAX(max_chassis_wrkrs)      AS max_chassis_wrkrs
+        , COUNT(*)                    AS total_wrkrs
+        , MAX(drives_per_wrkr)        AS drives_per_wrkr
+        , MIN(bytes_drive_min)        AS bytes_drive_min
+        , MAX(bytes_drive_max)        AS bytes_drive_max
+        , MIN(bytes_drive_min) * MAX(drives_per_wrkr) AS bytes_wrkr_min
+        , MAX(bytes_drive_max) * MAX(drives_per_wrkr) AS bytes_wrkr_max
+        , ROUND((1.0 - ((MAX(max_chassis_wrkrs) - 2) / MAX(max_chassis_wrkrs)::NUMERIC)) * 100, 5) AS disk_parity_pct
+        , ROUND(bytes_wrkr_max * (disk_parity_pct/100.0)) AS bytes_wrkr_parity
+        , MAX(scratch_bytes)          AS bytes_wrkr_temp
+        , ROUND(bytes_wrkr_temp / (bytes_wrkr_max * 1.0)*100.0, 5) AS chassis_temp_pct
+        , bytes_wrkr_min - bytes_wrkr_parity - bytes_wrkr_temp AS bytes_wrkr_data
+    FROM
+        wrkr
+        LEFT JOIN sys.storage USING (worker_id)
+        CROSS JOIN chassis
+)
+SELECT * FROM clstr
+"""
+        cmd_result = self.db_conn.ybsql_query(sql_query)
+        cmd_result.on_error_exit()
+        (headers, data) = Report.del_data_to_list_data(cmd_result.stdout.strip())
+
+        if return_format == 'sql':
+            cluster_info = '    SELECT'
+        else:
+            cluster_info = {}
+        for index in range(0,len(headers)):
+            if return_format == 'sql':
+                cluster_info += '\n        %s%s AS %s' % (
+                    '' if index == 0 else ', '
+                    , data[0][index]
+                    , headers[index]) 
+            else:
+                cluster_info[headers[index]] = data[0][index]
+        
+        return cluster_info
+
+    @staticmethod
+    def ybsql_py_key_values_to_py_dict(ybsql_py_key_values):
+        return """
+\\echo {
+%s
+\\echo }
+""" % '\n\\echo ,\n'.join(ybsql_py_key_values)
+
+    @staticmethod
+    def sql_to_ybsql_py_key_value(key, sql):
+        if key in ('rowcount', 'ordinal'):
+            return """\\echo "%s":
+%s\n""" % (key, sql)
+        else:
+            return """\\echo "%s": '""\"'
+%s
+\\echo '""\"'\n""" % (key, sql)
+
+    @staticmethod
+    def dict_to_ybsql_py_key_values(dct):
+        ybsql_py_key_values = []
+        for k, v in dct.items():
+            if k in ('rowcount', 'ordinal'):
+                ybsql_py_key_values.append(
+                    """\\echo "%s": %s\n""" % (k,v) )
+            else:
+                ybsql_py_key_values.append(
+                    """\\echo "%s": ""\" %s ""\"\n""" % (k,v) )
+        return ybsql_py_key_values
+
+
 class UtilArgParser(argparse.ArgumentParser):
     def error(self, message):
-        common.error('error: %s\n' % message, no_exit=True)
-        self.print_help()
+        Common.error('error: %s' % message, no_exit=True)
+        #disabling printing of complete help after error as the error scrolls off the screen
+        #self.print_help()
+        sys.stderr.write("for complete help, execute: %s\n" % (
+            Text.color('%s --help' % Common.util_file_name, style='bold') ) )
         sys.exit(1)
 
 def convert_arg_line_to_args(line):
@@ -1226,12 +1640,12 @@ convert_arg_line_to_args.args = []
 convert_arg_line_to_args.arg_ct = 0
 
 # Standalone tests
-# Example: yb_common.py -h YB14 -U denav -D denav --verbose 3
+# Example: yb_Common.py -h YB14 -U denav -D denav --verbose 3
 if __name__ == "__main__":
-    if common.verbose >= 3:
+    if Common.verbose >= 3:
         # Print extended information on the environment running this program
-        print('--->%s\n%s' % ("(common.call_cmd('lscpu')).stdout",
-                              common.call_cmd('lscpu').stdout))
+        print('--->%s\n%s' % ("(Common.call_cmd('lscpu')).stdout",
+                              Common.call_cmd('lscpu').stdout))
         print('--->%s\n%s' % ("platform.platform()", platform.platform()))
         print('--->%s\n%s' % ("platform.python_implementation()",
                               platform.python_implementation()))

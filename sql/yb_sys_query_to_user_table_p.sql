@@ -1,7 +1,8 @@
-CREATE OR REPLACE PROCEDURE yb_rstore_query_to_cstore_table_p(
+CREATE OR REPLACE PROCEDURE yb_sys_query_to_user_table_p(
     a_query VARCHAR(60000)
     , a_tablename VARCHAR(200)
-    , a_create_temp_table BOOLEAN DEFAULT FALSE
+    , a_create_table BOOLEAN DEFAULT FALSE
+    , a_as_temp_table BOOLEAN DEFAULT FALSE
     , a_drop_table BOOLEAN DEFAULT FALSE
     , a_max_varchar_size INTEGER DEFAULT 10000)
     RETURNS BOOLEAN
@@ -13,8 +14,10 @@ AS $$
 --    a_query: the query to materialize
 --    a_tablename:
 --       the destination table name
---    a_create_temp_table:
---       create destination table as temporary table, defaults ito false.
+--    a_create_table:
+--       create destination table, defaults to false.
+--    a_as_temp_table:
+--       create destination table as temporary table, defaults to false.
 --    a_drop_table: 
 --       first drop the destination(a_tablename) if it exists, defaults to false.
 --    a_max_varchar_size:
@@ -96,7 +99,7 @@ $STR$
     -- create a column store table that can store the data from the input catalog table/view query(a_query)
     v_is_first_rec := TRUE;
     --EXECUTE 'DROP TABLE IF EXISTS ' || a_tablename ||;
-    IF a_create_temp_table THEN
+    IF a_as_temp_table THEN
         v_query := 'CREATE TEMP TABLE ';
     ELSE
         v_query := 'CREATE TABLE ';
@@ -118,9 +121,12 @@ $STR$
             v_query := v_query || ', ';
             v_do_values := v_do_values || ', ';
         END IF;
-        IF v_rec.data_type IN ('BIGINT', 'BOOLEAN', 'DATE', 'DOUBLE PRECISION', 'INTEGER', 'IPV4', 'IPV6', 'MACADDR', 'MACADDR8', 'NUMERIC'
+        IF v_rec.data_type IN ('BIGINT', 'BOOLEAN', 'DATE', 'DOUBLE PRECISION', 'INTEGER', 'IPV4', 'IPV6', 'MACADDR', 'MACADDR8'
             , 'REAL', 'SMALLINT', 'TIMESTAMP WITH TIME ZONE', 'TIMESTAMP WITHOUT TIME ZONE', 'TIME WITHOUT TIME ZONE', 'UUID') THEN
             v_query := v_query || v_sql_name || ' ' || v_rec.data_type;
+            v_do_values := v_do_values || REPLACE('v_rec.<name>', '<name>', v_rec.name);
+        ELSIF v_rec.data_type IN ('NUMERIC') THEN
+            v_query := v_query || v_sql_name || ' NUMERIC(34,10)';
             v_do_values := v_do_values || REPLACE('v_rec.<name>', '<name>', v_rec.name);
         ELSIF v_rec.data_type IN ('OID', 'INFORMATION_SCHEMA.CARDINAL_NUMBER') THEN
             v_query := v_query || v_sql_name || ' BIGINT';
@@ -150,12 +156,14 @@ $STR$
         --RAISE INFO '%', v_query; --DEBUG
     END LOOP;
     v_query := v_query || CHR(13) || CHR(10) || ') DISTRIBUTE RANDOM'; 
-    --RAISE INFO '%', v_query; --DEBUG
-    IF a_drop_table THEN
-        EXECUTE 'DROP TABLE IF EXISTS ' || a_tablename;
+    IF a_create_table THEN
+        --RAISE INFO '%', v_query; --DEBUG
+        IF a_drop_table THEN
+            EXECUTE 'DROP TABLE IF EXISTS ' || a_tablename;
+        END IF;
+        EXECUTE v_query;
+        EXECUTE 'DROP TABLE ' || v_tmp_table;
     END IF;
-    EXECUTE v_query;
-    EXECUTE 'DROP TABLE ' || v_tmp_table;
     --
     --
     -- execute the input catalog table/view query(a_query) and move record by record
