@@ -62,7 +62,7 @@ See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/4.0/adminis
 -   **[yb_is_cstore_table](./yb_is_cstore_table.py):** Determine if a table is stored as a column store table.
 -   **[yb_mass_column_update](./yb_mass_column_update.py):** Update the value of multiple columns.
 -   **[yb_query_to_stored_proc](./yb_query_to_stored_proc.py):** Create a stored procedure for the provided query with the query privileges of the definer/creator.
--   **[yb_rstore_query_to_cstore_table](./yb_rstore_query_to_cstore_table.py):** Convert row store query to column store table.
+-   **[yb_sys_query_to_user_table](./yb_sys_query_to_user_table.py):** Convert system query to user table.
 -   **[yb_to_yb_copy_table](./yb_to_yb_copy_table.py):** Copy a table from a source cluster to a destination cluster.
 
 ### Other Files
