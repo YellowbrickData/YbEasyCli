@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_check_db_views.py [database] table [options]
+      yb_check_db_views.py [options]
 
 PURPOSE:
       Check for broken views.
@@ -15,10 +15,9 @@ Output:
 """
 import sys
 
-import yb_common
-from yb_util import util
+from yb_common import Common, Util
 
-class check_db_views(util):
+class check_db_views(Util):
     """Check for broken views.
     """
     config = {
@@ -26,7 +25,7 @@ class check_db_views(util):
         , 'optional_args_multi': ['owner', 'database', 'schema', 'view']
         , 'usage_example': {
             'cmd_line_args': '@$HOME/conn.args --database_in stores'
-            , 'file_args': [util.conn_args_file] }
+            , 'file_args': [Util.conn_args_file] }
         , 'db_filter_args': {'owner':'ownername','schema':'schemaname','view':'viewname'}
     }
 
@@ -46,9 +45,9 @@ class check_db_views(util):
                 , pre_sql = ('\c %s\n' % db))
 
             if cmd_results.exit_code == 0:
-                sys.stdout.write(yb_common.common.quote_object_paths(cmd_results.stdout))
+                sys.stdout.write(Common.quote_object_paths(cmd_results.stdout))
             elif cmd_results.stderr.find('permission denied') == -1:
-                yb_common.common.error(cmd_results.stderr)
+                Common.error(cmd_results.stderr)
                 exit(cmd_results.exit_code)
 
             db_broken_view_ct = len(cmd_results.stdout.split())

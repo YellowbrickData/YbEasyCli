@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_get_stored_proc_names.py [database] [options]
+      yb_get_stored_proc_names.py [options]
 
 PURPOSE:
       List the stored procedure names found in this database.
@@ -13,9 +13,9 @@ OPTIONS:
 Output:
       The names of all stored procedures will be listed out, one per line.
 """
-from yb_util import util
+from yb_common import Util
 
-class get_stored_proc_names(util):
+class get_stored_proc_names(Util):
     """Issue the ybsql command to list the stored procedures found in a particular database.
     """
     config = {
@@ -24,7 +24,7 @@ class get_stored_proc_names(util):
         , 'optional_args_multi': ['owner', 'schema', 'stored_proc']
         , 'usage_example': {
             'cmd_line_args': "@$HOME/conn.args --schema_in dev Prod --stored_proc_like '%price%' --stored_proc_NOTlike '%id%' --"
-            , 'file_args': [util.conn_args_file] }
+            , 'file_args': [Util.conn_args_file] }
         , 'default_args': {'template': '<raw>', 'exec_output': False}
         , 'output_tmplt_vars': ['stored_proc_path', 'schema_path', 'stored_proc', 'schema', 'database', 'owner']
         , 'output_tmplt_default': '{stored_proc_path}'

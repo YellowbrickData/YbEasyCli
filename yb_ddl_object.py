@@ -17,14 +17,12 @@ import copy
 # fix for deepcopy in python 2.7
 copy._deepcopy_dispatch[type(re.compile(''))] = lambda r, _: r
 
-import yb_common
-from yb_common import text
-from yb_util import util
+from yb_common import Common, Text, Util
 from yb_get_table_names import get_table_names
 from yb_get_view_names import get_view_names
 from yb_get_sequence_names import get_sequence_names
 
-class ddl_object(util):
+class ddl_object(Util):
     """Issue the command used to dump out the SQL/DDL that was used to create a
     given object.
     """
@@ -92,7 +90,7 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
         self.config['optional_args_multi'] = ['owner', 'schema', object_type]
         self.config['usage_example'] = {
                 'cmd_line_args': cmd_line_args[object_type]
-                , 'file_args': [util.conn_args_file] }
+                , 'file_args': [Util.conn_args_file] }
         self.config['output_tmplt_vars'] = []
         if object_type == 'table':
             self.config['output_tmplt_vars'].append('rowcount')
@@ -179,7 +177,6 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
             args_handler.args.exec_output = False
             args_handler.args.template = ('{%s_path}|{ordinal}|{owner}|{database}|{schema}|{%s}'
                 % (self.object_type, self.object_type))
-            args_handler.args.exec_output = False
             code = ('get_{object_type}_names'
                 '(db_conn=self.db_conn, args_handler=args_handler)').format(
                     object_type=self.object_type)
@@ -232,7 +229,7 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
                           else self.db_conn.database)
                         + '.' + tablepath
                     )
-                tablepath = yb_common.common.quote_object_paths(tablepath)
+                tablepath = Common.quote_object_paths(tablepath)
                 line = 'CREATE %s %s%s' % (matches.group(1), tablepath, matches.group(3))
 
             #change all data type key words to upper case 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_to_yb_copy_tables.py [database] [options]
+      yb_to_yb_copy_tables.py [options]
 
 PURPOSE:
       Copy table/s from source cluster to destination cluster.
@@ -20,12 +20,10 @@ import re
 import random
 from datetime import datetime
 
-import yb_common
-from yb_common import db_connect
-from yb_util import util
+from yb_common import ArgsHandler, Common, DBConnect, IntRange, Text, Util
 from yb_chunk_dml_by_integer import chunk_dml_by_integer
 
-class yb_to_yb_copy_table(util):
+class yb_to_yb_copy_table(Util):
     """Issue the command used to list the table names found in a particular
     database.
     """
@@ -58,7 +56,7 @@ class yb_to_yb_copy_table(util):
             self.dst_conn = dst_conn
             self.args_handler = args_handler
         else:
-            self.args_handler = yb_common.args_handler(self.config, init_default=False)
+            self.args_handler = ArgsHandler(self.config, init_default=False)
 
             self.add_args()
 
@@ -96,7 +94,7 @@ class yb_to_yb_copy_table(util):
             , help=("SQL clause which filters the rows to copy from the source table"))
         copy_table_o_grp.add_argument(
             "--chunk_rows", dest="chunk_rows"
-            , type=yb_common.intRange(1,9223372036854775807)
+            , type=IntRange(1,9223372036854775807)
             , help="when set data copying will be performed in chunks of rows rather than one big copy")
 
     def set_db_connections(self):
@@ -104,7 +102,7 @@ class yb_to_yb_copy_table(util):
         src_pwd = os.environ['SRC_YBPASSWORD'] if 'SRC_YBPASSWORD' in os.environ else None
         if src_pwd:
             os.environ['YBPASSWORD'] = src_pwd
-        self.src_conn = db_connect(args_handler=self.args_handler, conn_type='src')
+        self.src_conn = DBConnect(args_handler=self.args_handler, conn_type='src')
         if pwd:
             os.environ['YBPASSWORD'] = pwd
         elif src_pwd:
@@ -113,7 +111,7 @@ class yb_to_yb_copy_table(util):
         dst_pwd = os.environ['DST_YBPASSWORD'] if 'DST_YBPASSWORD' in os.environ else None
         if dst_pwd:
             os.environ['YBPASSWORD'] = dst_pwd
-        self.dst_conn = db_connect(args_handler=self.args_handler, conn_type='dst')
+        self.dst_conn = DBConnect(args_handler=self.args_handler, conn_type='dst')
         if pwd:
             os.environ['YBPASSWORD'] = pwd
         elif dst_pwd:
@@ -177,7 +175,7 @@ class yb_to_yb_copy_table(util):
             , port_option = (' --port %s' % self.args_handler.args.dst_port if self.args_handler.args.dst_port else '')
             , dst_user = self.dst_conn.env['dbuser']
             , dst_db = self.dst_conn.env['conn_db']
-            , dst_table = yb_common.common.quote_object_paths(self.args_handler.args.dst_table)
+            , dst_table = Common.quote_object_paths(self.args_handler.args.dst_table)
             , delimiter = self.args_handler.args.delimiter
             , log_file_name = (self.log_file_name_template.format(log_type='ybload'))
             , logfile_log_level_option = logfile_log_level_option
@@ -193,7 +191,7 @@ class yb_to_yb_copy_table(util):
 
     def chunk_table_unload_sql(self, table_unload_sql):
         if self.src_conn.ybdb['version_major'] < 4:
-            yb_common.common.error(yb_common.text.color(
+            Common.error(Text.color(
                 "The '--chunk_rows' option is only supported on YBDB version 4 or higher."
                 " The source db is running YBDB %s..." % self.src_conn.ybdb['version']
                 , 'yellow'))
@@ -203,7 +201,7 @@ class yb_to_yb_copy_table(util):
         self.args_handler.args.verbose_chunk_off = False
         self.args_handler.args.null_chunk_off = False
         self.args_handler.args.print_chunk_dml = True
-        self.args_handler.args.table = yb_common.common.quote_object_paths(self.args_handler.args.src_table)
+        self.args_handler.args.table = Common.quote_object_paths(self.args_handler.args.src_table)
         self.args_handler.args.column = 'rowunique'
         self.args_handler.args.column_cardinality = 'high'
         self.args_handler.args.table_where_clause = self.args_handler.args.where_clause
@@ -218,7 +216,7 @@ class yb_to_yb_copy_table(util):
 
     def execute(self):
         table_unload_sql = "SELECT * FROM {src_table} WHERE TRUE{where_clause}".format(
-            src_table = yb_common.common.quote_object_paths(self.args_handler.args.src_table).replace('"','"\\""')
+            src_table = Common.quote_object_paths(self.args_handler.args.src_table).replace('"','"\\""')
             , where_clause=(' AND %s' % self.args_handler.args.where_clause if self.args_handler.args.where_clause else ''))
 
         if self.args_handler.args.chunk_rows:
@@ -240,7 +238,7 @@ class yb_to_yb_copy_table(util):
             ybload_log_file_name = self.log_file_name_template.format(
                 log_type='ybload').format(XofX=XofX)
 
-            cmd_results = yb_common.common.call_cmd(copy_cmd, False)
+            cmd_results = Common.call_cmd(copy_cmd, False)
 
             loaded = False
             if cmd_results.exit_code == 0:
@@ -256,7 +254,7 @@ class yb_to_yb_copy_table(util):
                 log_file_name = self.log_file_name_template.format(
                     log_type='*').format(XofX=XofX)
                 print('Table Copy {}, please review the log files: {}'.format(
-                    yb_common.text.color('Failed', 'red'), log_file_name))
+                    Text.color('Failed', 'red'), log_file_name))
                 exit(cmd_results.exit_code)
 
             seq += 1

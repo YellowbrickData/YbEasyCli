@@ -13,10 +13,9 @@ OPTIONS:
 Output:
       True/False
 """
-import yb_common
-from yb_util import util
+from yb_common import Common, Util
 
-class is_cstore_table(util):
+class is_cstore_table(Util):
     """Issue the ybsql command used to determine if a table is stored as a column store table.
     """
     config = {
@@ -25,13 +24,13 @@ class is_cstore_table(util):
         , 'optional_args_single': []
         , 'usage_example': {
             'cmd_line_args': '@$HOME/conn.args --table sys.blade --'
-            , 'file_args': [util.conn_args_file] } }
+            , 'file_args': [Util.conn_args_file] } }
 
     def execute(self):
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_is_cstore_table_p'
             , args = {
-                'a_table' : yb_common.common.quote_object_paths(self.args_handler.args.table)})
+                'a_table' : Common.quote_object_paths(self.args_handler.args.table)})
 
         self.cmd_results.write()
         print(self.cmd_results.proc_return)

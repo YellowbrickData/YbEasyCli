@@ -14,10 +14,9 @@ OPTIONS:
 Output:
       A stored procedure.
 """
-from yb_util import util
-import yb_common
+from yb_common import Common, IntRange, Text, Util
 
-class query_to_stored_proc(util):
+class query_to_stored_proc(Util):
     """Issue the ybsql command used to create a stored procedure that runs the provided 
     query with the permissions of the definer/creator.
     """
@@ -31,7 +30,7 @@ class query_to_stored_proc(util):
         , 'optional_args_single': []
         , 'usage_example': {
             'cmd_line_args': "@$HOME/conn.args --stored_proc log_session_p @$HOME/session_query.arg"
-            , 'file_args': [util.conn_args_file
+            , 'file_args': [Util.conn_args_file
                 , { '$HOME/session_query.arg': """--query \"\"\"
 SELECT
     s.session_id
@@ -48,17 +47,17 @@ ORDER BY session_duration DESC
  
     def execute_drop(self):
         print('-- Dropping the %s stored procedure.'
-            % yb_common.text.color(self.stored_proc, style='bold'))
+            % Text.color(self.stored_proc, style='bold'))
         self.cmd_results = self.db_conn.ybsql_query('DROP TABLE %s_t CASCADE' % self.stored_proc)
         self.cmd_results.write(tail='-- Dropped.\n')
 
     def execute_create(self):
         print('-- Creating the %s stored procedure for the query provided.'
-            % yb_common.text.color(self.stored_proc, style='bold'))
+            % Text.color(self.stored_proc, style='bold'))
 
         stored_proc_template_file = ('%s/%s'
-            % (yb_common.common.util_dir_path, 'sql/yb_query_to_stored_proc_template_1_p.sql'))
-        stored_proc_template = yb_common.common.read_file(stored_proc_template_file)
+            % (Common.util_dir_path, 'sql/yb_query_to_stored_proc_template_1_p.sql'))
+        stored_proc_template = Common.read_file(stored_proc_template_file)
 
         self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
             'yb_query_to_stored_proc_p'
@@ -93,10 +92,10 @@ ORDER BY session_duration DESC
             , nargs="+", default='public', metavar='ROLE'
             , help="grant execute of stored procedure to user/roles, defaults to 'public'")
         args_optional_grp.add_argument("--query_limit_default"
-            , type=yb_common.intRange(0,9223372036854775807), default=200
+            , type=IntRange(0,9223372036854775807), default=200
             , help="default row limit for query, defaults to 200, set to 0 for unlimited")
         args_optional_grp.add_argument("--max_varchar_size"
-            , type=yb_common.intRange(1,64000), default=10000
+            , type=IntRange(1,64000), default=10000
             , help="truncate size of all VARCHAR columns in the destination table, defaults to 10000")
         args_optional_grp.add_argument("--pre_sql", default=''
             , help="SQL to run before the creation of the stored procedure")
@@ -111,7 +110,7 @@ ORDER BY session_duration DESC
     def additional_args_process(self):
         if (not(bool(self.args_handler.args.query) or (self.args_handler.args.drop))
             or (bool(self.args_handler.args.query) and (self.args_handler.args.drop))):
-            yb_common.common.error('one of --query or the --drop options must be provided...')
+            self.args_handler.args_parser.error('one of --query or the --drop options must be provided...')
 
         self.stored_proc = self.args_handler.args.stored_proc
 
@@ -119,7 +118,7 @@ ORDER BY session_duration DESC
         if isinstance(self.args_handler.args.grant_execute_to, list): 
             self.args_handler.args.grant_execute_to = '\n'.join(self.args_handler.args.grant_execute_to)
         self.args_handler.args.grant_execute_to = (
-            yb_common.common.quote_object_paths(self.args_handler.args.grant_execute_to).replace('\n', ', '))
+            Common.quote_object_paths(self.args_handler.args.grant_execute_to).replace('\n', ', '))
 
 def main():
     dsp = query_to_stored_proc()

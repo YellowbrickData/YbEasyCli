@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_get_table_name.py [database] table [options]
+      yb_get_table_name.py [options]
 
 PURPOSE:
       Verifies that the specified table exists.
@@ -13,9 +13,9 @@ OPTIONS:
 Outputs:
       If the table exists, it's fully qualified name will be echoed back out.
 """
-from yb_util import util
+from yb_common import Util
 
-class get_table_name(util):
+class get_table_name(Util):
     """Issue the command used to verify that the specified table exists."""
     config = {
         'description': 'List/Verifies that the specified table exists.'
@@ -23,7 +23,7 @@ class get_table_name(util):
         , 'optional_args_single': ['owner', 'database', 'schema']
         , 'usage_example': {
             'cmd_line_args': '@$HOME/conn.args --current_schema dev --table sales --'
-            , 'file_args': [util.conn_args_file] }
+            , 'file_args': [Util.conn_args_file] }
         , 'db_filter_args': {'owner':'c.tableowner','schema':'c.schemaname','table':'c.tablename'} }
 
     def execute(self):

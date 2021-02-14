@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_mass_column_update.py [database] [options]
+      yb_mass_column_update.py [options]
 
 PURPOSE:
       Update the value of multiple columns.
@@ -15,10 +15,9 @@ Output:
 """
 import sys
 
-import yb_common
-from yb_util import util
+from yb_common import Util
 
-class mass_column_update(util):
+class mass_column_update(Util):
     """Issue the ybsql command used to list the column names comprising an
     object.
     """
@@ -33,7 +32,7 @@ class mass_column_update(util):
         , 'optional_args_multi': ['owner', 'schema', 'table', 'column', 'datatype']
         , 'usage_example': {
             'cmd_line_args': "@$HOME/conn.args --datatype_like 'CHAR%' --update_where_clause \"<columnname> = 'NULL'\" --set_clause NULL --"
-            , 'file_args': [util.conn_args_file] }
+            , 'file_args': [Util.conn_args_file] }
         , 'db_filter_args': {'owner':'tableowner', 'schema':'schemaname', 'table':'tablename', 'column':'columnname', 'datatype':'datatype'} }
 
     def execute(self):
@@ -76,7 +75,7 @@ class mass_column_update(util):
 
     def additional_args_process(self):
         if '<column>' not in self.args_handler.args.update_where_clause:
-            yb_common.common.error("UPDATE_WHERE_CLAUSE must contain the string '<column>'")
+            self.args_handler.args_parser.error("UPDATE_WHERE_CLAUSE must contain the string '<column>'")
 
         if not self.args_handler.args.exec_updates:
             self.args_handler.args.pre_sql = ''

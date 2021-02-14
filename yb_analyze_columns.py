@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_analyze_columns.py [database] table [options]
+      yb_analyze_columns.py [options]
 
 PURPOSE:
       Analyze the data content of a table's column/s.
@@ -16,10 +16,9 @@ Output:
 import sys
 from tabulate import tabulate
 
-from yb_util import util
-from yb_common import common
+from yb_common import Common, Util
 
-class analyze_columns(util):
+class analyze_columns(Util):
     """Issue the ybsql command used to analyze the data content of a table's column/s
     """
     config = {
@@ -33,7 +32,7 @@ class analyze_columns(util):
         , 'optional_args_multi': ['owner', 'schema', 'column']
         , 'usage_example': {
             'cmd_line_args': '@$HOME/conn.args --schema_in dev --table sales --column_in store_id price --'
-            , 'file_args': [util.conn_args_file] }
+            , 'file_args': [Util.conn_args_file] }
         , 'db_filter_args': {'owner':'tableowner', 'schema':'schemaname', 'column':'columnname'} }
 
     def execute(self):
@@ -85,7 +84,7 @@ def main():
         else:
             sys.stdout.write(acs.cmd_results.stdout)
     if acs.cmd_results.stderr != '':
-        common.error(acs.cmd_results.stderr, no_exit=True)
+        Common.error(acs.cmd_results.stderr, no_exit=True)
     else:
         sys.stdout.write('-- Completed column analysis.\n')
 

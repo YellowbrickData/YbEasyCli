@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_get_column_name.py [database] object column [options]
+      yb_get_column_name.py [options]
 
 PURPOSE:
       List/Verifies that the specified column exists in the object.
@@ -13,9 +13,9 @@ OPTIONS:
 Output:
       If the column exists in the object, it's name will be echoed back out.
 """
-from yb_util import util
+from yb_common import Util
 
-class get_column_name(util):
+class get_column_name(Util):
     """Issue the ybsql command used to verify that the specified column
     exists.
     """
@@ -25,7 +25,7 @@ class get_column_name(util):
         , 'optional_args_single': ['owner', 'database', 'schema', ]
         , 'usage_example': {
             'cmd_line_args': "@$HOME/conn.args --schema dev --object sales --column price --"
-            , 'file_args': [util.conn_args_file] }
+            , 'file_args': [Util.conn_args_file] }
         , 'db_filter_args': {'owner':'objectowner', 'schema':'schemaname', 'object':'objectname', 'column':'columnname'} }
 
 

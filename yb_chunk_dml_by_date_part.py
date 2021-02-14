@@ -16,10 +16,9 @@ Output:
 """
 import sys
 
-import yb_common
-from yb_util import util
+from yb_common import IntRange, Util
 
-class chunk_dml_by_date_part(util):
+class chunk_dml_by_date_part(Util):
     """Issue the ybsql command used to create/execute DML chunked by date/timestamp column
     """
     config = {
@@ -28,7 +27,7 @@ class chunk_dml_by_date_part(util):
         , 'default_args': {'pre_sql': '', 'post_sql': ''}
         , 'usage_example': {
             'cmd_line_args': '@$HOME/conn.args @$HOME/yb_chunk_dml_by_date_part.args --print_chunk_dml'
-            , 'file_args': [ util.conn_args_file
+            , 'file_args': [ Util.conn_args_file
                 , {'$HOME/yb_chunk_dml_by_date_part.args': """--table dze_db1.dev.sales
 --dml \"\"\"INSERT INTO sales_chunk_ordered
 SELECT *
@@ -76,7 +75,7 @@ ORDER BY sale_ts\"\"\"
             , help="create chunks down to the time unit selected")
         args_chunk_r_grp.add_argument(
             "--chunk_rows", dest="chunk_rows", required=True
-            , type=yb_common.intRange(1,9223372036854775807)
+            , type=IntRange(1,9223372036854775807)
             , help="the minimum rows that each chunk should contain")
 
         args_chunk_o_grp = self.args_handler.args_parser.add_argument_group(
@@ -96,7 +95,7 @@ ORDER BY sale_ts\"\"\"
 
     def additional_args_process(self):
         if '<chunk_where_clause>' not in self.args_handler.args.dml:
-            yb_common.common.error("DML must contain the string '<chunk_where_clause>'")
+            self.args_handler.args_parser.error("DML must contain the string '<chunk_where_clause>'")
 
         if not self.args_handler.args.execute_chunk_dml:
             self.args_handler.args.pre_sql = ''

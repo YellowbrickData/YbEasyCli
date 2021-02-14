@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_get_column_type.py [database] [options]
+      yb_get_column_type.py [options]
 
 PURPOSE:
       Get a column's defined data type.
@@ -15,9 +15,9 @@ Output:
       e.g., CHARACTER(10)
             INTEGER
 """
-from yb_util import util
+from yb_common import Util
 
-class get_column_type(util):
+class get_column_type(Util):
     """Issue the ybsql command used to get a column's defined data type."""
     config = {
         'description': 'Return the data type of the requested column.'
@@ -25,7 +25,7 @@ class get_column_type(util):
         , 'optional_args_single': ['owner', 'database', 'schema']
         , 'usage_example': {
             'cmd_line_args': "@$HOME/conn.args --schema dev --table sales --column price --"
-            , 'file_args': [util.conn_args_file] }
+            , 'file_args': [Util.conn_args_file] }
         , 'db_filter_args': {'owner':'tableowner', 'schema':'schemaname', 'table':'tablename', 'column':'columnname'} }
 
     def execute(self):

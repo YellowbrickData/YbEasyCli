@@ -3,6 +3,12 @@
 
 import os, stat
 import sys
+import time
+import re
+import shutil
+import getpass
+import difflib
+
 path = os.path.dirname(__file__)
 if len(path) == 0:
     path = '.'
@@ -16,25 +22,17 @@ except:
 if hasattr(__builtins__, 'raw_input'):   # for python2
     input=raw_input
 
-import time
-import re
-import shutil
-import getpass
-import yb_common
-from yb_util import util
-import difflib
-from yb_common import text
-from yb_common import db_connect
+from yb_common import ArgsHandler, Common, DBConnect, Text, Util
 
 class drop_objects:
     """Initiate testing"""
     def __init__(self):
         args_handler = self.init_args()
         args_handler.args.conn_db = 'yellowbrick'
-        db_conn = yb_common.db_connect(args_handler)
+        db_conn = DBConnect(args_handler)
 
         if not(db_conn.ybdb['has_create_user'] and db_conn.ybdb['has_create_db']):
-            yb_common.common.error('You must login as a user with create database/'
+            Common.error('You must login as a user with create database/'
                 'user permission to drop the test database/user objects...')
 
         configFilePath = '%s/%s' % (os.path.expanduser('~'), '.YbEasyCli')
@@ -45,9 +43,9 @@ class drop_objects:
         if config.has_section(section):
             test_user = config.get(section, 'user')
             print("\nDropping the '%s' test environment, including the '%s' and '%s' databases.\n"
-                % (text.color(db_conn.env['host'], 'cyan')
-                    , text.color(config.get(section, 'db1'), 'cyan')
-                    , text.color(config.get(section, 'db2'), 'cyan')))
+                % (Text.color(db_conn.env['host'], 'cyan')
+                    , Text.color(config.get(section, 'db1'), 'cyan')
+                    , Text.color(config.get(section, 'db2'), 'cyan')))
 
             answered_yes = input("    Enter(yes) to continue: ").lower() == 'yes'
             if answered_yes:
@@ -58,8 +56,8 @@ class drop_objects:
                 if cmd_results.stderr != '':
                     exit(cmd_results.exit_code)
                 print("\nDropped databases '%s' and '%s', if they existed..."
-                    % (text.color(config.get(section, 'db1'), 'cyan')
-                        , text.color(config.get(section, 'db2'), 'cyan')))
+                    % (Text.color(config.get(section, 'db1'), 'cyan')
+                        , Text.color(config.get(section, 'db2'), 'cyan')))
 
                 config.remove_section(section)
                 config_fp = open(configFilePath, 'w')
@@ -68,7 +66,7 @@ class drop_objects:
                 os.chmod(configFilePath, stat.S_IREAD | stat.S_IWRITE)
 
                 answered_yes = input("\n    Enter(yes) to drop user '%s': "
-                    % text.color(test_user, 'cyan')).lower() == 'yes'
+                    % Text.color(test_user, 'cyan')).lower() == 'yes'
                 if answered_yes:
                     cmd_results = db_conn.ybsql_query( 
                         "DROP USER IF EXISTS %s" % test_user)
@@ -76,21 +74,21 @@ class drop_objects:
                     if cmd_results.stderr != '':
                         exit(cmd_results.exit_code)
                     print("\nDropped user '%s', if existed..."
-                        % (text.color(test_user, 'cyan')))
+                        % (Text.color(test_user, 'cyan')))
             else:
-                print(text.color('\nExiting without clean up...', 'yellow'))
+                print(Text.color('\nExiting without clean up...', 'yellow'))
         else:
-            yb_common.common.error("There is no test environment setup for '%s' in your"
+            Common.error("There is no test environment setup for '%s' in your"
                 " '~/.YbEasyCli file', run 'test_create_host_objects.py'"
                 " to set up this host" % db_conn.env['host'], color='yellow')
 
     def get_db_conn(self, user=None, pwd=None, conn_db=None, host=None):
-        env = db_connect.create_env(
+        env = DBConnect.create_env(
             dbuser=user
             , pwd=pwd
             , conn_db=conn_db
             , host=host)
-        return db_connect(env=env)
+        return DBConnect(env=env)
 
     def init_args(self):
         """Initialize the args class.
@@ -101,11 +99,11 @@ class drop_objects:
 
         :return: An instance of the `args` class
         """
-        cnfg = util.config_default.copy()
+        cnfg = Util.config_default.copy()
         cnfg['description'] = 'Drop test user, database, and database objects.'
         cnfg['positional_args_usage'] = None
 
-        args_handler = yb_common.args_handler(cnfg, init_default=False)
+        args_handler = ArgsHandler(cnfg, init_default=False)
 
         args_handler.args_process_init()
 

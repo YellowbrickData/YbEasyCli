@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_get_table_distribution_key.py [database] [options]
+      yb_get_table_distribution_key.py [options]
 
 PURPOSE:
       Identify the column name(s) on which this table is distributed.
@@ -20,11 +20,9 @@ Output:
 """
 import sys
 
-import yb_common
-from yb_common import common
-from yb_util import util
+from yb_common import Common, Util
 
-class get_table_distribution_key(util):
+class get_table_distribution_key(Util):
     """Issue the ybsql command used to identify the column name(s) on which
     this table is distributed.
     """
@@ -34,7 +32,7 @@ class get_table_distribution_key(util):
         , 'optional_args_single': ['owner', 'database', 'schema']
         , 'usage_example': {
             'cmd_line_args': "@$HOME/conn.args --schema Prod --table sales --"
-            , 'file_args': [util.conn_args_file] }
+            , 'file_args': [Util.conn_args_file] }
         , 'db_filter_args': {'owner':'ownername','schema':'schemaname','table':'tablename'}
     }
 
@@ -70,14 +68,13 @@ WHERE
              , database    = self.db_conn.database)
 
         self.cmd_results = self.db_conn.ybsql_query(sql_query)
+        self.cmd_results.on_error_exit()
 
         if self.cmd_results.stdout != '':
             if self.cmd_results.stdout.strip() in ('RANDOM', 'REPLICATED'):
                 sys.stdout.write(self.cmd_results.stdout)
             else:
-                sys.stdout.write(common.quote_object_paths(self.cmd_results.stdout))
-        if self.cmd_results.stderr != '':
-            sys.stdout.write(yb_common.text.color(self.cmd_results.stderr, fg='red'))
+                sys.stdout.write(Common.quote_object_paths(self.cmd_results.stdout))
 
 def main():
     gtdk = get_table_distribution_key()

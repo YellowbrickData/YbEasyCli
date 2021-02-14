@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_get_view_names.py [database] [options]
+      yb_get_view_names.py [options]
 
 PURPOSE:
       List the view names found in this database.
@@ -13,9 +13,9 @@ OPTIONS:
 Output:
       The fully qualified names of all views will be listed out, one per line.
 """
-from yb_util import util
+from yb_common import Util
 
-class get_view_names(util):
+class get_view_names(Util):
     """Issue the ybsql command used to list the view names found in a particular
     database.
     """
@@ -25,7 +25,7 @@ class get_view_names(util):
         , 'optional_args_multi': ['owner', 'schema', 'view']
         , 'usage_example': {
             'cmd_line_args': '@$HOME/conn.args --schema_in dev Prod --'
-            , 'file_args': [util.conn_args_file] }
+            , 'file_args': [Util.conn_args_file] }
         , 'default_args': {'template': '<raw>', 'exec_output': False}
         , 'output_tmplt_vars': ['view_path', 'schema_path', 'view', 'schema', 'database', 'owner']
         , 'output_tmplt_default': '{view_path}'

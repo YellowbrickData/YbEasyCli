@@ -19,10 +19,9 @@ NOTES:
 """
 import sys
 
-import yb_common
-from yb_util import util
+from yb_common import Util
 
-class chunk_optimal_rows(util):
+class chunk_optimal_rows(Util):
     """Issue the ybsql command to determine the optimal number of rows per chunk for a table.
     """
     config = {
@@ -31,7 +30,7 @@ class chunk_optimal_rows(util):
         , 'optional_args_single': ['database', 'schema']
         , 'usage_example': {
             'cmd_line_args': '@$HOME/conn.args --table dze_db1.dev.sales --schema dev'
-            , 'file_args': [util.conn_args_file] } }
+            , 'file_args': [Util.conn_args_file] } }
 
     def execute(self):
         schema = (

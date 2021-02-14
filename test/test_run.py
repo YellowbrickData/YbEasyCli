@@ -19,11 +19,8 @@ import string
 import re
 import shutil
 import getpass
-import yb_common
-from yb_util import util
 import difflib
-from yb_common import text
-from yb_common import db_connect
+from yb_common import ArgsHandler, Common, DBConnect, Text, Util
 
 class SafeDict(dict):
     def __missing__(self, key):
@@ -56,12 +53,12 @@ class test_case:
         section = 'test_%s' % args.host
         os.environ['YBPASSWORD'] = config.get(section, 'password')
 
-        self.cmd_results = yb_common.common.call_cmd(cmd)
+        self.cmd_results = Common.call_cmd(cmd)
 
         self.check()
 
         if args.case or args.print_test:
-            run = '%s: %s' % (text.color('Test runs', style='bold')
+            run = '%s: %s' % (Text.color('Test runs', style='bold')
                 , cmd)
         else:
             if '--all' in sys.argv:
@@ -70,15 +67,15 @@ class test_case:
             else:
                 running = ' '.join(sys.argv)
             run = ('%s: %s --case %d'
-                % (text.color('To run', style='bold')
+                % (Text.color('To run', style='bold')
                     , running, case))
 
         print(
             '%s: %s, %s' % (
-                text.color('Test case %d' % case, style='bold')
-                , text.color('Passed', fg='green')
+                Text.color('Test case %d' % case, style='bold')
+                , Text.color('Passed', fg='green')
                     if self.passed
-                    else text.color('Failed', fg='red')
+                    else Text.color('Failed', fg='red')
                 , run))
         if args.print_output:
             sys.stdout.write(self.cmd_results.stdout)
@@ -124,22 +121,22 @@ class test_case:
                 if diff[i][0] in ('-', '+', '?'):
                     color = {'-':'red', '+':'green', '?':'yellow'}[diff[i][0]]
                     if diff[i][0] == '?':
-                        diff[i] = text.color(diff[i], fg=color, style='bold')
+                        diff[i] = Text.color(diff[i], fg=color, style='bold')
                     else:
-                        diff[i] = text.color(diff[i], fg=color)
+                        diff[i] = Text.color(diff[i], fg=color)
             print('\n------------------\n%s %s\n------------------' % (
-                text.color(std, style='bold')
-                , text.color('differences', fg='red')))
+                Text.color(std, style='bold')
+                , Text.color('differences', fg='red')))
             sys.stdout.writelines(diff)
 
     def print_test_comparison(self):
         """Print a comparison between actual and expected results."""
         if self.exit_code != self.cmd_results.exit_code:
             print("%s: %s, %s: %s" % (
-                text.color('Exit Code Expected', style='bold')
-                , text.color(str(self.exit_code), fg='green')
-                , text.color('Returned', style='bold')
-                , text.color(str(self.cmd_results.exit_code), fg='red')))
+                Text.color('Exit Code Expected', style='bold')
+                , Text.color(str(self.exit_code), fg='green')
+                , Text.color('Returned', style='bold')
+                , Text.color(str(self.cmd_results.exit_code), fg='red')))
 
         self.print_test_std_comparison(
             'STDOUT', self.stdout, self.cmd_results.stdout)
@@ -200,9 +197,9 @@ class execute_test_action:
             print(
                 '%s: %s, %s: %s'
                 % (
-                    text.color('Testing', style='bold')
+                    Text.color('Testing', style='bold')
                     , test_name
-                    , text.color('Running', style='bold')
+                    , Text.color('Running', style='bold')
                     , running))
             case = 1
             for test_case in _ldict['test_cases']:
@@ -240,12 +237,12 @@ class execute_test_action:
                     open('%s/%s' % (dd, filename), "w").write(data)
 
     def get_db_conn(self, conf_dict):
-        env = db_connect.create_env(
+        env = DBConnect.create_env(
             dbuser=conf_dict['user_name']
             , pwd=conf_dict['user_password']
             , conn_db=conf_dict['db1']
             , host=conf_dict['host'])
-        return db_connect(env=env)
+        return DBConnect(env=env)
 
     def init_args(self):
         """Initialize the args class.
@@ -256,11 +253,11 @@ class execute_test_action:
 
         :return: An instance of the `args` class
         """
-        cnfg = util.config_default.copy()
+        cnfg = Util.config_default.copy()
         cnfg['description'] = 'Run unit test cases on utility.'
         cnfg['positional_args_usage'] = None
 
-        args_handler = yb_common.args_handler(cnfg, init_default=False)
+        args_handler = ArgsHandler(cnfg, init_default=False)
 
         args_handler.args_process_init()
 
@@ -305,12 +302,12 @@ class execute_test_action:
 
         if args.python_exe:
             if os.access(args.python_exe, os.X_OK):
-                cmd_results = yb_common.common.call_cmd('%s --version'
+                cmd_results = Common.call_cmd('%s --version'
                     % args.python_exe)
                 self.test_py_version = (
                     int(cmd_results.stderr.split(' ')[1].split('.')[0]))
             else:
-                yb_common.common.error("'%s' is not found or not executable..."
+                Common.error("'%s' is not found or not executable..."
                     % args.python_exe)
         else:
             self.test_py_version = 3
@@ -321,20 +318,20 @@ class execute_test_action:
             args.host = self.config.hosts[0]
 
         if (args.host and not (args.host in self.config.hosts)):
-            yb_common.common.error("the '%s' host is not configured for testing,"
+            Common.error("the '%s' host is not configured for testing,"
                 " run 'test_create_host_objects.py' to create host db objects for testing"
                     % args.host, color='white')
         elif len(self.config.hosts) == 0:
-            yb_common.common.error("currently there are no hosts configures for testing,"
+            Common.error("currently there are no hosts configures for testing,"
                 " run 'test_create_host_objects.py' to create host db objects for testing"
                     , color='white')
         elif len(self.config.hosts) > 1 and not args.host:
-            yb_common.common.error("currently there is more than 1 host(%s) configures for testing,"
+            Common.error("currently there is more than 1 host(%s) configures for testing,"
                 " use the --host option or YBHOST environment variable to select a host"
                     % self.config.hosts, color='white')
 
         if bool(args.name) == args.all: # exclusive or
-            yb_common.common.error("either the option --test_name or --all must be specified not both")
+            Common.error("either the option --test_name or --all must be specified not both")
 
         self.test_case_files = []
         if args.name:
@@ -342,7 +339,7 @@ class execute_test_action:
             if os.access(test_case_file_path, os.R_OK):
                 self.test_case_files.append(test_case_file_path)
             else:
-                yb_common.common.error("test case '%s' has no test case file '%s'..."
+                Common.error("test case '%s' has no test case file '%s'..."
                     % (args.name, test_case_file_path))
         else:
             for test_case_file_path in glob.glob("%s/test_cases__*.py" % path):

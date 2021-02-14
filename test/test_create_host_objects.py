@@ -4,6 +4,7 @@
 import os, stat
 import time
 import sys
+import getpass
 path = os.path.dirname(__file__)
 if len(path) == 0:
     path = '.'
@@ -17,11 +18,7 @@ except:
 if hasattr(__builtins__, 'raw_input'):   # for python2
     input=raw_input
 
-import getpass
-from yb_util import util
-import yb_common
-from yb_common import text
-from yb_common import db_connect
+from yb_common import ArgsHandler, Common, DBConnect, Text, Util
 
 
 class create_objects:
@@ -30,21 +27,23 @@ class create_objects:
     def __init__(self):
         args_handler = self.init_args()
         args_handler.args.conn_db = 'yellowbrick'
-        db_conn = yb_common.db_connect(args_handler)
+        DBConn = DBConnect(args_handler)
 
-        if not(db_conn.ybdb['has_create_user'] and db_conn.ybdb['has_create_db']):
-            yb_common.common.error('You must login as a user with create database/'
+        if (not(DBConn.ybdb['is_super_user'])
+           and not(DBConn.ybdb['has_create_user']
+                and DBConn.ybdb['has_create_db'])):
+            Common.error('You must login as a user with create database/'
                 'user permission to create all the required test database objects...')
 
         configFilePath = '%s/%s' % (os.path.expanduser('~'), '.YbEasyCli')
         config = configparser.ConfigParser()
         config.read(configFilePath)
 
-        section = '%s_%s' % ('test', db_conn.env['host'])
+        section = '%s_%s' % ('test', DBConn.env['host'])
         if config.has_section(section):
-            yb_common.common.error("A test environment has already been set up for '%s',"
-                " first run test_drop_host_objects.py to clean up the old host objects..."
-                    % db_conn.env['host'], color='yellow')
+            Common.error("A test environment has already been set up for '%s',"
+                " first run test_drop_host_objects.py to clean up the old host objects or cleanup '%s'..."
+                    % (DBConn.env['host'], configFilePath), color='yellow')
 
         print('\nThe util testing framework requires a test user and 2 test databases.\n'
             "The test user may be an existing user, if the user doesn't exist it will be created.\n"
@@ -61,25 +60,25 @@ class create_objects:
 
         while True:
             test_pwd = getpass.getpass("    Supply the password for '%s': "
-                 % (yb_common.text.color(test_user, 'cyan')))
+                 % (Text.color(test_user, 'cyan')))
             if test_pwd != '':
                 config.set(section, 'password', test_pwd)
                 break
 
-        cmd_results = db_conn.ybsql_query("""SELECT TRUE FROM sys.user WHERE name = '%s'""" % (test_user))
+        cmd_results = DBConn.ybsql_query("""SELECT TRUE FROM sys.user WHERE name = '%s'""" % (test_user))
         if cmd_results.stdout.strip() == 't':
             # exits on failed connection
-            self.get_db_conn(test_user, test_pwd, db_conn.env['conn_db'], db_conn.env['host'])
-            #test_user_db_conn = self.get_db_conn(test_user, test_pwd
-            #    , db_conn.env['conn_db'], db_conn.env['host'], on_fail_exit=False)
+            self.get_DBConn(test_user, test_pwd, DBConn.env['conn_db'], DBConn.env['host'])
+            #test_user_DBConn = self.get_DBConn(test_user, test_pwd
+            #    , DBConn.env['conn_db'], DBConn.env['host'], on_fail_exit=False)
         else:
-            cmd_results = db_conn.ybsql_query("""CREATE USER %s PASSWORD '%s'"""
+            cmd_results = DBConn.ybsql_query("""CREATE USER %s PASSWORD '%s'"""
                 % (test_user, test_pwd))
             cmd_results.on_error_exit()
-            print("\nCreated database user '%s'..." % yb_common.text.color(test_user, 'cyan'))
+            print("\nCreated database user '%s'..." % Text.color(test_user, 'cyan'))
 
             self.test_user_login(test_user, test_pwd
-                , db_conn.env['conn_db'], db_conn.env['host'])
+                , DBConn.env['conn_db'], DBConn.env['host'])
 
         while True:
             test_db_prefix = input("\n    Supply the database prefix for the 2 test dbs: ")
@@ -90,7 +89,7 @@ class create_objects:
                 config.set(section, 'db2', test_db2)
                 break
 
-        cmd_results = db_conn.ybsql_query(
+        cmd_results = DBConn.ybsql_query(
             "CREATE DATABASE {db1} ENCODING=LATIN9; CREATE DATABASE {db2} ENCODING=UTF8;"
             " ALTER DATABASE {db1} OWNER TO {user};"
             " ALTER DATABASE {db2} OWNER TO {user};"
@@ -98,8 +97,8 @@ class create_objects:
             " GRANT CONNECT ON DATABASE {db2} TO {user};".format(
                 db1 = test_db1, db2 = test_db2, user = test_user))
         cmd_results.on_error_exit()
-        print("\nCreated '%s' as LATIN9 DB..." % yb_common.text.color(test_db1, 'cyan'))
-        print("Created '%s' as UTF8 DB..." % yb_common.text.color(test_db2, 'cyan'))
+        print("\nCreated '%s' as LATIN9 DB..." % Text.color(test_db1, 'cyan'))
+        print("Created '%s' as UTF8 DB..." % Text.color(test_db2, 'cyan'))
 
         config_fp = open(configFilePath, 'w')
         config.write(config_fp)
@@ -107,22 +106,22 @@ class create_objects:
         os.chmod(configFilePath, stat.S_IREAD | stat.S_IWRITE)
 
         self.config = config
-        self.host = db_conn.env['host']
+        self.host = DBConn.env['host']
         self.section = section
 
         self.create_db_objects()
 
     def get_db_conn(self, user=None, pwd=None, conn_db=None, host=None, on_fail_exit=True):
-        env = db_connect.create_env(
+        env = DBConnect.create_env(
             dbuser=user
             , pwd=pwd
             , conn_db=conn_db
             , host=host)
-        return db_connect(env=env, on_fail_exit=on_fail_exit)
+        return DBConnect(env=env, on_fail_exit=on_fail_exit)
 
     def test_user_login(self, user, pwd, db, host):
         print("Testing '%s' DB login, this may take 2 minutes..."
-            % yb_common.text.color(user, 'cyan'))
+            % Text.color(user, 'cyan'))
         for i in range(0,20):
             if i > 0:
                 time.sleep(5)
@@ -147,11 +146,11 @@ class create_objects:
 
         :return: An instance of the `args` class
         """
-        cnfg = util.config_default.copy()
+        cnfg = Util.config_default.copy()
         cnfg['description'] = 'Create test user, database, and database objects.'
         cnfg['positional_args_usage'] = None
 
-        args_handler = yb_common.args_handler(cnfg, init_default=False)
+        args_handler = ArgsHandler(cnfg, init_default=False)
 
         args_handler.args_process_init()
 
@@ -456,17 +455,17 @@ END;$CODE$
             , conn_db=self.config.get(self.section, 'db2')
             , host=self.host)
 
-        print("\nCreating '%s' database objects..." % yb_common.text.color(self.config.get(self.section, 'db1'), 'cyan'))
+        print("\nCreating '%s' database objects..." % Text.color(self.config.get(self.section, 'db1'), 'cyan'))
         for query in queries_create_objects_db1:
             print(query)
             cmd_results = db1_conn.ybsql_query(query)
 
-        print("\nCreating '%s' database objects..." % yb_common.text.color(self.config.get(self.section, 'db2'), 'cyan'))
+        print("\nCreating '%s' database objects..." % Text.color(self.config.get(self.section, 'db2'), 'cyan'))
         for query in queries_create_objects_db2:
             print(query)
             cmd_results = db2_conn.ybsql_query(query)
 
-        print("\nDropping select '%s' database objects..." % yb_common.text.color(self.config.get(self.section, 'db1'), 'cyan'))
+        print("\nDropping select '%s' database objects..." % Text.color(self.config.get(self.section, 'db1'), 'cyan'))
         for query in queries_upfront_db1_drops:
             print(query)
             cmd_results = db1_conn.ybsql_query(query)

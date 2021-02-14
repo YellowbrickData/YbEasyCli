@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_get_sequence_names.py [database] [options]
+      yb_get_sequence_names.py [options]
 
 PURPOSE:
       List the sequence names found in this database.
@@ -13,9 +13,9 @@ OPTIONS:
 Output:
       The names of all sequences will be listed out, one per line.
 """
-from yb_util import util
+from yb_common import Util
 
-class get_sequence_names(util):
+class get_sequence_names(Util):
     """Issue the ybsql command to list the sequences found in a particular
     database.
     """
@@ -25,7 +25,7 @@ class get_sequence_names(util):
         , 'optional_args_multi': ['owner', 'schema', 'sequence']
         , 'usage_example': {
             'cmd_line_args': "@$HOME/conn.args --schema_in dev Prod --sequence_like '%price%' --sequence_NOTlike '%id%' --"
-            , 'file_args': [util.conn_args_file] }
+            , 'file_args': [Util.conn_args_file] }
         , 'default_args': {'template': '{sequence_path}', 'exec_output': False}
         , 'output_tmplt_vars': ['sequence_path', 'schema_path', 'sequence', 'schema', 'database', 'owner']
         , 'output_tmplt_default': '{sequence_path}'

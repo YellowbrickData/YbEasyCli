@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_get_table_names.py [database] [options]
+      yb_get_table_names.py [options]
 
 PURPOSE:
       List the table names found in this database.
@@ -13,9 +13,9 @@ OPTIONS:
 Output:
       The fully qualified names of all tables will be listed out, one per line.
 """
-from yb_util import util
+from yb_common import Util
 
-class get_table_names(util):
+class get_table_names(Util):
     """Issue the command used to list the table names found in a particular
     database.
     """
@@ -25,7 +25,7 @@ class get_table_names(util):
         , 'optional_args_multi': ['owner', 'schema', 'table']
         , 'usage_example': {
             'cmd_line_args': "@$HOME/conn.args --schema_in Prod --table_in sales --"
-            , 'file_args': [util.conn_args_file] }
+            , 'file_args': [Util.conn_args_file] }
         , 'default_args': {'template': '{table_path}', 'exec_output': False}
         , 'output_tmplt_vars': ['table_path', 'schema_path', 'table', 'schema', 'database', 'owner']
         , 'output_tmplt_default': '{table_path}'

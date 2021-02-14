@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_find_columns.py [database] [options]
+      yb_find_columns.py [options]
 
 PURPOSE:
       List all columns found for the provided filter.
@@ -13,9 +13,9 @@ OPTIONS:
 Output:
       The column names and column attributes for filtered columns.
 """
-from yb_util import util
+from yb_common import Util
 
-class find_columns(util):
+class find_columns(Util):
     """Issue the ybsql command used to list the column names comprising an
     object.
     """
@@ -25,7 +25,7 @@ class find_columns(util):
         , 'optional_args_multi': ['owner', 'schema', 'table', 'column', 'datatype']
         , 'usage_example': {
             'cmd_line_args': "@$HOME/conn.args --datatype_like 'CHAR%' 'TIME%' --"
-            , 'file_args': [util.conn_args_file] }
+            , 'file_args': [Util.conn_args_file] }
         , 'default_args': {'template': '<raw>', 'exec_output': False}
         , 'output_tmplt_vars': ['column_path', 'table_path', 'schema_path', 'column', 'ordinal', 'data_type', 'table_ordinal', 'schema', 'database', 'owner']
         , 'output_tmplt_default': '-- Table: {table_path}, Column: {column}, Table Ordinal: {table_ordinal}, Data Type: {data_type}'

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_get_view_name.py [database] view [options]
+      yb_get_view_name.py [options]
 
 PURPOSE:
       Verifies that the specified view exists.
@@ -13,9 +13,9 @@ OPTIONS:
 Output:
       If the view exists, it's fully qualified name will be echoed back out.
 """
-from yb_util import util
+from yb_common import Util
 
-class get_view_name(util):
+class get_view_name(Util):
     """Issue the ybsql command used to verify that the specified view exists."""
     config = {
         'description': 'List/Verifies that the specified view exists.'
@@ -23,7 +23,7 @@ class get_view_name(util):
         , 'optional_args_single': ['owner', 'database', 'schema']
         , 'usage_example': {
             'cmd_line_args': '@$HOME/conn.args --schema Prod --view sales_v --'
-            , 'file_args': [util.conn_args_file] }
+            , 'file_args': [Util.conn_args_file] }
         , 'db_filter_args': {'owner':'v.viewowner','schema':'v.schemaname','view':'v.viewname'} }
 
     def execute(self):

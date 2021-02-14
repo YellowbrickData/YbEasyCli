@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_get_column_names.py [database] object [options]
+      yb_get_column_names.py [options]
 
 PURPOSE:
       List the column names comprising an object.
@@ -13,9 +13,9 @@ OPTIONS:
 Output:
       The column names for the object will be listed out, one per line.
 """
-from yb_util import util
+from yb_common import Util
 
-class get_column_names(util):
+class get_column_names(Util):
     """Issue the ybsql command used to list the column names comprising an
     object.
     """
@@ -26,7 +26,7 @@ class get_column_names(util):
         , 'optional_args_multi': ['owner', 'schema', 'column']
         , 'usage_example': {
             'cmd_line_args': "@$HOME/conn.args --schema dev -- sales"
-            , 'file_args': [util.conn_args_file] }
+            , 'file_args': [Util.conn_args_file] }
         , 'default_args': {'template': '<raw>', 'exec_output': False}
         , 'output_tmplt_vars': ['column_path', 'object_path', 'schema_path', 'column', 'table', 'schema', 'database', 'owner']
         , 'output_tmplt_default': '{column}'
