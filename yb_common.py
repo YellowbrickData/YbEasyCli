@@ -1329,7 +1329,7 @@ class Report:
         elif args.report_type in ('ctas', 'insert'):
             from yb_sys_query_to_user_table import sys_query_to_user_table
 
-            args_handler = copy.deepcopy(self.args_handler)
+            args_handler = copy.copy(self.args_handler)
             if args.report_type == 'ctas':
                 args_handler.args.create_table = True
             args_handler.args.query = query
