@@ -153,53 +153,11 @@ test_cases = [
     , test_case(
         cmd='yb_get_column_type.py @{argsdir}/db1 --schema dev col1'
         , exit_code=1
-        , stdout="""usage: yb_get_column_type.py [options]
-
-Return the data type of the requested column.
-
-optional argument file/s:
-  @arg_file             file containing arguments
-                        to enter multi-line argument, use: --arg ""\"multi-line value""\"
-
-optional arguments:
-  --help, --usage, -u   display this help message and exit
-  --verbose {{1,2,3}}     display verbose execution{{1 - info, 2 - debug, 3 - extended}}
-  --nocolor             turn off colored text output
-  --version, -v         display the program version and exit
-
-connection arguments:
-  --host HOST, -h HOST, -H HOST
-                        database server hostname, overrides YBHOST env variable
-  --port PORT, -p PORT, -P PORT
-                        database server port, overrides YBPORT env variable, the default port is
-                        5432
-  --dbuser DBUSER, -U DBUSER
-                        database user, overrides YBUSER env variable
-  --conn_db CONN_DB, --db CONN_DB, -d CONN_DB, -D CONN_DB
-                        database to connect to, overrides YBDATABASE env variable
-  --current_schema CURRENT_SCHEMA
-                        current schema after db connection
-  -W                    prompt for password instead of using the YBPASSWORD env variable
-
-required database object filter arguments:
-  --table TABLE_NAME    table name
-  --column COLUMN_NAME  column name
-
-optional database object filter arguments:
-  --owner OWNER_NAME    owner name
-  --database DATABASE_NAME
-                        database name
-  --schema SCHEMA_NAME  schema name, defaults to CURRENT_SCHEMA
-
-example usage:
-  ./yb_get_column_type.py @$HOME/conn.args --schema dev --table sales --column price --
-
-  file '$HOME/conn.args' contains:
-    --host yb89
-    --dbuser dze
-    --conn_db stores"""
+        , stdout=""
         , stderr=(
-        """yb_get_column_type.py: error: the following arguments are required: --table, --column"""
+        """yb_get_column_type.py: error: the following arguments are required: --table, --column
+for complete help, execute: yb_get_column_type.py --help"""
         if self.test_py_version == 3
-        else """yb_get_column_type.py: error: argument --table is required"""))
+        else """yb_get_column_type.py: error: argument --table is required
+for complete help, execute: yb_get_column_type.py --help"""))
 ]
