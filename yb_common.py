@@ -24,7 +24,6 @@ def signal_handler(signal, frame):
 
 signal.signal(signal.SIGINT, signal_handler)
 
-
 class Common:
     version = '20210214'
     verbose = 0
@@ -1363,7 +1362,7 @@ class Util:
         , 'output_tmplt_default': None
         , 'db_filter_args': {}
         , 'additional_args': None
-        , 'report': None }
+        , 'report_columns': None }
 
     def __init__(self, db_conn=None, args_handler=None, init_default=True, util_name=None):
         if util_name:
