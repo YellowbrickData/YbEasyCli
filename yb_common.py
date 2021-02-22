@@ -25,7 +25,7 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 class Common:
-    version = '20210214'
+    version = '20210222'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -380,14 +380,14 @@ class ArgsHandler:
         args_optional_grp = self.args_parser.add_argument_group('optional report arguments')
         args_optional_grp.add_argument("--report_type"
             , choices=['formatted', 'psv', 'ctas', 'insert'], default='formatted'
-            , help=("formatted: output a formatted report, psv: output pipe seperated row data,"
+            , help=("formatted: output a formatted report psv: output pipe seperated row data,"
                 " ctas: create a table containing the report data,"
-                " insert: insert report data in a an existing table, defaults to formatted") )
+                " insert: insert report data into an existing table, defaults to formatted") )
         args_optional_grp.add_argument("--report_dst_table", metavar='table'
-            , help="report destination table applies for report_type 'ctas' and 'insert' only")
+            , help="report destination table applies to report_type 'ctas' and 'insert' only")
         args_optional_grp.add_argument("--report_include_columns"
             , nargs='+', metavar='column'
-            , help="list of column names to include in the report, the report will be created in the column order supplied")
+            , help="limit the report to the list of column names, the report will be created in the column order supplied")
         args_optional_grp.add_argument("--report_exclude_columns"
             , nargs='+', metavar='column'
             , help="list of column names to exclude from the report")
@@ -1552,6 +1552,21 @@ SELECT * FROM clstr
                 cluster_info[headers[index]] = data[0][index]
         
         return cluster_info
+
+    def schema_with_db_query(self):
+        """This method creates a schema info query that returns the same columns regardless YB version
+        """
+        if self.db_conn.ybdb['version_major'] == 3:
+            databases = self.get_dbs()
+            schema_sql = "SELECT NULL::VARCHAR AS database, NULL::BIGINT AS schema_id, NULL::VARCHAR AS name"
+            for database in databases:
+                schema_sql += "\n    UNION ALL SELECT '%s', schema_id, name FROM %s.sys.schema" % (
+                    database, database)
+        else:
+            schema_sql = """SELECT d.name AS database, schema_id, s.name
+    FROM sys.database AS d JOIN sys.schema AS s USING (database_id)"""
+
+        return schema_sql
 
     @staticmethod
     def ybsql_py_key_values_to_py_dict(ybsql_py_key_values):
