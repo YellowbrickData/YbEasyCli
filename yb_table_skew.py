@@ -27,8 +27,7 @@ class table_skew(Util):
         , 'usage_example': {
             'cmd_line_args': '@$HOME/conn.args @$HOME/skew_report.args'
             , 'file_args': [ Util.conn_args_file
-                , {'$HOME/skew_report.args': """--print_as_table
---skew_pct_metric disk_skew_max_pct_of_wrkr
+                , {'$HOME/skew_report.args': """--skew_pct_column disk_skew_max_pct_of_wrkr
 --skew_pct_min 0.005
 --report_include_columns \"\"\"
 owner database schema table
@@ -45,7 +44,7 @@ clstr AS (
     {cluster_info_sql}
 )
 , schema AS (
-    {schema_sql}
+    {schema_with_db_sql}
 )
 , table_storage_agg AS (
     /* sys.table_storage is by table and worker */
@@ -178,44 +177,31 @@ WHERE
 """
     def additional_args(self):
         args_optional_filter_grp = self.args_handler.args_parser.add_argument_group('optional report filter arguments')
-        pct_metrics = [
+        pct_columns = [
             'disk_skew_max_pct_of_wrkr', 'disk_skew_avg_pct_of_wrkr'
             , 'disk_skew_max_pct_of_tbl', 'disk_skew_avg_pct_of_tbl'
             , 'row_skew_max_pct_of_tbl', 'row_skew_avg_pct_of_tbl']
-        args_optional_filter_grp.add_argument("--skew_pct_metric"
-            , choices = pct_metrics
-            , help="limit the report by the selected skew precent metric")
+        args_optional_filter_grp.add_argument("--skew_pct_column"
+            , choices = pct_columns
+            , help="limit the report by the selected skew percent column")
         args_optional_filter_grp.add_argument("--skew_pct_min"
             , type=float
-            , help="limit the report by the selected metric with the specified minimum percent")
+            , help="limit the report by the selected column with the specified minimum percent")
 
     def additional_args_process(self):
         args = self.args_handler.args
-        if (bool(args.skew_pct_metric) != bool(args.skew_pct_min)):
-            self.args_handler.args_parser.error('both --skew_pct_metric and --skew_pct_min must be set')
-        elif args.skew_pct_metric:
-            args.report_sort_column = args.skew_pct_metric
+        if (bool(args.skew_pct_column) != bool(args.skew_pct_min)):
+            self.args_handler.args_parser.error('both --skew_pct_column and --skew_pct_min must be set')
+        elif args.skew_pct_column:
+            args.report_sort_column = args.skew_pct_column
             args.report_sort_reverse = True
-
-    def schema_sql(self):
-        if self.db_conn.ybdb['version_major'] == 3:
-            databases = self.get_dbs()
-            schema_sql = "SELECT NULL::VARCHAR AS database, NULL::BIGINT AS schema_id, NULL::VARCHAR AS name"
-            for database in databases:
-                schema_sql += "\n    UNION ALL SELECT '%s', schema_id, name FROM %s.sys.schema" % (
-                    database, database)
-        else:
-            schema_sql = """SELECT d.name AS database, schema_id, s.name
-    FROM sys.database AS d JOIN sys.schema AS s USING (database_id)"""
-
-        return schema_sql
 
     def execute(self):
         self.db_filter_args.schema_set_all_if_none()
 
-        if self.args_handler.args.skew_pct_metric:
+        if self.args_handler.args.skew_pct_column:
             pct_filter_clause = '%s >= %f' % (
-                self.args_handler.args.skew_pct_metric
+                self.args_handler.args.skew_pct_column
                 , self.args_handler.args.skew_pct_min)
         else:
             pct_filter_clause = 'TRUE'
@@ -223,7 +209,7 @@ WHERE
         cluster_info_sql = self.get_cluster_info(return_format='sql')
 
         report_query = self.query_skew.format(
-            schema_sql = self.schema_sql()
+            schema_with_db_sql = self.schema_with_db_sql()
             , filter_clause = self.db_filter_sql()
             , pct_filter_clause = pct_filter_clause
             , cluster_info_sql = cluster_info_sql)
