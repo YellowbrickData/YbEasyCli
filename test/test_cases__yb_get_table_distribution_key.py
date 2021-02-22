@@ -4,9 +4,9 @@ test_cases = [
         , exit_code=1
         , stdout=""
         , stderr=(
-        """yb_get_table_distribution_key.py: error: the following arguments are required: --table
+        """yb_get_table_distribution_key.py: error: argument --table is required
 for complete help, execute: yb_get_table_distribution_key.py --help"""
-        if self.test_py_version == 3
+        if self.test_py_version == 2
         else """yb_get_table_distribution_key.py: error: the following arguments are required: --table
 for complete help, execute: yb_get_table_distribution_key.py --help"""))
 
