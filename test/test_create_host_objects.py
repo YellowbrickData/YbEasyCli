@@ -375,7 +375,7 @@ BEGIN
     RAISE INFO '%%', pg_typeof(v_rec.col7);
     RAISE INFO '%%', pg_typeof(v_rec.col8);
     RAISE INFO '%%', pg_typeof(v_rec.col9);
-    RAISE INFO '%%, pg_typeof(v_rec.col10);
+    RAISE INFO '%%', pg_typeof(v_rec.col10);
     RAISE INFO '%%', pg_typeof(v_rec.col11);
     RAISE INFO '%%', pg_typeof(v_rec.col12);
     RAISE INFO '%%', pg_typeof(v_rec.col13);

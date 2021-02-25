@@ -71,7 +71,36 @@ END;$CODE$"""
 
     , test_case(cmd='yb_ddl_stored_proc.py @{argsdir}/db1 --schema_in Prod'
         , exit_code=0
-        , stdout="""CREATE PROCEDURE query_definer_p(bigint DEFAULT 1, numeric DEFAULT 1)
+        , stdout="""CREATE PROCEDURE get_data_types_p()
+ RETURNS void
+ LANGUAGE plpgsql
+AS $CODE$
+DECLARE
+ v_rec RECORD;
+BEGIN
+    SELECT * INTO v_rec FROM dev.data_types_t WHERE FALSE;
+    RAISE INFO '%', pg_typeof(v_rec.col1);
+    RAISE INFO '%', pg_typeof(v_rec.col2);
+    RAISE INFO '%', pg_typeof(v_rec.col3);
+    RAISE INFO '%', pg_typeof(v_rec.col4);
+    RAISE INFO '%', pg_typeof(v_rec.col5);
+    RAISE INFO '%', pg_typeof(v_rec.col6);
+    RAISE INFO '%', pg_typeof(v_rec.col7);
+    RAISE INFO '%', pg_typeof(v_rec.col8);
+    RAISE INFO '%', pg_typeof(v_rec.col9);
+    RAISE INFO '%', pg_typeof(v_rec.col10);
+    RAISE INFO '%', pg_typeof(v_rec.col11);
+    RAISE INFO '%', pg_typeof(v_rec.col12);
+    RAISE INFO '%', pg_typeof(v_rec.col13);
+    RAISE INFO '%', pg_typeof(v_rec.col14);
+    RAISE INFO '%', pg_typeof(v_rec.col15);
+    RAISE INFO '%', pg_typeof(v_rec.col16);
+    RAISE INFO '%', pg_typeof(v_rec.col17);
+    RAISE INFO '%', pg_typeof(v_rec.col18);
+    RAISE INFO '%', pg_typeof(v_rec.col19);
+END;$CODE$
+
+CREATE PROCEDURE query_definer_p(bigint DEFAULT 1, numeric DEFAULT 1)
  RETURNS void
  LANGUAGE plpgsql
  SECURITY DEFINER

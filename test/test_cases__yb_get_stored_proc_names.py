@@ -1,9 +1,11 @@
 test_cases = [
     test_case(cmd='yb_get_stored_proc_names.py @{argsdir}/db1'
         , exit_code=0
-        , stdout="""{db1}.dev.query_definer_p
+        , stdout="""{db1}.dev.get_data_types_p
+{db1}.dev.query_definer_p
 {db1}.dev.test_error_p
 {db1}.dev."test_Raise_p"
+{db1}."Prod".get_data_types_p
 {db1}."Prod".query_definer_p
 {db1}."Prod".test_error_p
 {db1}."Prod"."test_Raise_p" """
@@ -16,9 +18,11 @@ test_cases = [
 
     , test_case(cmd="yb_get_stored_proc_names.py @{argsdir}/db1 --output_template 'database: {{database}}, schema: {{schema}}, proc: {{stored_proc}}'"
         , exit_code=0
-        , stdout="""database: {db1}, schema: dev, proc: query_definer_p
+        , stdout="""database: {db1}, schema: dev, proc: get_data_types_p
+database: {db1}, schema: dev, proc: query_definer_p
 database: {db1}, schema: dev, proc: test_error_p
 database: {db1}, schema: dev, proc: "test_Raise_p"
+database: {db1}, schema: "Prod", proc: get_data_types_p
 database: {db1}, schema: "Prod", proc: query_definer_p
 database: {db1}, schema: "Prod", proc: test_error_p
 database: {db1}, schema: "Prod", proc: "test_Raise_p" """
