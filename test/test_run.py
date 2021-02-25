@@ -20,7 +20,7 @@ import re
 import shutil
 import getpass
 import difflib
-from yb_common import ArgsHandler, Common, DBConnect, Text, Util
+from yb_common import ArgsHandler, Cmd, Common, DBConnect, Text, Util
 
 class SafeDict(dict):
     def __missing__(self, key):
@@ -53,7 +53,7 @@ class test_case:
         section = 'test_%s' % args.host
         os.environ['YBPASSWORD'] = config.get(section, 'password')
 
-        self.cmd_results = Common.call_cmd(cmd)
+        self.cmd_results = Cmd(cmd)
 
         self.check()
 
@@ -302,7 +302,7 @@ class execute_test_action:
 
         if args.python_exe:
             if os.access(args.python_exe, os.X_OK):
-                cmd_results = Common.call_cmd('%s --version'
+                cmd_results = Cmd('%s --version'
                     % args.python_exe)
                 self.test_py_version = (
                     int(cmd_results.stderr.split(' ')[1].split('.')[0]))

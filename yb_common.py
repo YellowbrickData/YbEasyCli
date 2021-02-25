@@ -25,7 +25,7 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 class Common:
-    version = '20210222'
+    version = '20210225'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -57,71 +57,6 @@ class Common:
                 Common.error(ioe)
 
         return data
-
-    @staticmethod
-    def call_cmd(cmd_str, escape_dollar=True, stack_level=2):
-        """Spawn a new process to execute the given command.
-
-        Example: results = call_cmd('env | grep -i path')
-
-        :param cmd_str: The string representing the command to execute
-        :param stack_level: A number signifying the limit of stack trace
-                            entries (Default value = 2)
-        :return: The result produced by running the given command
-        """
-        if Common.verbose >= 2:
-            trace_line = traceback.extract_stack(None, stack_level)[0]
-            print(
-                '%s: %s, %s: %s, %s: %s\n%s\n%s'
-                % (
-                    Text.color('--In file', style='bold')
-                    , Text.color(trace_line[0], 'cyan')
-                    , Text.color('Function', style='bold')
-                    , Text.color(trace_line[2], 'cyan')
-                    , Text.color('Line', style='bold')
-                    , Text.color(trace_line[1], 'cyan')
-                    , Text.color('--Executing--', style='bold')
-                    , cmd_str))
-        elif Common.verbose >= 1:
-            print('%s: %s'
-                % (Text.color('Executing', style='bold'), cmd_str))
-
-        if escape_dollar:
-            cmd_str = cmd_str.replace('$','\$')
-
-        start_time = datetime.now()
-        p = subprocess.Popen(
-            cmd_str
-            , stdout=subprocess.PIPE
-            , stderr=subprocess.PIPE
-            , shell=True)
-        #(stdout, stderr) = map(bytes.decode, p.communicate())
-
-        #TODO change the decode to reflect coding used in the DB connection
-        (stdout, stderr) = p.communicate()
-        stdout = stdout.decode("utf-8", errors='ignore')
-        stderr = stderr.decode("utf-8", errors='ignore')
-
-        end_time = datetime.now()
-
-        results = CmdResults(p.returncode, stdout, stderr)
-
-        if Common.verbose >= 2:
-            print(
-                '%s: %s\n%s: %s\n%s\n%s%s\n%s'
-                % (
-                    Text.color('--Execution duration', style='bold')
-                    , Text.color(end_time - start_time, fg='cyan')
-                    , Text.color('--Exit code', style='bold')
-                    , Text.color(
-                        str(results.exit_code)
-                        , fg=('red' if results.exit_code else 'cyan'))
-                    , Text.color('--Stdout--', style='bold')
-                    , results.stdout.rstrip()
-                    , Text.color('--Stderr--', style='bold')
-                    , Text.color(results.stderr.rstrip(), fg='red')))
-
-        return results
 
     @staticmethod
     def ts(self):
@@ -193,6 +128,93 @@ class Common:
 
         return tokens
 
+class Cmd:
+    cmd_ct = 0
+    def __init__(self, cmd_str, escape_dollar=True, stack_level=2, wait=True):
+        """Spawn a new process to execute the given command.
+
+        Example: cmd = Cmd('env | grep -i path')
+
+        :param cmd_str: string, representing the command to execute
+        :param escape_dollar: boolean, places a back slash before each $ in the cmd
+        :param stack_level: number, used in verbose mode to print where in the python
+                            code this Cmd was called
+        :param wait: boolean, wait on the cmd results
+        """
+        Cmd.cmd_ct += 1
+        self.cmd_id = Cmd.cmd_ct
+
+        if Common.verbose >= 2:
+            trace_line = traceback.extract_stack(None, stack_level)[0]
+            print(
+                '%s: %s, %s: %s, %s: %s\n%s\n%s'
+                % (
+                    Text.color('--In file', style='bold')
+                    , Text.color(trace_line[0], 'cyan')
+                    , Text.color('Function', style='bold')
+                    , Text.color(trace_line[2], 'cyan')
+                    , Text.color('Line', style='bold')
+                    , Text.color(trace_line[1], 'cyan')
+                    , Text.color('--Cmd Id(%d) Executing--' % self.cmd_id, style='bold')
+                    , cmd_str))
+        elif Common.verbose >= 1:
+            print('%s: %s'
+                % (Text.color('Executing', style='bold'), cmd_str))
+
+        if escape_dollar:
+            cmd_str = cmd_str.replace('$','\$')
+
+        self.start_time = datetime.now()
+        self.p = subprocess.Popen(
+            cmd_str
+            , stdout=subprocess.PIPE
+            , stderr=subprocess.PIPE
+            , shell=True)
+        if wait:
+            self.wait()
+
+    def wait(self):
+        #(stdout, stderr) = map(bytes.decode, p.communicate())
+        #TODO change the decode to reflect coding used in the DB connection
+        (stdout, stderr) = self.p.communicate()
+        self.exit_code = self.p.returncode
+        self.stdout = stdout.decode("utf-8", errors='ignore')
+        self.stderr = stderr.decode("utf-8", errors='ignore')
+
+        end_time = datetime.now()
+
+        if Common.verbose >= 2:
+            print(
+                '%s: %s\n%s: %s\n%s\n%s%s\n%s'
+                % (
+                    Text.color('--Cmd Id(%d) Execution duration ' % self.cmd_id, style='bold')
+                    , Text.color(end_time - self.start_time, fg='cyan')
+                    , Text.color('--Exit code', style='bold')
+                    , Text.color(
+                        str(self.exit_code)
+                        , fg=('red' if self.exit_code else 'cyan'))
+                    , Text.color('--Stdout--', style='bold')
+                    , self.stdout.rstrip()
+                    , Text.color('--Stderr--', style='bold')
+                    , Text.color(self.stderr.rstrip(), fg='red')))
+
+    def write(self, head='', tail='', quote=False):
+        sys.stdout.write(head)
+        if self.stdout != '':
+            sys.stdout.write(
+                Common.quote_object_paths(self.stdout)
+                if quote
+                else self.stdout)
+        if self.stderr != '':
+            Common.error(self.stderr, no_exit=True)
+        else:
+            sys.stdout.write(tail)
+
+    def on_error_exit(self, write=True):
+        if self.stderr != '' or self.exit_code != 0:
+            if write:
+                self.write()
+            exit(self.exit_code)
 
 class ArgsHandler:
     """This class contains functions used for argument parsing
@@ -503,32 +525,6 @@ class IntRange:
         else:
             return argparse.ArgumentTypeError(
                 "Must be an integer")
-
-
-class CmdResults:
-
-    def __init__(self, exit_code, stdout, stderr):
-        self.exit_code = exit_code
-        self.stdout = stdout
-        self.stderr = stderr
-
-    def write(self, head='', tail='', quote=False):
-        sys.stdout.write(head)
-        if self.stdout != '':
-            sys.stdout.write(
-                Common.quote_object_paths(self.stdout)
-                if quote
-                else self.stdout)
-        if self.stderr != '':
-            Common.error(self.stderr, no_exit=True)
-        else:
-            sys.stdout.write(tail)
-
-    def on_error_exit(self, write=True):
-        if self.stderr != '' or self.exit_code != 0:
-            if write:
-                self.write()
-            exit(self.exit_code)
 
 class DBFilterArgs:
     """Class that handles database objects that are used as a filter 
@@ -1074,6 +1070,7 @@ WHERE rolname = CURRENT_USER""")
                             ';export YBDATABASE=%s'
                                 % os.environ.get("YBDATABASE")))
         """
+
     ybsql_call_count = 0
     def ybsql_query(self, sql_statement
         , options = '-A -q -t -v ON_ERROR_STOP=1 -X'):
@@ -1110,10 +1107,10 @@ eof""" % (
             , sql_statement)
 
         self.set_env(self.env)
-        cmd_results = Common.call_cmd(ybsql_cmd, stack_level=3)
+        cmd = Cmd(ybsql_cmd, stack_level=3)
         self.set_env(self.env_pre)
 
-        return cmd_results
+        return cmd
 
     def call_stored_proc_as_anonymous_block(self
         , stored_proc
@@ -1553,7 +1550,7 @@ SELECT * FROM clstr
         
         return cluster_info
 
-    def schema_with_db_query(self):
+    def schema_with_db_sql(self):
         """This method creates a schema info query that returns the same columns regardless YB version
         """
         if self.db_conn.ybdb['version_major'] == 3:
@@ -1658,8 +1655,8 @@ convert_arg_line_to_args.arg_ct = 0
 if __name__ == "__main__":
     if Common.verbose >= 3:
         # Print extended information on the environment running this program
-        print('--->%s\n%s' % ("(Common.call_cmd('lscpu')).stdout",
-                              Common.call_cmd('lscpu').stdout))
+        print('--->%s\n%s' % ("(Cmd('lscpu')).stdout",
+                              Cmd('lscpu').stdout))
         print('--->%s\n%s' % ("platform.platform()", platform.platform()))
         print('--->%s\n%s' % ("platform.python_implementation()",
                               platform.python_implementation()))
