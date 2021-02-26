@@ -217,7 +217,10 @@ class yb_to_yb_copy_table(Util):
         self.args_handler.args.table = Common.quote_object_paths(self.args_handler.args.src_table)
         self.args_handler.args.column = 'rowunique'
         self.args_handler.args.column_cardinality = 'high'
-        self.args_handler.args.table_where_clause = self.args_handler.args.where_clause
+        if self.args_handler.args.where_clause:
+            self.args_handler.args.table_where_clause = self.args_handler.args.where_clause
+        else:
+            self.args_handler.args.table_where_clause = 'TRUE'
 
         cdml = chunk_dml_by_integer(db_conn=self.src_conn, args_handler=self.args_handler)
         cdml.execute()
