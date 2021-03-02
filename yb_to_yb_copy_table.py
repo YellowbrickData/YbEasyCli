@@ -20,7 +20,7 @@ import re
 import random
 from datetime import datetime
 
-from yb_common import ArgsHandler, Cmd, Common, DBConnect, IntRange, Text, Util
+from yb_common import ArgsHandler, Cmd, Common, DBConnect, DBFilterArgs, IntRange, Text, Util
 from yb_chunk_dml_by_integer import chunk_dml_by_integer
 
 class yb_to_yb_copy_table(Util):
@@ -35,6 +35,7 @@ class yb_to_yb_copy_table(Util):
             '\n  If the src and dst user password differ use SRC_YBPASSWORD and DST_YBPASSWORD env variables.'
             '\n  For manual password entry unset all env passwords or use the --src_W and --dst_W options.')
         , 'positional_args_usage': None
+        #, 'output_tmplt_vars': ['ddl']
         , 'usage_example': {
             'cmd_line_args': "@$HOME/conn.args --unload_where_clause 'sale_id BETWEEN 1000 AND 2000' --src_table Prod.sales --dst_table dev.sales --log_dir tmp --"
             , 'file_args': [ {'$HOME/conn.args': """--src_host yb14
@@ -92,6 +93,8 @@ class yb_to_yb_copy_table(Util):
         copy_table_o_grp.add_argument(
             "--unload_where_clause", dest='where_clause'
             , help=("SQL clause which filters the rows to copy from the source table"))
+        copy_table_o_grp.add_argument("--create_dst_table", action="store_true"
+            , help="create destination table from source table ddl before copying table")
         copy_table_o_grp.add_argument(
             "--chunk_rows", dest="chunk_rows", metavar='ROWS'
             , type=IntRange(1,9223372036854775807)
@@ -122,6 +125,13 @@ class yb_to_yb_copy_table(Util):
             del os.environ['YBPASSWORD']
 
     def additional_args_process(self):
+        if self.args_handler.args.create_dst_table:
+            self.src_to_dst_table_ddl(
+                self.args_handler.args.src_table, self.args_handler.args.dst_table
+                , self.src_conn, self.dst_conn
+                , self.args_handler)
+            print('-- created destination table: %s' % self.args_handler.args.dst_table)
+
         #thread use may have severe impact on the YB cluster, so I'm limiting it to super users
         if (self.args_handler.args.threads > 1
             and not self.src_conn.ybdb['is_super_user']
@@ -163,7 +173,7 @@ class yb_to_yb_copy_table(Util):
             src_host = self.src_conn.env['host']
             , port_option = (' --port %s' % self.args_handler.args.src_port if self.args_handler.args.src_port else '')
             , src_user = self.src_conn.env['dbuser']
-            , src_db = self.src_conn.env['conn_db']
+            , src_db = self.src_conn.database
             , delimiter = self.args_handler.args.delimiter
             , log_file_name = (self.log_file_name_template.format(log_type='ybunload'))
             , additionl_options = (' %s' % self.args_handler.args.ybunload_options if self.args_handler.args.ybunload_options else ''))
@@ -193,7 +203,7 @@ class yb_to_yb_copy_table(Util):
             dst_host = self.dst_conn.env['host']
             , port_option = (' --port %s' % self.args_handler.args.dst_port if self.args_handler.args.dst_port else '')
             , dst_user = self.dst_conn.env['dbuser']
-            , dst_db = self.dst_conn.env['conn_db']
+            , dst_db = self.dst_conn.database
             , dst_table = Common.quote_object_paths(self.args_handler.args.dst_table)
             , delimiter = self.args_handler.args.delimiter
             , log_file_name = (self.log_file_name_template.format(log_type='ybload'))
@@ -272,7 +282,7 @@ class yb_to_yb_copy_table(Util):
                 cmd.wait()
 
                 loaded = False
-                print('---------------- %s%s -------------------'
+                print('-- %s%s'
                     % (CofC, cmd.TofT))
                 if cmd.exit_code == 0:
                     ybload_log_file_name = self.log_file_name_template.format(

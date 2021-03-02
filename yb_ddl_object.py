@@ -71,12 +71,8 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
         'optional_args_single': ['database']
         , 'output_tmplt_default': '{ddl}{^M}' }
 
-    def init(self, object_type, db_conn=None, args_handler=None):
-        """Initialize ddl_object class.
-
-        This initialization performs argument parsing and login verification.
-        It also provides access to functions such as logging and command
-        execution.
+    def init_config(self, object_type):
+        """Initialize config dict.
         """
         cmd_line_args = {
             'sequence' : "@$HOME/conn.args --current_schema dev --sequence_like '%id%' --"
@@ -99,6 +95,15 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
             , object_type, 'schema', 'database', 'owner'])
 
         self.object_type = object_type
+
+    def init(self, object_type, db_conn=None, args_handler=None):
+        """Initialize ddl_object class.
+
+        This initialization performs argument parsing and login verification.
+        It also provides access to functions such as logging and command
+        execution.
+        """
+        self.init_config(object_type)
         self.init_default(db_conn, args_handler)
 
     def additional_args(self):

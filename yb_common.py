@@ -25,7 +25,7 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 class Common:
-    version = '20210226'
+    version = '20210301'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -62,6 +62,16 @@ class Common:
     def ts(self):
         """Get the current time (for time stamping)"""
         return str(datetime.now())
+
+    @staticmethod
+    def split_db_object_name(object_name):
+        """Break a fully or partially qualified DB object name into parts"""
+        name_list = object_name.split('.')
+        name_list.reverse()
+        table = name_list[0]
+        schema = name_list[1] if len(name_list) > 1 else None
+        database = name_list[2] if len(name_list) > 2 else None
+        return database, schema, table
 
     @staticmethod
     def quote_object_paths(object_paths):
@@ -1455,6 +1465,33 @@ class Util:
     def additional_args_process(self):
         None
 
+    def src_to_dst_table_ddl(self, src_table, dst_table, src_db_conn, dst_db_conn, in_args_handler):
+        from yb_ddl_object import ddl_object
+
+        (src_database, src_schema, src_table) = Common.split_db_object_name(src_table)
+        args_handler = copy.deepcopy(in_args_handler)
+        db_conn = copy.deepcopy(src_db_conn)
+
+        if src_database:
+            db_conn.database = src_database
+            db_conn.env['conn_db'] = src_database
+
+        ddlo = ddl_object(db_conn=db_conn, args_handler=args_handler)
+
+        ddlo.init_config('table')
+        args_handler.args.schema = src_schema if src_schema else db_conn.schema
+        args_handler.args.table = src_table
+        args_handler.args.template = '{ddl}'
+        args_handler.args.with_schema = False
+        args_handler.args.with_db = False
+        args_handler.args.exec_output = False
+        args_handler.db_filter_args = DBFilterArgs(['schema', 'table'], [], [], args_handler)
+        ddl = ddlo.execute()
+
+        ddl = re.sub(r'^CREATE TABLE[^(]*', 'CREATE TABLE %s ' % Common.quote_object_paths(dst_table), ddl)
+        cmd = dst_db_conn.ybsql_query(ddl)
+        cmd.on_error_exit()
+        
     def get_dbs(self, filter_clause=None):
         filter_clause = self.db_filter_args.build_sql_filter({'database':'db_name'})
 
