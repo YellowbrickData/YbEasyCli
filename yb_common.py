@@ -25,17 +25,13 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 class Common:
-    version = '20210301'
+    version = '20210316'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
     util_file_name = os.path.basename(os.path.realpath(sys.argv[0]))
     util_name = util_file_name.split('.')[0]
-
-    def __init__(self):
-        """Create an instance of the common library used by all utilities
-        """
-        self.start_ts = datetime.now()
+    start_ts = datetime.now()
 
     @staticmethod
     def error(msg, exit_code=1, color='red', no_exit=False):
@@ -1312,7 +1308,7 @@ class Report:
     def build(self):
         query = ''
         for column in self.columns:
-            query += '%s%s' % (('SELECT\n    ' if query == '' else '\n    , '), column)
+            query += '%s%s' % (('SELECT\n    ' if query == '' else '\n    , '), Common.quote_object_paths(column))
         query += """\nFROM (
 %s
 ) AS foo""" % self.query
