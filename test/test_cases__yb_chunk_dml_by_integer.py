@@ -1,5 +1,5 @@
 map_out = {
-    r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{1,6}-\d{2}' : 'YYYY-MM-DD HH:MM:SS.FFFFFF-TZ'
+    r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}.\d{1,6}(-|\+)\d{2}' : 'YYYY-MM-DD HH:MM:SS.FFFFFF-TZ'
     , r'\d{2}:\d{2}:\d{2}.\d{1,6}' : 'HH:MM:SS.FFFFFF'
     , r'\d{4}-\d{2}-\d{2}' : 'YYYY-MM-DD'}
 

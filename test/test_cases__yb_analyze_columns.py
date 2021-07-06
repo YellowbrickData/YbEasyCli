@@ -43,7 +43,7 @@ database    column                    table  data                         is    
   
     , test_case(cmd="yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_like 'col1%' --output_format 2 --level 2"
         , exit_code=0
-        , stdout="""-- Running column analysis.
+        , stdout=("""-- Running column analysis.
 database|column|table_order|data_type|is_1null_2dist_3sort_4clust_5part|bytes_max|count_rows|count_nulls|count_distinct|char_bytes_min|char_bytes_max|char_bytes_avg|char_bytes_total|max_len_int|max_len_frac|is_uniq
 {db1}|dev.data_types_t.col1|1|BIGINT|XX---|8|1000000|0|1000000|||||||X
 {db1}|dev.data_types_t.col10|10|DATE|X----|4|1000000|0|2410|||||||-
@@ -57,6 +57,21 @@ database|column|table_order|data_type|is_1null_2dist_3sort_4clust_5part|bytes_ma
 {db1}|dev.data_types_t.col18|18|BOOLEAN|X----|1|1000000|0|2|||||||-
 {db1}|dev.data_types_t.col19|19|INTEGER|X----|4|1000000|0|2410|||||||-
 -- Completed column analysis."""
+        if self.ybdb_version_major <= 4
+        else """-- Running column analysis.
+database|column|table_order|data_type|is_1null_2dist_3sort_4clust_5part|bytes_max|count_rows|count_nulls|count_distinct|char_bytes_min|char_bytes_max|char_bytes_avg|char_bytes_total|max_len_int|max_len_frac|is_uniq
+{db1}|dev.data_types_t.col1|1|BIGINT|XX---|8|1000000|0|1000000|||||||X
+{db1}|dev.data_types_t.col10|10|DATE|X----|4|1000000|0|2410|||||||-
+{db1}|dev.data_types_t.col11|11|TIME WITHOUT TIME ZONE|X----|8|1000000|0|2419|||||||-
+{db1}|dev.data_types_t.col12|12|TIMESTAMP WITHOUT TIME ZONE|X----|8|1000000|0|109343|||||||-
+{db1}|dev.data_types_t.col13|13|TIMESTAMP WITH TIME ZONE|X----|8|1000000|0|109343|||||||-
+{db1}|dev.data_types_t.col14|14|IPV4|X----|4|1000000|0|462574|||||||-
+{db1}|dev.data_types_t.col15|15|IPV6|X----|16|1000000|0|462574|||||||-
+{db1}|dev.data_types_t.col16|16|MACADDR|X----|8|1000000|0|462574|||||||-
+{db1}|dev.data_types_t.col17|17|MACADDR8|X----|8|1000000|0|462574|||||||-
+{db1}|dev.data_types_t.col18|18|BOOLEAN|X----|1|1000000|0|2|||||||-
+{db1}|dev.data_types_t.col19|19|INTEGER|X----|4|1000000|0|2410|||||||-
+-- Completed column analysis.""")
         , stderr='')
  
     , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col3 --output_format 3 --level 3'
@@ -178,7 +193,10 @@ Group: 109341, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 0
 Group: 109342, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:02:31-08
 -- Completed column analysis."""
 		, stderr=''
-		, map_out={r'-{10,300}' : '', r'\d{2}:\d{2}:\d{2}(\-|\+)\d{2}' : 'HH:MM:SS-TZ'})
+		, map_out={
+            r'-{10,300}' : ''
+            , r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\-|\+)\d{2}' : 'YYYY-MM-DD HH:MI:SS-TZ'
+            , r': 1093\d{2}' : ': 1093XX'})
 
     , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --level 3'
         , exit_code=0
@@ -543,30 +561,30 @@ Data Type              : TIMESTAMP WITH TIME ZONE
 Row Count              : 1000000
 Row Count with NULLS   : 0
 Row Distinct Count     : 109342
-Min Value              : 2020-01-01 HH:MM:SS-TZ
-Max Value              : 2021-12-02 HH:MM:SS-TZ
+Min Value              : 2020-01-01 03:00:01-08
+Max Value              : 2021-12-02 17:48:01-08
 Is Unique              : FALSE
-Group: 1,      Row Count: 324618, % of Total Rows:  32.4618, Value: 2020-01-01 HH:MM:SS-TZ
-Group: 2,      Row Count: 200,    % of Total Rows:   0.0200, Value: 2020-01-08 HH:MM:SS-TZ
-Group: 3,      Row Count: 198,    % of Total Rows:   0.0198, Value: 2020-01-04 HH:MM:SS-TZ
-Group: 4,      Row Count: 186,    % of Total Rows:   0.0186, Value: 2020-01-11 HH:MM:SS-TZ
-Group: 5,      Row Count: 184,    % of Total Rows:   0.0184, Value: 2020-01-08 HH:MM:SS-TZ
-Group: 6,      Row Count: 182,    % of Total Rows:   0.0182, Value: 2020-01-04 HH:MM:SS-TZ
-Group: 7,      Row Count: 182,    % of Total Rows:   0.0182, Value: 2020-01-05 HH:MM:SS-TZ
-Group: 8,      Row Count: 180,    % of Total Rows:   0.0180, Value: 2020-01-06 HH:MM:SS-TZ
-Group: 9,      Row Count: 176,    % of Total Rows:   0.0176, Value: 2020-01-07 HH:MM:SS-TZ
-Group: 10,     Row Count: 170,    % of Total Rows:   0.0170, Value: 2020-01-02 HH:MM:SS-TZ
+Group: 1,      Row Count: 324618, % of Total Rows:  32.4618, Value: 2020-01-01 03:00:01-08
+Group: 2,      Row Count: 200,    % of Total Rows:   0.0200, Value: 2020-01-08 03:00:01-08
+Group: 3,      Row Count: 198,    % of Total Rows:   0.0198, Value: 2020-01-04 15:00:01-08
+Group: 4,      Row Count: 186,    % of Total Rows:   0.0186, Value: 2020-01-11 15:00:01-08
+Group: 5,      Row Count: 184,    % of Total Rows:   0.0184, Value: 2020-01-08 19:48:01-08
+Group: 6,      Row Count: 182,    % of Total Rows:   0.0182, Value: 2020-01-04 23:24:01-08
+Group: 7,      Row Count: 182,    % of Total Rows:   0.0182, Value: 2020-01-05 07:48:01-08
+Group: 8,      Row Count: 180,    % of Total Rows:   0.0180, Value: 2020-01-06 06:12:01-08
+Group: 9,      Row Count: 176,    % of Total Rows:   0.0176, Value: 2020-01-07 13:00:01-08
+Group: 10,     Row Count: 170,    % of Total Rows:   0.0170, Value: 2020-01-02 12:36:01-08
 ...
-Group: 109333, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
-Group: 109334, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
-Group: 109335, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
-Group: 109336, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
-Group: 109337, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
-Group: 109338, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
-Group: 109339, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
-Group: 109340, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
-Group: 109341, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
-Group: 109342, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 HH:MM:SS-TZ
+Group: 109333, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:00:47-08
+Group: 109334, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:00:51-08
+Group: 109335, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:01:04-08
+Group: 109336, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:01:17-08
+Group: 109337, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:01:25-08
+Group: 109338, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:01:55-08
+Group: 109339, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:01:58-08
+Group: 109340, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:02:21-08
+Group: 109341, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:02:25-08
+Group: 109342, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:02:31-08
 
 
 ANALYSIS OF: {db1}.dev.data_types_t.col14
@@ -750,5 +768,9 @@ Group: 2409, Row Count: 22,     % of Total Rows:   0.0022, Value: 20200604
 Group: 2410, Row Count: 22,     % of Total Rows:   0.0022, Value: 20200722
 -- Completed column analysis."""
 		, stderr=''
-		, map_out={r'-{10,300}' : '', r'\d{2}:\d{2}:\d{2}(\-|\+)\d{2}' : 'HH:MM:SS-TZ'})
+		, map_out={
+            r'-{10,300}' : ''
+            , r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\-|\+)\d{2}' : 'YYYY-MM-DD HH:MI:SS-TZ'
+            , r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}' : 'YYYY-MM-DD HH:MI:SS'
+            , r': 1093\d{2}' : ': 1093XX'})
 ]
