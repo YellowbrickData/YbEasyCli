@@ -322,7 +322,7 @@ class ArgsHandler:
     def args_add_connection_group(self, type=None, type_desc=''):
         """Add conceptual grouping to improve the display of help messages.
 
-        Creates a new group for arguments related to connection.    
+        Creates a new group for arguments related to connection.
         """
         if not type:
             conn_grp = self.args_parser.add_argument_group(
@@ -441,7 +441,7 @@ class ArgsHandler:
         if len(usage):
             text = ('example usage:'
                 + '\n  ./%s %s' % (Common.util_file_name, usage['cmd_line_args']))
-            
+
             if 'file_args' in usage.keys():
                 for file_dict in usage['file_args']:
                     for file in file_dict.keys():
@@ -533,7 +533,7 @@ class IntRange:
                 "Must be an integer")
 
 class DBFilterArgs:
-    """Class that handles database objects that are used as a filter 
+    """Class that handles database objects that are used as a filter
     """
 
     def __init__(self
@@ -627,7 +627,7 @@ class DBFilterArgs:
             "--%s_NOTlike" % otype
             , dest="%s_not_like_pattern" % otype
             , nargs="+", action='append', metavar="PATTERN",
-            help="%s/s NOT like the pattern/s" % otype)        
+            help="%s/s NOT like the pattern/s" % otype)
 
     def has_optional_args_single_set(self, otype):
         """Has an optional filter been set for the requested object type.
@@ -635,10 +635,10 @@ class DBFilterArgs:
         :param typ: database object type to check
         """
         ret_value = False
-        
+
         if otype in self.optional_args_single:
             ret_value = eval('self.args_handler.args.%s' % otype)
-        
+
         return ret_value
 
     def has_optional_args_multi_set(self, otype):
@@ -647,14 +647,14 @@ class DBFilterArgs:
         :param typ: database object type to check
         """
         ret_value = False
-        
+
         if otype in self.optional_args_multi:
             (arg_in_list, arg_like_pattern, arg_not_in_list
                 , arg_not_like_pattern) = (
                 self.get_optional_args_multi(otype))
             ret_value = (arg_in_list or arg_like_pattern
                 or arg_not_in_list or arg_not_like_pattern)
-        
+
         return ret_value
 
     def get_optional_args_multi(self, otype):
@@ -905,7 +905,7 @@ class DBConnect:
         self.env = {'pwd':None}
         self.env_set_by = {}
         self.env_args = {}
-  
+
         if args_handler:
             for conn_arg in self.conn_args.keys():
                 conn_arg_qualified = '%s%s' % (arg_conn_prefix, conn_arg)
@@ -1112,8 +1112,11 @@ eof""" % (
             , self.connect_timeout
             , sql_statement)
 
+        return self.ybtool_cmd(ybsql_cmd, stack_level=4)
+
+    def ybtool_cmd(self, cmd, stack_level=3):
         self.set_env(self.env)
-        cmd = Cmd(ybsql_cmd, stack_level=3)
+        cmd = Cmd(cmd, stack_level=stack_level)
         self.set_env(self.env_pre)
 
         return cmd
@@ -1155,7 +1158,7 @@ eof""" % (
         anonymous_block = pre_sql + '--proc: %s\nDO $$\nDECLARE\n    --arguments\n' % stored_proc_name
         if stored_proc_return_type not in ('BOOLEAN', 'BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
             Common.error('Unhandled proc return_type: %s' % stored_proc_return_type)
- 
+
         for arg in Common.split(stored_proc_args):
             matches = re.search(r'(.*)\bDEFAULT\b(.*)'
                 , arg, re.DOTALL | re.IGNORECASE)
@@ -1197,7 +1200,7 @@ eof""" % (
         cmd_results = self.ybsql_query(anonymous_block)
 
         # pg/plsql RAISE INFO commands are sent to stderr.  The following moves
-        #   the RAISE INFO data to be returned as stdout. 
+        #   the RAISE INFO data to be returned as stdout.
         if cmd_results.stderr.strip() != '':
             return_value = None
             # TODO need to figure out howto split the real stderr from stderr RAISE INFO output
@@ -1308,7 +1311,8 @@ class Report:
     def build(self):
         query = ''
         for column in self.columns:
-            query += '%s%s' % (('SELECT\n    ' if query == '' else '\n    , '), Common.quote_object_paths(column))
+            #query += '%s%s' % (('SELECT\n    ' if query == '' else '\n    , '), Common.quote_object_paths(column))
+            query += '%s%s' % (('SELECT\n    ' if query == '' else '\n    , '), ('"' + column + '"'))
         query += """\nFROM (
 %s
 ) AS foo""" % self.query
@@ -1487,7 +1491,7 @@ class Util:
         ddl = re.sub(r'^CREATE TABLE[^(]*', 'CREATE TABLE %s ' % Common.quote_object_paths(dst_table), ddl)
         cmd = dst_db_conn.ybsql_query(ddl)
         cmd.on_error_exit()
-        
+
     def get_dbs(self, filter_clause=None):
         filter_clause = self.db_filter_args.build_sql_filter({'database':'db_name'})
 
@@ -1577,10 +1581,10 @@ SELECT * FROM clstr
                 cluster_info += '\n        %s%s AS %s' % (
                     '' if index == 0 else ', '
                     , data[0][index]
-                    , headers[index]) 
+                    , headers[index])
             else:
                 cluster_info[headers[index]] = data[0][index]
-        
+
         return cluster_info
 
     def schema_with_db_sql(self):
