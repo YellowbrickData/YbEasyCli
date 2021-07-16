@@ -17,7 +17,7 @@ DECLARE
     v_total_size         BIGINT;
     v_null_count         BIGINT;
     v_running_total_size BIGINT := 0;
-    v_chunk              BIGINT := 1;
+    v_chunk              BIGINT := 0;
     v_chunk_size         BIGINT := 0;
     v_chunk_max_size     BIGINT := 0;
     v_exec_dml TEXT;
@@ -76,8 +76,10 @@ BEGIN
     IF a_verbose = TRUE THEN RAISE INFO '--%: Build Chunk DMLs', CLOCK_TIMESTAMP(); END IF;
     --
     LOOP
+        EXIT WHEN v_rec.is_last_rec IS NULL; --no chunks because a_table is empty
         v_chunk_size := v_chunk_size + v_rec.cnt;
         IF v_chunk_size >= a_min_chunk_size OR v_rec.is_last_rec THEN
+            v_chunk := v_chunk + 1;
             IF v_chunk_size > v_chunk_max_size THEN
                 v_chunk_max_size := v_chunk_size;
             END IF;
@@ -99,7 +101,6 @@ BEGIN
             v_running_total_size := v_running_total_size + v_chunk_size;
             EXIT WHEN v_rec.is_last_rec;
             --
-            v_chunk := v_chunk + 1;
             v_chunk_first_val := v_rec.next_val;
             v_chunk_size := 0;
         END IF;
@@ -141,7 +142,7 @@ BEGIN
         RAISE INFO '--Total Chunks       : %', v_chunk;
         RAISE INFO '--Min chunk size     : %', a_min_chunk_size;
         RAISE INFO '--Largest chunk size : %', v_chunk_max_size;
-        RAISE INFO '--Average chunk size : %', v_running_total_size / v_chunk;
+        RAISE INFO '--Average chunk size : %', DECODE(v_chunk, 0, 0, v_running_total_size / v_chunk);
     END IF;
     --
     RETURN (v_total_size = v_running_total_size);
