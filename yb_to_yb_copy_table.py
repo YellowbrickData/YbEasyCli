@@ -241,12 +241,15 @@ class yb_to_yb_copy_table(Util):
         return cdml.cmd_results.stdout.strip().split('\n')
 
     def execute(self):
+        src_table = Common.quote_object_paths(self.args_handler.args.src_table).replace('"','"\\""')
         table_unload_sql = "SELECT * FROM {src_table} WHERE TRUE{where_clause}".format(
-            src_table = Common.quote_object_paths(self.args_handler.args.src_table).replace('"','"\\""')
+            src_table = src_table
             , where_clause=(' AND %s' % self.args_handler.args.where_clause if self.args_handler.args.where_clause else ''))
 
         if self.args_handler.args.chunk_rows:
             chunks_sql = self.chunk_table_unload_sql(table_unload_sql)
+            if chunks_sql[0] == '':
+                chunks_sql[0] = 'SELECT * FROM %s WHERE FALSE /* dummy chunk when source table is empty */' % src_table
         else:
             chunks_sql = [table_unload_sql]
 
