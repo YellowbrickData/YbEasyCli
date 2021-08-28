@@ -14,15 +14,18 @@ test_cases = [
    , test_case(
         cmd="""yb_to_yb_copy_table.py @{argsdir}/src_db1_dst_db2 --unload_where_clause "col1 <= 100" """
             """ --src_table dev.data_types_t --dst_table Prod.data_types_t --log_dir tmp --create_dst_table"""
-        , exit_code=3
+        , exit_code=(0 if Common.is_windows else 3)
         , stdout=''
         , stderr='yb_to_yb_copy_table.py: ERROR:  relation "data_types_t" already exists'
         , map_out=map_out)
 
    , test_case(
-        cmd="""yb_to_yb_copy_table.py @{argsdir}/src_db1_dst_db2 --unload_where_clause "col1 <= 100" """
-            """ --src_table dev.data_types_t --dst_table Prod.data_types_100_t --log_dir tmp --create_dst_table"""
-            """; YBPASSWORD={user_password} ybsql -h {host} -U {user_name} -d {db2} -c 'DROP TABLE "Prod".data_types_100_t'"""
+        cmd=("""yb_to_yb_copy_table.py @{argsdir}/src_db1_dst_db2 --unload_where_clause "col1 <= 100" """
+            """ --src_table dev.data_types_t --dst_table Prod.data_types_100_t --log_dir tmp --create_dst_table;"""
+            """ %s""") %
+                ("""$env:YBPASSWORD='{user_password}'; ybsql -h {host} -U {user_name} -d {db2} -c 'DROP TABLE \""Prod\\"".data_types_100_t'"""
+                if Common.is_windows
+                else """YBPASSWORD={user_password} ybsql -h {host} -U {user_name} -d {db2} -c 'DROP TABLE "Prod".data_types_100_t'""")
         , exit_code=0
         , stdout="""-- created destination table: Prod.data_types_100_t
 -- chunk1of1
@@ -57,7 +60,7 @@ DROP TABLE"""
    , test_case(
         cmd="""yb_to_yb_copy_table.py @{argsdir}/src_db1_dst_db2 --unload_where_clause "col1 <= 100" """
             """ --src_table dev.data_types_t --dst_table Prod.data_types_t --log_dir tmp --threads 3"""
-        , exit_code=1
+        , exit_code=(0 if Common.is_windows else 1)
         , stdout=''
         , stderr="yb_to_yb_copy_table.py: The '--threads' option is only supported for YBDB super users."
         , map_out=map_out)

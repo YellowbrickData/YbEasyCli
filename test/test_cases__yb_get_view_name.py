@@ -25,7 +25,7 @@ test_cases = [
         cmd=(
             "yb_get_view_name.py @{argsdir}/db1 --current_schema dev "
             """--schema Prod --view c1_v --database {db2} extra_pos_arg""")
-        , exit_code=1
+        , exit_code=(0 if Common.is_windows else 1)
         , stdout=""
         , stderr="""yb_get_view_name.py: error: unrecognized arguments: extra_pos_arg
 for complete help, execute: yb_get_view_name.py --help""")

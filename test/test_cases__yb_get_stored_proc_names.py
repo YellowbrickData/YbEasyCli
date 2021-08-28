@@ -29,13 +29,14 @@ database: {db1}, schema: "Prod", proc: "test_Raise_p" """
         , stderr='')
 
     , test_case(cmd='yb_get_stored_proc_names.py @{argsdir}/db1 --host no_host'
-        , exit_code=2
+        , exit_code=(0 if Common.is_windows else 2)
         , stdout=''
-        , stderr="""yb_get_stored_proc_names.py: ybsql: could not translate host name "no_host" to address: nodename nor servname provided, or not known""")
+        , stderr="""yb_get_stored_proc_names.py: ybsql: could not translate host name "no_host" to address:..."""
+        , map_out={r'to address:.*': 'to address:...'})
 
     , test_case(cmd='yb_get_stored_proc_names.py --help'
         , exit_code=0
-        , stdout="""usage: yb_get_stored_proc_names.py [options]
+        , stdout="%s%s%s" % ("""usage: yb_get_stored_proc_names.py [options]
 
 List/Verifies that the specified stored procedure/s exist.
 
@@ -99,11 +100,15 @@ optional database object filter arguments:
                         stored_proc/s NOT like the pattern/s
 
 example usage:
-  ./yb_get_stored_proc_names.py @$HOME/conn.args --schema_in dev Prod --stored_proc_like '%price%' --stored_proc_NOTlike '%id%' --
+"""
+, ("""  python yb_get_stored_proc_names.py '@$HOME/conn.args' --schema_in dev Prod --stored_proc_like '%price%' --stored_proc_NOTlike '%id%' --"""
+if Common.is_windows
+else """  yb_get_stored_proc_names.py @$HOME/conn.args --schema_in dev Prod --stored_proc_like '%price%' --stored_proc_NOTlike '%id%' --""")
+, """
 
   file '$HOME/conn.args' contains:
     --host yb89
     --dbuser dze
-    --conn_db stores"""
+    --conn_db stores""")
     , stderr='')
 ]

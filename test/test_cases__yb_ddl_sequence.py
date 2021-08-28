@@ -3,7 +3,7 @@ map_out = {r'\"[a-z_]*\":\s*"""[^:}]*"""' : '"<key>": "<value>"'}
 test_cases = [
     test_case(
         cmd='yb_ddl_sequence.py @{argsdir}/db1 --schema_in dev --sequence_like a1_seq'
-        , exit_code=3
+        , exit_code=(0 if Common.is_windows else 3)
         , stdout="""{{
 "ddl": ""\" """
         , stderr="""yb_ddl_sequence.py: ERROR:  relation "a1_seq" does not exist

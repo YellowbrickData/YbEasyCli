@@ -1,7 +1,7 @@
 test_cases = [
     test_case(
         cmd='yb_get_table_distribution_key.py @{argsdir}/db1 --verbose 3'
-        , exit_code=1
+        , exit_code=(0 if Common.is_windows else 1)
         , stdout=""
         , stderr=(
         """yb_get_table_distribution_key.py: error: argument --table is required

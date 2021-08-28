@@ -152,7 +152,7 @@ test_cases = [
 
     , test_case(
         cmd='yb_get_column_type.py @{argsdir}/db1 --schema dev col1'
-        , exit_code=1
+        , exit_code=(0 if Common.is_windows else 1)
         , stdout=""
         , stderr=(
         """yb_get_column_type.py: error: the following arguments are required: --table, --column
