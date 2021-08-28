@@ -16,7 +16,7 @@ Output:
 """
 import sys
 
-from yb_common import IntRange, Util
+from yb_common import ArgIntRange, Util
 
 class chunk_dml_by_date_part(Util):
     """Issue the ybsql command used to create/execute DML chunked by date/timestamp column
@@ -75,7 +75,7 @@ ORDER BY sale_ts\"\"\"
             , help="create chunks down to the time unit selected")
         args_chunk_r_grp.add_argument(
             "--chunk_rows", dest="chunk_rows", required=True
-            , type=IntRange(1,9223372036854775807)
+            , type=ArgIntRange(1,9223372036854775807)
             , help="the minimum rows that each chunk should contain")
 
         args_chunk_o_grp = self.args_handler.args_parser.add_argument_group(

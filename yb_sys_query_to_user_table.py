@@ -15,7 +15,7 @@ Output:
 """
 import sys
 
-from yb_common import Util, IntRange
+from yb_common import ArgIntRange, Util
 
 class sys_query_to_user_table(Util):
     """Issue the ybsql command used to materialize a system table or in
@@ -66,7 +66,7 @@ FROM sys.schema
         args_optional_grp.add_argument("--drop_table", action="store_true"
             , help="first drop the destination table if it exists, defaults to FALSE")
         args_optional_grp.add_argument("--max_varchar_size"
-            , type=IntRange(1,64000), default=10000
+            , type=ArgIntRange(1,64000), default=10000
             , help="truncate size of all VARCHAR columns in the destination table, defaults to 10000")
         args_optional_grp.add_argument("--pre_sql", default=''
             , help="SQL to run before the creation of the destination table")

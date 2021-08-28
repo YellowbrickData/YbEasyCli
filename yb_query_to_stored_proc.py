@@ -14,7 +14,7 @@ OPTIONS:
 Output:
       A stored procedure.
 """
-from yb_common import Common, IntRange, Text, Util
+from yb_common import ArgIntRange, Common, Text, Util
 
 class query_to_stored_proc(Util):
     """Issue the ybsql command used to create a stored procedure that runs the provided 
@@ -92,10 +92,10 @@ ORDER BY session_duration DESC
             , nargs="+", default='public', metavar='ROLE'
             , help="grant execute of stored procedure to user/roles, defaults to 'public'")
         args_optional_grp.add_argument("--query_limit_default"
-            , type=IntRange(0,9223372036854775807), default=200
+            , type=ArgIntRange(0,9223372036854775807), default=200
             , help="default row limit for query, defaults to 200, set to 0 for unlimited")
         args_optional_grp.add_argument("--max_varchar_size"
-            , type=IntRange(1,64000), default=10000
+            , type=ArgIntRange(1,64000), default=10000
             , help="truncate size of all VARCHAR columns in the destination table, defaults to 10000")
         args_optional_grp.add_argument("--pre_sql", default=''
             , help="SQL to run before the creation of the stored procedure")
