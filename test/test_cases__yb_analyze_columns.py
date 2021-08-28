@@ -49,22 +49,7 @@ database|column|table_order|data_type|is_1null_2dist_3sort_4clust_5part|bytes_ma
 {db1}|dev.data_types_t.col10|10|DATE|X----|4|1000000|0|2410|||||||-
 {db1}|dev.data_types_t.col11|11|TIME WITHOUT TIME ZONE|X----|8|1000000|0|2419|||||||-
 {db1}|dev.data_types_t.col12|12|TIMESTAMP WITHOUT TIME ZONE|X----|8|1000000|0|109343|||||||-
-{db1}|dev.data_types_t.col13|13|TIMESTAMP WITH TIME ZONE|X----|8|1000000|0|109342|||||||-
-{db1}|dev.data_types_t.col14|14|IPV4|X----|4|1000000|0|462574|||||||-
-{db1}|dev.data_types_t.col15|15|IPV6|X----|16|1000000|0|462574|||||||-
-{db1}|dev.data_types_t.col16|16|MACADDR|X----|8|1000000|0|462574|||||||-
-{db1}|dev.data_types_t.col17|17|MACADDR8|X----|8|1000000|0|462574|||||||-
-{db1}|dev.data_types_t.col18|18|BOOLEAN|X----|1|1000000|0|2|||||||-
-{db1}|dev.data_types_t.col19|19|INTEGER|X----|4|1000000|0|2410|||||||-
--- Completed column analysis."""
-        if self.ybdb_version_major <= 4
-        else """-- Running column analysis.
-database|column|table_order|data_type|is_1null_2dist_3sort_4clust_5part|bytes_max|count_rows|count_nulls|count_distinct|char_bytes_min|char_bytes_max|char_bytes_avg|char_bytes_total|max_len_int|max_len_frac|is_uniq
-{db1}|dev.data_types_t.col1|1|BIGINT|XX---|8|1000000|0|1000000|||||||X
-{db1}|dev.data_types_t.col10|10|DATE|X----|4|1000000|0|2410|||||||-
-{db1}|dev.data_types_t.col11|11|TIME WITHOUT TIME ZONE|X----|8|1000000|0|2419|||||||-
-{db1}|dev.data_types_t.col12|12|TIMESTAMP WITHOUT TIME ZONE|X----|8|1000000|0|109343|||||||-
-{db1}|dev.data_types_t.col13|13|TIMESTAMP WITH TIME ZONE|X----|8|1000000|0|109343|||||||-
+{db1}|dev.data_types_t.col13|13|TIMESTAMP WITH TIME ZONE|X----|8|1000000|0|XXXXXX|||||||-
 {db1}|dev.data_types_t.col14|14|IPV4|X----|4|1000000|0|462574|||||||-
 {db1}|dev.data_types_t.col15|15|IPV6|X----|16|1000000|0|462574|||||||-
 {db1}|dev.data_types_t.col16|16|MACADDR|X----|8|1000000|0|462574|||||||-
@@ -72,7 +57,8 @@ database|column|table_order|data_type|is_1null_2dist_3sort_4clust_5part|bytes_ma
 {db1}|dev.data_types_t.col18|18|BOOLEAN|X----|1|1000000|0|2|||||||-
 {db1}|dev.data_types_t.col19|19|INTEGER|X----|4|1000000|0|2410|||||||-
 -- Completed column analysis.""")
-        , stderr='')
+        , stderr=''
+        , map_out={r'109342': 'XXXXXX'})
  
     , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col3 --output_format 3 --level 3'
         , exit_code=0
