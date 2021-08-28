@@ -68,7 +68,7 @@ class create_objects:
         cmd_results = DBConn.ybsql_query("""SELECT TRUE FROM sys.user WHERE name = '%s'""" % (test_user))
         if cmd_results.stdout.strip() == 't':
             # exits on failed connection
-            self.get_DBConn(test_user, test_pwd, DBConn.env['conn_db'], DBConn.env['host'])
+            self.get_db_conn(test_user, test_pwd, DBConn.env['conn_db'], DBConn.env['host'])
             #test_user_DBConn = self.get_DBConn(test_user, test_pwd
             #    , DBConn.env['conn_db'], DBConn.env['host'], on_fail_exit=False)
         else:
@@ -188,38 +188,25 @@ class create_objects:
 
         ddl_dev_types_t__data = """INSERT INTO %s.data_types_t
 WITH
-digits AS (
-    SELECT 0::BIGINT AS digit
-    UNION ALL SELECT 1
-    UNION ALL SELECT 2
-    UNION ALL SELECT 3
-    UNION ALL SELECT 4
-    UNION ALL SELECT 5
-    UNION ALL SELECT 6
-    UNION ALL SELECT 7
-    UNION ALL SELECT 8
-    UNION ALL SELECT 9
+wrkrs AS (
+    SELECT 
+        worker_lid                              AS worker_lid
+        , RANK() OVER( ORDER BY worker_lid ) -1 AS use_id
+    FROM sys.rowgenerator  
+    WHERE range BETWEEN 0 and 0
 )
 , seq AS (
     SELECT
-        d1.digit + 1
-        + d10.digit * 10
-        + d100.digit * 100
-        + d1000.digit * 1000
-        + d10000.digit * 10000
-        + d100000.digit * 100000
-        AS seq
+        r.row_number + ( w.use_id * 1000000::BIGINT ) AS seq
         , seq::VARCHAR(32) AS seq_char
         , LENGTH(seq_char) AS seq_char_len
     FROM
-        digits AS d1
-        CROSS JOIN digits AS d10
-        CROSS JOIN digits AS d100
-        CROSS JOIN digits AS d1000
-        CROSS JOIN digits AS d10000
-        CROSS JOIN digits AS d100000
---    WHERE
---        seq <= 500
+        sys.rowgenerator AS r
+        JOIN wrkrs       AS w
+            ON r.worker_lid = w.worker_lid
+    WHERE
+        range BETWEEN 1 AND 1000000
+        AND seq BETWEEN 1 AND 1000000
 )
 , cols AS (
     SELECT
