@@ -4,20 +4,23 @@ and command execution that are common to all utilities in this package.
 """
 
 import argparse
+import copy
+import csv
 import getpass
 import os
 import platform
+import pprint
 import re
+import signal
+import shlex
 import subprocess
 import sys
+import tempfile
+import time
 import traceback
-import shlex
-import signal
-import copy
-import pprint
-import csv
-from tabulate import tabulate
 from datetime import datetime
+from glob import glob
+from tabulate import tabulate
 
 def signal_handler(signal, frame):
     Common.error('user terminated...')
@@ -25,13 +28,15 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 class Common:
-    version = '20210716'
+    version = '20210828'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
     util_file_name = os.path.basename(os.path.realpath(sys.argv[0]))
     util_name = util_file_name.split('.')[0]
     start_ts = datetime.now()
+    is_windows = platform.system() == 'Windows'
+    is_cygwin = sys.platform == 'cygwin'
 
     @staticmethod
     def error(msg, exit_code=1, color='red', no_exit=False):
@@ -73,7 +78,8 @@ class Common:
     def quote_object_paths(object_paths):
         """Convert database object names to have double quotes where required"""
         quote_object_paths = []
-        for object_path in object_paths.split('\n'):
+        #for object_path in object_paths.split('\n'):
+        for object_path in re.split('\r\n|\n', object_paths):
             #first remove all double quotes to start with an unquoted object path
             #   sometimes the incoming path is partially quoted
             object_path = object_path.replace('"', '')
@@ -150,8 +156,25 @@ class Cmd:
         Cmd.cmd_ct += 1
         self.cmd_id = Cmd.cmd_ct
 
+        if Common.is_windows:
+            prefix = ".YbEasyCli_Cmd_"
+            fd, tmp_ps1_file = tempfile.mkstemp(prefix=prefix, suffix=".ps1")
+            os.close(fd)
+
+            ps1_str = cmd_str
+            fd = open(tmp_ps1_file, 'w')
+            fd.write(ps1_str)
+            fd.close()
+
+            cmd_str = "powershell -ExecutionPolicy ByPass -Noninteractive -NoLogo -NoProfile -File %s" % tmp_ps1_file
+
         if Common.verbose >= 2:
             trace_line = traceback.extract_stack(None, stack_level)[0]
+            if Common.is_windows:
+                print('%s %s\n%s'
+                    % (
+                        Text.color('--File', style='bold')
+                        , Text.color(tmp_ps1_file, 'cyan'), ps1_str ) )
             print(
                 '%s: %s, %s: %s, %s: %s\n%s\n%s'
                 % (
@@ -167,7 +190,7 @@ class Cmd:
             print('%s: %s'
                 % (Text.color('Executing', style='bold'), cmd_str))
 
-        if escape_dollar:
+        if escape_dollar and not(Common.is_windows):
             cmd_str = cmd_str.replace('$','\$')
 
         self.start_time = datetime.now()
@@ -175,9 +198,22 @@ class Cmd:
             cmd_str
             , stdout=subprocess.PIPE
             , stderr=subprocess.PIPE
-            , shell=True)
+            , shell=not(Common.is_windows))
         if wait:
             self.wait()
+
+        if Common.is_windows:
+            #clean up tmp files
+            glob_str = tmp_ps1_file[0:(tmp_ps1_file.find(prefix) + len(prefix))] + '*'
+            threshold_time = time.time() - (60*360)
+            for tmp_ps1_old_file in glob(glob_str):
+                try:
+                    creation_time = os.stat(tmp_ps1_old_file).st_ctime
+                    if creation_time < threshold_time and tmp_ps1_file.replace('\\\\', '\\') != tmp_ps1_old_file:
+                        os.remove(tmp_ps1_old_file)
+                except:
+                    None
+
 
     def wait(self):
         #(stdout, stderr) = map(bytes.decode, p.communicate())
@@ -213,13 +249,12 @@ class Cmd:
                 else self.stdout)
         if self.stderr != '':
             Common.error(self.stderr, no_exit=True)
-        else:
-            sys.stdout.write(tail)
+        sys.stdout.write(tail)
 
-    def on_error_exit(self, write=True):
+    def on_error_exit(self, write=True, head='', tail=''):
         if self.stderr != '' or self.exit_code != 0:
             if write:
-                self.write()
+                self.write(head,tail)
             exit(self.exit_code)
 
 class ArgsHandler:
@@ -440,7 +475,12 @@ class ArgsHandler:
         usage = self.config['usage_example']
         if len(usage):
             text = ('example usage:'
-                + '\n  ./%s %s' % (Common.util_file_name, usage['cmd_line_args']))
+                + '\n  %s %s' % (Common.util_file_name, usage['cmd_line_args']))
+
+            if Common.is_windows:
+                # in Windows the file argument @file_name needs to be placed in single quotes
+                text = re.sub(r'(\s)(\@[^\s]*)', r"\1'\2'", text)
+                text = re.sub(r'([^\s]+\.py)', r"python \1", text)
 
             if 'file_args' in usage.keys():
                 for file_dict in usage['file_args']:
@@ -450,6 +490,7 @@ class ArgsHandler:
                             text =  text + '\n    ' + line
         else:
             text = None
+
         return(text)
 
     def process_report_args(self):
@@ -497,10 +538,39 @@ class ArgsHandler:
 
         return self.args
 
-class IntRange:
+    @staticmethod
+    def DBConnect(description):
+        config = Util.config_default.copy()
+        config['description'] = description
+
+        args_handler = ArgsHandler(config, init_default=False)
+        args_handler.args_process_init()
+        args_handler.args_add_optional()
+        args_handler.args_add_connection_group()
+        args_handler.args = args_handler.args_process()
+
+        if args_handler.args.W:
+            args_handler.args.pwd = getpass.getpass("Enter db user password: ")
+        else:
+            args_handler.args.pwd = None
+
+        return args_handler
+
+class ArgDate:
+    """Custom argparse type representing a date
+    """
+    def __call__(self, arg):
+        try:
+            value = datetime.strptime(arg, "%Y-%m-%d")
+        except ValueError:
+            msg='Not a valid date: %s' % arg
+            raise argparse.ArgumentTypeError(msg)
+
+        return value
+
+class ArgIntRange:
     """Custom argparse type representing a bounded int
     """
-
     def __init__(self, imin=None, imax=None):
         self.imin = imin
         self.imax = imax
@@ -850,7 +920,7 @@ class Text:
         :param style: Text style string (Default value = 'no_effect')
         :return: A string formatted with color and style
         """
-        return '\033[%d;%d;%dm' % (
+        return u'\033[%d;%d;%dm' % (
             Text.styles[style.lower()]
             , 30 + Text.colors[fg.lower()]
             , 40 + Text.colors[bg.lower()])
@@ -865,8 +935,9 @@ class Text:
         :param style: Text style string (Default value = 'no_effect')
         :return: A string with added color
         """
-        colored_text = '%s%s%s' % (
+        colored_text = u'%s%s%s' % (
             Text.color_str(fg, bg, style), txt, Text.color_str())
+
         return txt if Text.nocolor else colored_text
 
 class DBConnect:
@@ -944,7 +1015,9 @@ class DBConnect:
                 "the argument: --%shost" % arg_conn_prefix)
 
         if not self.env['pwd']:
-            user = self.env['dbuser'] or os.environ.get("USER")
+            user = (self.env['dbuser']
+                or os.environ.get("USER") #Linux
+                or os.environ.get("USERNAME") ) #Windows
             if user:
                 if pwd_required or self.env_pre['pwd'] is None:
                     prompt = ("Enter the password for cluster %s, user %s: "
@@ -998,15 +1071,15 @@ class DBConnect:
     , SPLIT_PART(version_number, '.', 1) AS version_major
     , SPLIT_PART(version_number, '.', 2) AS version_minor
     , SPLIT_PART(version_number, '.', 3) AS version_patch
-    , rolsuper AS is_super_user
-    , rolcreaterole AS has_create_user
-    , rolcreatedb AS has_create_db
-    , CURRENT_USER AS user
+    , rolsuper                       AS is_super_user
+    , rolcreaterole OR is_super_user AS has_create_user
+    , rolcreatedb OR is_super_user   AS has_create_db
+    , CURRENT_USER                   AS user
 FROM pg_catalog.pg_roles
 WHERE rolname = CURRENT_USER""")
 
         db_info = cmd_results.stdout.split('|')
-        if cmd_results.exit_code == 0:
+        if cmd_results.stderr == '' and cmd_results.exit_code == 0:
             self.database = db_info[0]
             self.schema = db_info[1]
             # if --current_schema arg was set check if it is valid
@@ -1104,15 +1177,24 @@ WHERE rolname = CURRENT_USER""")
         # default timeout is 75 seconds changing it to self.connect_timeout
         #   'host=<host>' string is required first to set command line connect_timeout
         #   see https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING
-        ybsql_cmd = """ybsql %s "host=%s connect_timeout=%d" <<eof
-%s
-eof""" % (
+        ybsql_cmd = "ybsql %s 'host=%s connect_timeout=%d'" % (
             options
             , self.env['host']
-            , self.connect_timeout
-            , sql_statement)
+            , self.connect_timeout)
 
-        return self.ybtool_cmd(ybsql_cmd, stack_level=4)
+        if Common.is_windows:
+            ybsql_cmd = """$sql = @'
+%s
+'@; echo $sql | {ybsql_cmd}""".format(ybsql_cmd=ybsql_cmd)
+        else:
+            ybsql_cmd = """{ybsql_cmd} <<eof
+%s
+eof""".format(ybsql_cmd=ybsql_cmd)
+
+        ybsql_cmd = ybsql_cmd % sql_statement
+
+        cmd = self.ybtool_cmd(ybsql_cmd, stack_level=4)
+        return cmd
 
     def ybtool_cmd(self, cmd, stack_level=3):
         self.set_env(self.env)
@@ -1634,7 +1716,8 @@ SELECT * FROM clstr
 
 
 class UtilArgParser(argparse.ArgumentParser):
-    def error(self, message):
+    @staticmethod
+    def error(message):
         Common.error('error: %s' % message, no_exit=True)
         #disabling printing of complete help after error as the error scrolls off the screen
         #self.print_help()

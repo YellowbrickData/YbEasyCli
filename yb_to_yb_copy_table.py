@@ -20,7 +20,7 @@ import re
 import random
 from datetime import datetime
 
-from yb_common import ArgsHandler, Cmd, Common, DBConnect, DBFilterArgs, IntRange, Text, Util
+from yb_common import ArgIntRange, ArgsHandler, Cmd, Common, DBConnect, DBFilterArgs, Text, Util
 from yb_chunk_dml_by_integer import chunk_dml_by_integer
 
 class yb_to_yb_copy_table(Util):
@@ -97,11 +97,11 @@ class yb_to_yb_copy_table(Util):
             , help="create destination table from source table ddl before copying table")
         copy_table_o_grp.add_argument(
             "--chunk_rows", dest="chunk_rows", metavar='ROWS'
-            , type=IntRange(1,9223372036854775807)
+            , type=ArgIntRange(1,9223372036854775807)
             , help="when set data copying will be performed in chunks of rows rather than one big copy")
         copy_table_o_grp.add_argument(
             "--threads"
-            , type=IntRange(1,20), default=1
+            , type=ArgIntRange(1,20), default=1
             , help="when set data copying will be performed in parallel ybunload/ybload threads")
 
     def set_db_connections(self):
@@ -146,7 +146,11 @@ class yb_to_yb_copy_table(Util):
                 "The '--chunk_rows' option is only supported on YBDB version 4 or higher."
                 " The source db is running YBDB %s..." % self.src_conn.ybdb['version']
                 , 'yellow'))
-            
+
+        if Common.is_windows and self.src_conn.env['pwd'] != self.dst_conn.env['pwd']:
+            Common.error(Text.color(
+                "The source and destination password must be the same when running with powershell...") )
+
         self.log_file_name_template = ('{}{}{}_{}_{{{{CofC}}}}{{{{TofT}}}}_{{log_type}}.log'.format(
             ('%s/' % self.args_handler.args.log_dir
                 if self.args_handler.args.log_dir
@@ -186,6 +190,9 @@ class yb_to_yb_copy_table(Util):
             #set default log level 
             logfile_log_level_option = ' --logfile-log-level INFO'
 
+        dst_table = Common.quote_object_paths(self.args_handler.args.dst_table)
+        if Common.is_windows:
+            dst_table = dst_table.replace('"','"\\""')
         ybload_env = "YBPASSWORD=$DST_YBPASSWORD"
         ybload_cmd = ("ybload"
             " -h {dst_host}"
@@ -204,19 +211,27 @@ class yb_to_yb_copy_table(Util):
             , port_option = (' --port %s' % self.args_handler.args.dst_port if self.args_handler.args.dst_port else '')
             , dst_user = self.dst_conn.env['dbuser']
             , dst_db = self.dst_conn.database
-            , dst_table = Common.quote_object_paths(self.args_handler.args.dst_table)
+            , dst_table = dst_table
             , delimiter = self.args_handler.args.delimiter
             , log_file_name = (self.log_file_name_template.format(log_type='ybload'))
             , logfile_log_level_option = logfile_log_level_option
             , bad_log_file_name = (self.log_file_name_template.format(log_type='ybload_bad'))
             , additionl_options = (' %s' % self.args_handler.args.ybload_options if self.args_handler.args.ybload_options else ''))
 
-        self.table_copy_cmd = ("{ybunload_env} {ybunload_cmd}"
-            " | {ybload_env} {ybload_cmd}").format(
-            ybunload_env = ybunload_env
-            , ybunload_cmd = ybunload_cmd
-            , ybload_env = ybload_env
-            , ybload_cmd = ybload_cmd)
+        if Common.is_windows:
+            # powershell does not support command level environment variables
+            # this limits yb_to_yb_copy to having the same user password for the src and dst cluster
+            self.table_copy_cmd = ("$env:YBPASSWORD=$env:SRC_YBPASSWORD; {ybunload_cmd}"
+                " | {ybload_cmd}").format(
+                ybunload_cmd = ybunload_cmd
+                , ybload_cmd = ybload_cmd)
+        else:
+            self.table_copy_cmd = ("{ybunload_env} {ybunload_cmd}"
+                " | {ybload_env} {ybload_cmd}").format(
+                ybunload_env = ybunload_env
+                , ybunload_cmd = ybunload_cmd
+                , ybload_env = ybload_env
+                , ybload_cmd = ybload_cmd)
 
     def chunk_table_unload_sql(self, table_unload_sql):
         self.args_handler.args.dml = ("%s AND <chunk_where_clause>" % table_unload_sql)
@@ -241,7 +256,9 @@ class yb_to_yb_copy_table(Util):
         return cdml.cmd_results.stdout.strip().split('\n')
 
     def execute(self):
-        src_table = Common.quote_object_paths(self.args_handler.args.src_table).replace('"','"\\""')
+        src_table = Common.quote_object_paths(self.args_handler.args.src_table)
+        if Common.is_windows:
+            src_table = src_table.replace('"','"\\""')
         table_unload_sql = "SELECT * FROM {src_table} WHERE TRUE{where_clause}".format(
             src_table = src_table
             , where_clause=(' AND %s' % self.args_handler.args.where_clause if self.args_handler.args.where_clause else ''))

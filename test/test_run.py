@@ -53,6 +53,10 @@ class test_case:
         section = 'test_%s' % args.host
         os.environ['YBPASSWORD'] = config.get(section, 'password')
 
+        if Common.is_windows:
+            # in Windows the file argument @file_name needs to be placed in single quotes
+            cmd = re.sub(r'(\s)(\@[^\s]*)', r"\1'\2'", cmd)
+
         self.cmd_results = Cmd(cmd)
 
         self.check()
@@ -66,6 +70,9 @@ class test_case:
                     % (' '.join(sys.argv).replace(' --all', ''), test_name))
             else:
                 running = ' '.join(sys.argv)
+            if Common.is_windows:
+                # in Windows the py script requires to be run with an explicit 'python' command
+                running = 'python %s' % running                
             run = ('%s: %s --case %d'
                 % (Text.color('To run', style='bold')
                     , running, case))
@@ -104,6 +111,10 @@ class test_case:
         self.stderr = self.stderr.strip()
         self.cmd_results.stdout = self.cmd_results.stdout.strip()
         self.cmd_results.stderr = self.cmd_results.stderr.strip()
+
+        if Common.is_windows or Common.is_cygwin:
+            self.cmd_results.stdout = self.cmd_results.stdout.replace('\r', '')
+            self.cmd_results.stderr = self.cmd_results.stderr.replace('\r', '')
 
         self.passed = (
             self.exit_code == self.cmd_results.exit_code
@@ -194,6 +205,9 @@ class execute_test_action:
                     % (' '.join(sys.argv).replace(' --all', ''), test_name))
             else:
                 running = ' '.join(sys.argv)
+            if Common.is_windows:
+                # in Windows the py script requires to be run with an explicit 'python' command
+                running = 'python %s' % running
             print(
                 '%s: %s, %s: %s'
                 % (
@@ -305,7 +319,8 @@ class execute_test_action:
                 cmd_results = Cmd('%s --version'
                     % args.python_exe)
                 self.test_py_version = (
-                    int(cmd_results.stderr.split(' ')[1].split('.')[0]))
+                    int((cmd_results.stdout if Common.is_windows else cmd_results.stderr)
+                        .split(' ')[1].split('.')[0]))
             else:
                 Common.error("'%s' is not found or not executable..."
                     % args.python_exe)
@@ -361,6 +376,5 @@ class execute_test_action:
             if section[0:5] == 'test_':
                 config.hosts.append(section[5:])
         self.config = config
-
 
 execute_test_action()
