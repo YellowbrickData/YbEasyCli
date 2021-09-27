@@ -28,7 +28,7 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 class Common:
-    version = '20210828'
+    version = '20210926'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -1004,7 +1004,7 @@ class DBConnect:
                 elif self.env_pre[env_var]:
                     self.env_set_by[env_var] = 'e'
                 else:
-                    self.env_set_by[env_var] = 'd'
+                    self.env_set_by[env_var] = 'd' 
         else:
             #TODO either args or env should be defined otherwise throw an error
             None
@@ -1150,6 +1150,8 @@ WHERE rolname = CURRENT_USER""")
                                 % os.environ.get("YBDATABASE")))
         """
 
+    ybsql_stderr_strip_warnings = [
+        'WARNING:  setting the restricted parameter "ybd_analyze_after_writes" may lead to unexpected system behavior']
     ybsql_call_count = 0
     def ybsql_query(self, sql_statement
         , options = '-A -q -t -v ON_ERROR_STOP=1 -X'):
@@ -1194,6 +1196,10 @@ eof""".format(ybsql_cmd=ybsql_cmd)
         ybsql_cmd = ybsql_cmd % sql_statement
 
         cmd = self.ybtool_cmd(ybsql_cmd, stack_level=4)
+
+        for warning in self.ybsql_stderr_strip_warnings:
+            cmd.stderr = cmd.stderr.replace(warning, '').lstrip()
+
         return cmd
 
     def ybtool_cmd(self, cmd, stack_level=3):
@@ -1262,7 +1268,7 @@ eof""".format(ybsql_cmd=ybsql_cmd)
                 if arg_type == 'VARCHAR':
                     anonymous_block += ("    %s %s%s = $A$%s$A$;\n"
                         % (arg_name, arg_type, arg_type_size, args[arg_name]))
-                elif arg_type in ('BOOLEAN', 'BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
+                elif arg_type in ('BOOLEAN', 'BIGINT', 'DATE', 'INT', 'INTEGER', 'SMALLINT'):
                     anonymous_block += ("    %s %s = %s;\n"
                         % (arg_name, arg_type, args[arg_name]))
                 else:
@@ -1771,13 +1777,32 @@ convert_arg_line_to_args.args = []
 convert_arg_line_to_args.arg_ct = 0
 
 # Standalone tests
-# Example: yb_Common.py -h YB14 -U denav -D denav --verbose 3
+# Example: yb_common.py -h YB14 -U denav -D denav
 if __name__ == "__main__":
-    if Common.verbose >= 3:
-        # Print extended information on the environment running this program
-        print('--->%s\n%s' % ("(Cmd('lscpu')).stdout",
-                              Cmd('lscpu').stdout))
-        print('--->%s\n%s' % ("platform.platform()", platform.platform()))
-        print('--->%s\n%s' % ("platform.python_implementation()",
-                              platform.python_implementation()))
-        print('--->%s\n%s' % ("sys.version", sys.version))
+    class test_util(Util):
+        config = {
+            'description': 'User Usage Report.'
+            , 'usage_example': {
+                'cmd_line_args': "--host yb89 --DB stores --user dze"} }
+
+    test_util = test_util()
+
+    print('Common.version: %s' % Common.version)
+    print('Common.start_ts: %s' % Common.start_ts)
+    print('Common.util_dir_path: %s' % Common.util_dir_path)
+    print('Common.util_file_name: %s' % Common.util_file_name)
+    print('Common.util_name: %s' % Common.util_name)
+    print('Common.is_windows: %s' % Common.is_windows)
+    print('Common.is_cygwin: %s' % Common.is_cygwin)
+
+    print('test_util.args_handler.args: %s' % pprint.PrettyPrinter().pformat(vars(test_util.args_handler.args)))
+
+    print('test_util.db_conn.database: %s' % test_util.db_conn.database)
+    print('test_util.db_conn.schema: %s' % test_util.db_conn.schema)
+    print('test_util.db_conn.ybdb: %s' % pprint.PrettyPrinter().pformat(test_util.db_conn.ybdb))
+    print('test_util.db_conn.env: %s' % re.sub("'pwd':\s*'.*", "'pwd': Masked", pprint.PrettyPrinter().pformat(test_util.db_conn.env)))
+
+    # Print extended information on the environment running this program
+    print('platform.platform(): %s' % platform.platform())
+    print('platform.python_implementation(): %s' % platform.python_implementation())
+    print('sys.version: %s' % sys.version)
