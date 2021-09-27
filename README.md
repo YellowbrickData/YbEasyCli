@@ -7,7 +7,7 @@
 
 # YbEasyCli
 
-An extensible collection of utilities used to interact with a Yellowbrick Data Warehouse instance through an easy command line interface.
+An extensible collection of utilities used to interact with a Yellowbrick Data Warehouse instance through an command line interface.
 
 
 <a id="installation"></a>
@@ -29,7 +29,7 @@ All utilities rely on establishing a connection with a Yellowbrick instance.
 Connection parameters are typically specified using command line flags.
 Optionally, a user may save these parameters in environment variables.
 
-See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/4.0/administration/ybsql_connections.html#reference_qtb_5ft_sv__ybsql_connections_environment_variables) for more information about setting environment for `ybsql` connections.
+See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/5.2/administration/ybsql_env_variables.html) for more information about setting environment for `ybsql` connections.
 
 
 <a id="overview"></a>
@@ -38,12 +38,14 @@ See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/4.0/adminis
 
 ### Runnable Utilities
 
--   **[yb\_analyze\_columns](./yb_analyze_columns.py):** Analyze the data content of a table's columns.
+-   **[yb_analyze_columns](./yb_analyze_columns.py):** Analyze the data content of a table's columns.
 -   **[yb_check_db_views](./yb_check_db_views.py):** Check for broken views.
 -   **[yb_chunk_dml_by_date_part](./yb_chunk_dml_by_date_part.py):** Chunk DML by DATE/TIMESTAMP column.
 -   **[yb_chunk_dml_by_integer_yyyymmdd](./yb_chunk_dml_by_integer_yyyymmdd.py):** Chunk DML by YYYYMMDD integer column.
 -   **[yb_chunk_dml_by_integer](./yb_chunk_dml_by_integer.py):** Chunk DML by INTEGER column.
 -   **[yb_chunk_optimal_rows](./yb_chunk_optimal_rows.py):** Determine the optimal number of rows per chunk for a table(experimental).
+-   **[yb_create_calendar_table](./yb_create_calendar_table.py):** Create a calendar dimension table.
+-   **[yb_create_log_query_history](./yb_create_log_query_history.py):** Build/update long term history db table/views sourced from the sys.log_query view.
 -   **[yb_ddl_sequence](./yb_ddl_sequence.py):** Return the sequence/s DDL for the requested database.  Use sequence filters to limit the set of sequences returned.
 -   **[yb_ddl_stored_proc](./yb_ddl_stored_proc.py):** Return the stored procedure/s DDL for the requested database.  Use stored procedure filters to limit the set of stored procedures returned.
 -   **[yb_ddl_table](./yb_ddl_table.py):** Return the table/s DDL for the requested database.  Use table filters to limit the set of tables returned.
@@ -63,7 +65,9 @@ See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/4.0/adminis
 -   **[yb_mass_column_update](./yb_mass_column_update.py):** Update the value of multiple columns.
 -   **[yb_query_to_stored_proc](./yb_query_to_stored_proc.py):** Create a stored procedure for the provided query with the query privileges of the definer/creator.
 -   **[yb_sys_query_to_user_table](./yb_sys_query_to_user_table.py):** Convert system query to user table.
+-   **[yb_table_skew](./yb_table_skew.py):** Table skew report.
 -   **[yb_to_yb_copy_table](./yb_to_yb_copy_table.py):** Copy a table from a source cluster to a destination cluster.
+-   **[yb_wl_profiler_heatmap](./yb_wl_profiler_heatmap.py):** Creates a 35 day Excel heatmap of Work Loads on a Yellowbrick Cluster.
 
 ### Other Files
 
