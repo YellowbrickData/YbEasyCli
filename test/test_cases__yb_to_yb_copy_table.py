@@ -23,9 +23,9 @@ test_cases = [
         cmd=("""yb_to_yb_copy_table.py @{argsdir}/src_db1_dst_db2 --unload_where_clause "col1 <= 100" """
             """ --src_table dev.data_types_t --dst_table Prod.data_types_100_t --log_dir tmp --create_dst_table;"""
             """ %s""") %
-                ("""$env:YBPASSWORD='{user_password}'; ybsql -h {host} -U {user_name} -d {db2} -c 'DROP TABLE \""Prod\\"".data_types_100_t'"""
+                ("""$env:YBPASSWORD='{user_password}'; ybsql -h {host} -U {user_name} -d {db2} -c 'DROP TABLE \""Prod\\"".data_types_100_t' 2> $null"""
                 if Common.is_windows
-                else """YBPASSWORD={user_password} ybsql -h {host} -U {user_name} -d {db2} -c 'DROP TABLE "Prod".data_types_100_t'""")
+                else """YBPASSWORD={user_password} ybsql -h {host} -U {user_name} -d {db2} -c 'DROP TABLE "Prod".data_types_100_t' 2> /dev/null""")
         , exit_code=0
         , stdout="""-- created destination table: Prod.data_types_100_t
 -- chunk1of1

@@ -41,6 +41,6 @@ test_cases = [
             '--column col1 extra_arg')
         , exit_code=(0 if Common.is_windows else 1)
         , stdout=""
-        , stderr="""yb_get_column_name.py: error: unrecognized arguments: dze_db2 extra_arg
+        , stderr="""yb_get_column_name.py: error: unrecognized arguments: {db2} extra_arg
 for complete help, execute: yb_get_column_name.py --help""")
 ]
