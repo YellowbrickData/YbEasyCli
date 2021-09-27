@@ -318,8 +318,9 @@ class execute_test_action:
             if os.access(args.python_exe, os.X_OK):
                 cmd_results = Cmd('%s --version'
                     % args.python_exe)
+                #some python versions return the version in stdout some in stderr
                 self.test_py_version = (
-                    int((cmd_results.stdout if Common.is_windows else cmd_results.stderr)
+                    int((cmd_results.stdout if cmd_results.stdout else cmd_results.stderr)
                         .split(' ')[1].split('.')[0]))
             else:
                 Common.error("'%s' is not found or not executable..."
