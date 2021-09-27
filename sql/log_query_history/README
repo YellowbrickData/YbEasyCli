@@ -1,0 +1,77 @@
+log query history
+
+
+Description
+Stored procedures used to maintain a long term history of the sys.log_query view.
+
+
+Building the stored procedure
+    Run the following SQL scripts to create the create_log_query_history_p stored procedure.
+    <user> - should be a non-super user
+
+    ybsql -U yellowbrick -h <host> -d <db> -W -f materialize_sys_log_query_p.sql
+    ybsql -U yellowbrick -h <host> -d <db> -W -c 'GRANT EXECUTE ON PROCEDURE materialize_sys_log_query_p(VARCHAR, VARCHAR, VARCHAR, BOOLEAN) TO <user>'
+    ybsql -U <user> -h <host> -d <db> -f create_log_query_history_p.sql
+
+
+Running the create_log_query_history_p stored procedure.
+    Periodicly run: SELECT create_log_query_history_p();
+
+    The first time your run create_log_query_history_p it will create;
+        log_query_history - table, containing the query_id and all the query details except for the query_text
+        log_query_history_text - table, conataining the queary_id and query_text
+        log_query_history_v - view that joins log_query_history and log_query_history_text
+
+    Every run of create_log_query_history_p after the first will update the log_query_history tables with the
+    delta of queries from sys.log_query since the last run of create_log_query_history_p.
+
+    Note that sys.log_query holds a history of X number of days of queries.  The X number and is set in the
+    SMC->Configure->Retention->Statistics to Retain.  Make sure that the delta in days between running
+    create_log_query_history_p is less than 'Statistics to Retain' number of days.  Not doing so will cause
+    you to loss some of the query history.
+
+    create_log_query_history_p has 2 arguments.
+        a_log_object_name - the object name prefix used for the 2 tables and view, defaults to 'log_query_history'
+        a_where_clause - where clause applied to sys.log_query to limit the queries for which history is maintained,
+            defaults to 'TRUE' meaning all queries.
+
+Example usage.
+    The following example creates 2 tables and a view with object names starting with 'user_log_query_hist' and only
+    captures end user queries eliminating any queries run by system users named 'sys_ybd_%'.
+
+    # SELECT create_log_query_history_p('user_log_query_hist', $$username NOT LIKE 'sys_ybd_%'$$);
+    INFO:  00000: --creating required DB Objcets
+    create_log_query_history_p
+    ----------------------------
+    t
+    (1 row)
+
+    # SELECT COUNT(*) FROM user_log_query_hist_v;
+    count
+    --------
+    131495
+    (1 row)
+
+    # SELECT COUNT(*) FROM user_log_query_hist;
+    count
+    --------
+    131495
+    (1 row)
+
+    # SELECT COUNT(*) FROM user_log_query_hist_text;
+    count
+    --------
+    131495
+    (1 row)
+
+    # SELECT create_log_query_history_p('user_log_query_hist', $$username NOT LIKE 'sys_ybd_%'$$);
+    create_log_query_history_p
+    ----------------------------
+    t
+    (1 row)
+
+    # SELECT COUNT(*) FROM user_log_query_hist_v;
+    count
+    --------
+    131512
+    (1 row)
