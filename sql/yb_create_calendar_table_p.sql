@@ -5,7 +5,7 @@ CREATE OR REPLACE PROCEDURE yb_create_calendar_table_p(
     , a_absolute_start_date DATE)
     RETURNS BOOLEAN
     LANGUAGE plpgsql
-AS $$
+AS $proc$
 --description:
 --    Create a calendar dimension table.
 --arguments:
@@ -50,14 +50,14 @@ input_cte AS (
         first_date, last_date, absolute_start_date
         , EXTRACT( YEAR FROM absolute_start_date )   AS cal_first_year
         , EXTRACT( YEAR FROM first_date )            AS first_year
-        , first_date + num                           AS calendar_date
+        , DATEADD(DAY, num::INT, first_date )::DATE  AS calendar_date
         , DATE_PART('WEEK', calendar_date)::INT      AS datepart_week
         , DATE_PART('MONTH', calendar_date)::INT     AS datepart_month
         , DATE_PART('YEAR', calendar_date)::INT      AS datepart_year
-        , calendar_date - absolute_start_date + 1 AS day_of_calendar
-        , EXTRACT(DOW FROM DATE_TRUNC('MONTH', calendar_date))+1 AS dow_of_day1_in_month
-        , EXTRACT(DOW FROM DATE_TRUNC('YEAR', calendar_date))+1  AS dow_of_day1_in_year
-        , EXTRACT(DOW FROM absolute_start_date)+1             AS dow_of_day1_in_cal
+        , calendar_date - absolute_start_date + 1    AS day_of_calendar
+        , EXTRACT(DOW FROM DATE_TRUNC('MONTH', calendar_date)) + 1 AS dow_of_day1_in_month
+        , EXTRACT(DOW FROM DATE_TRUNC('YEAR', calendar_date)) + 1  AS dow_of_day1_in_year
+        , EXTRACT(DOW FROM absolute_start_date) + 1                AS dow_of_day1_in_cal
     FROM seq_cte CROSS JOIN input_cte
     WHERE num < total_days
 )
@@ -146,4 +146,4 @@ $DDL$
 BEGIN
     EXECUTE v_query_create_calendar_table;
     RETURN TRUE;
-END$$;
+END$proc$;
