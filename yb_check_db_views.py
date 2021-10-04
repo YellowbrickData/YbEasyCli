@@ -15,7 +15,7 @@ Output:
 """
 import sys
 
-from yb_common import Common, Util
+from yb_common import AnonymousPl, Common, Util
 
 class check_db_views(Util):
     """Check for broken views.
@@ -39,7 +39,7 @@ class check_db_views(Util):
         sys.stdout.write('-- Running broken view check.\n')
         for db in dbs:
             db_ct += 1
-            cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
+            cmd_results = AnonymousPl(self.db_conn).call_stored_proc_as_anonymous_block(
                 'yb_check_db_views_p'
                 , args = {'a_filter':self.db_filter_sql()}
                 , pre_sql = ('\c %s\n' % db))

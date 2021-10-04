@@ -13,7 +13,7 @@ OPTIONS:
 Output:
       The column names and column attributes for filtered columns.
 """
-from yb_common import Util
+from yb_common import AnonymousPl, Util
 
 class find_columns(Util):
     """Issue the ybsql command used to list the column names comprising an
@@ -35,7 +35,7 @@ class find_columns(Util):
     def execute(self):
         self.db_filter_args.schema_set_all_if_none()
 
-        self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
+        self.cmd_results = AnonymousPl(self.db_conn).call_stored_proc_as_anonymous_block(
                 'yb_find_columns_p'
                 , args = {
                     'a_column_filter_clause' : self.db_filter_sql() } )

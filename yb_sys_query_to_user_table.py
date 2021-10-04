@@ -15,7 +15,7 @@ Output:
 """
 import sys
 
-from yb_common import ArgIntRange, Util
+from yb_common import AnonymousPl, ArgIntRange, Util
 
 class sys_query_to_user_table(Util):
     """Issue the ybsql command used to materialize a system table or in
@@ -35,7 +35,7 @@ FROM sys.schema
 --table 'sys_schema'"""} ] } }
 
     def execute(self):
-        self.cmd_results = self.db_conn.call_stored_proc_as_anonymous_block(
+        self.cmd_results = AnonymousPl(self.db_conn).call_stored_proc_as_anonymous_block(
             'yb_sys_query_to_user_table_p'
             , args = {
                 'a_query' : self.args_handler.args.query
