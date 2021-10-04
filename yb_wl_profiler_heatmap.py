@@ -50,7 +50,7 @@ class wl_profiler(Util):
             import xlwings
         except Exception as e:
             if str(e) == "No module named 'xlwings'":
-                Common.error('the python xlwings library is required, see https://docs.xlwings.org/en/stable/installation.html for installation instructions')
+                Common.error("the python xlwings library is required, please run 'python -m pip install xlwings' or see https://docs.xlwings.org/en/stable/installation.html for installation instructions")
             else:
                 Common.error(e)
             exit(1)
