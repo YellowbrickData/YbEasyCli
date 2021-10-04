@@ -11,6 +11,7 @@ import os
 import platform
 import pprint
 import re
+import random
 import signal
 import shlex
 import subprocess
@@ -22,9 +23,10 @@ from datetime import datetime
 from glob import glob
 from tabulate import tabulate
 
+# Provides gracefule error when user issues a CTRL-C to break out of a yb_<util>
+#    TODO doesn't work in powershell
 def signal_handler(signal, frame):
     Common.error('user terminated...')
-
 signal.signal(signal.SIGINT, signal_handler)
 
 class Common:
@@ -37,6 +39,10 @@ class Common:
     start_ts = datetime.now()
     is_windows = platform.system() == 'Windows'
     is_cygwin = sys.platform == 'cygwin'
+
+    if not is_windows:
+        # supresses Linux error thrown when using pipe; like: 'yb_<util> | head -10'
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
     @staticmethod
     def error(msg, exit_code=1, color='red', no_exit=False):
@@ -63,6 +69,10 @@ class Common:
     def ts(self):
         """Get the current time (for time stamping)"""
         return str(datetime.now())
+
+    @staticmethod
+    def get_uid():
+        return '%s_%05d' % (datetime.now().strftime('%Y%m%d_%H%M%S'), random.randint(0, 99999))
 
     @staticmethod
     def split_db_object_name(object_name):
@@ -443,7 +453,7 @@ class ArgsHandler:
         args_optional_grp = self.args_parser.add_argument_group('optional report arguments')
         args_optional_grp.add_argument("--report_type"
             , choices=['formatted', 'psv', 'ctas', 'insert'], default='formatted'
-            , help=("formatted: output a formatted report psv: output pipe seperated row data,"
+            , help=("formatted: output a formatted report, psv: output pipe seperated row data,"
                 " ctas: create a table containing the report data,"
                 " insert: insert report data into an existing table, defaults to formatted") )
         args_optional_grp.add_argument("--report_dst_table", metavar='table'
@@ -454,6 +464,15 @@ class ArgsHandler:
         args_optional_grp.add_argument("--report_exclude_columns"
             , nargs='+', metavar='column'
             , help="list of column names to exclude from the report")
+        if self.config['report_order_columns']:
+            order_choices = self.config['report_order_columns'].split('|')
+            order_default = self.config['report_default_order'].split('|')
+            args_optional_grp.add_argument(
+                "--report_order_by", nargs="+", metavar='column_name <ASC|DESC>', default=order_default
+                , choices=(order_choices + ['ASC', 'DESC'])
+                , help=("order by columns: {order_choices}, defaults to: {order_default}".format(
+                    order_choices=' '.join(order_choices)
+                    , order_default=' '.join(order_default) ) ) )
 
     def add_output_args(self):
         args_optional_grp = self.args_parser.add_argument_group(
@@ -521,6 +540,23 @@ class ArgsHandler:
             or (self.args.report_type in ['ctas', 'insert']) and not(self.args.report_dst_table)):
             self.args_parser.error("--report_dst_table and --report_type of 'ctas' or 'insert' must be set")
 
+        if self.args.report_order_by:
+            found_column = False
+            order_by_clause = ''
+            for token in self.args.report_order_by:
+                if token in ['ASC', 'DESC']:
+                    if not found_column:
+                        self.args_parser.error("invalid --report_order_by: %s" % ' '.join(self.args.report_order_by))
+                    else:
+                        found_column = False
+                        order_by_clause += ' ' + token
+                else:
+                    if len(order_by_clause) != 0:
+                        order_by_clause += ', '
+                    order_by_clause += token
+                    found_column = True
+            self.args.report_order_by = order_by_clause
+    
     def args_process(self):
         """Process arguments.
 
@@ -531,7 +567,8 @@ class ArgsHandler:
         if self.config['report_columns']:
             self.process_report_args()
 
-        if self.args.nocolor:
+        # TODO turned off color for Powershell, it seems to partially work in Powershell
+        if self.args.nocolor or Common.is_windows:
             Text.nocolor = True
 
         Common.verbose = self.args.verbose
@@ -1018,20 +1055,67 @@ class DBConnect:
             user = (self.env['dbuser']
                 or os.environ.get("USER") #Linux
                 or os.environ.get("USERNAME") ) #Windows
+
             if user:
-                if pwd_required or self.env_pre['pwd'] is None:
+                ybpass_pwd = self.get_ybpass(self.env, user)
+
+                if pwd_required or (self.env_pre['pwd'] is None and ybpass_pwd is None):
                     prompt = ("Enter the password for cluster %s, user %s: "
                         % (Text.color(self.env['host'], fg='cyan')
                             , Text.color(user, fg='cyan')))
                     self.env['pwd'] = getpass.getpass(prompt)
                 else:
-                    self.env['pwd'] = self.env_pre['pwd']
-            # if user is missing
-            # set an invalid password to simulate a failed login
+                    self.env['pwd'] = self.env_pre['pwd'] if self.env_pre['pwd'] else ybpass_pwd
+            # if user is missing set an invalid password to simulate a failed login
             else:
                 self.env['pwd'] = '-*-force bad password-*-'
 
         self.verify()
+
+    @staticmethod
+    def get_ybpass(user_env, user):
+        env = user_env.copy()
+        env['port'] = env['port'] if env['port'] else '5432'
+        env['dbuser'] = env['dbuser'] if env['dbuser'] else user
+        env['conn_db'] = env['conn_db'] if env['conn_db'] else user
+
+        try:
+            ybpassfile = os.environ.get("YBPASSFILE")
+            if not ybpassfile:
+                if Common.is_windows:
+                    ybpassfile = os.path.expandvars('%APPDATA%\postgresql\pgpass.conf')
+                else:
+                    ybpassfile = '%s/.ybpass' % os.path.expanduser('~')
+
+            test_ybpassfile = os.access(ybpassfile, os.R_OK)
+
+            if not Common.is_windows:
+                # Linux check if file does not have group and world access
+                test_ybpassfile = oct(os.stat(ybpassfile).st_mode)[-2:] == '00'
+        except:
+            test_ybpassfile = False
+
+        pwd = None
+        if test_ybpassfile:
+            ybpass_data = Common.read_file(ybpassfile, on_read_error_exit=False)
+            # regex parses ybpass file, it ignores lines that start with '#' and handles the '\:' and '\\' escape strings 
+            regex = r"^(?!#)(((\\:)|(\\\\)|[\x21-\x39]|[\x3b-\x5b]|[\x5d-\x7e])*):(\d*|\*):(((\\:)|(\\\\)|[\x21-\x39]|[\x3b-\x5b]|[\x5d-\x7e])*):(((\\:)|(\\\\)|[\x21-\x39]|[\x3b-\x5b]|[\x5d-\x7e])*):(((\\:)|(\\\\)|[\x20-\x39]|[\x3b-\x5b]|[\x5d-\x7e])*)$"
+            matches = re.finditer(regex, ybpass_data, re.MULTILINE)
+            for matchNum, match in enumerate(matches, start=1):
+                env_ybpass = DBConnect.create_env(host=match.group(1), port=match.group(5)
+                    , conn_db=match.group(6), dbuser=match.group(10), pwd=match.group(14))
+                pwd = DBConnect.get_ybpass_on_env_match(env, env_ybpass)
+                if pwd:
+                    break
+        return pwd
+
+    @staticmethod
+    def get_ybpass_on_env_match(env, env_ybpass):
+        for cred in ['dbuser', 'host', 'port', 'conn_db']:
+            cred_val = env_ybpass[cred].replace('\\\\', '\\').replace('\\:', ':')
+            if not(cred_val == '*' or cred_val == env[cred]):
+                return None                
+        return env_ybpass['pwd'].replace('\\\\', '\\').replace('\\:', ':')
 
     @staticmethod
     def set_env(env):
@@ -1209,45 +1293,13 @@ eof""".format(ybsql_cmd=ybsql_cmd)
 
         return cmd
 
-    def call_stored_proc_as_anonymous_block(self
-        , stored_proc
-        , args={}
-        , pre_sql=''
-        , post_sql=''):
-        """Convert an SQL stored procedure to an anonymous SQL block,
-        then execute the anonymous SQL block.  This allows a user to run
-        the stored procedure without building the procedure, lowering the
-        barrier to run.
+class AnonymousPl:
+    def __init__(self, db_conn=None):
+        self.db_conn = db_conn
 
-        :param stored_proc: The SQL stored_proc to be run stored in the sql directory
-        :param args: a dictionary of input args/values to the stored_proc call
-        :param pre_sql: SQL to execute before the stored_proc
-        :param post_sql: SQL to execute after the stored_proc
-        """
-        return_marker = '>!>RETURN<!<:'
-
-        filepath = Common.util_dir_path + ('/sql/%s.sql' % stored_proc)
-        stored_proc_sql = Common.read_file(filepath)
-
-        regex = r"\s*CREATE\s*(OR\s*REPLACE)?\s*PROCEDURE\s*([a-z0-9_]+)\s*\((.*?)\)\s*((RETURNS\s*([a-zA-Z]*).*?))\s+LANGUAGE.+?(DECLARE\s*(.+))?RETURN\s*([^;]*);(.*)\$\$;"
-        matches = re.search(regex, stored_proc_sql, re.IGNORECASE | re.DOTALL)
-
-        if not matches:
-            Common.error("Stored proc '%s' regex parse failed." % stored_proc)
-
-        stored_proc_name          = matches.group(2)
-        stored_proc_args          = matches.group(3)
-        #TODO currently return_type only handles 1 word like; BOOLEAN
-        stored_proc_return_type   = matches.group(6).upper()
-        stored_proc_before_return = matches.group(8)
-        stored_proc_return        = matches.group(9)
-        stored_proc_after_return  = matches.group(10)
-
-        anonymous_block = pre_sql + '--proc: %s\nDO $$\nDECLARE\n    --arguments\n' % stored_proc_name
-        if stored_proc_return_type not in ('BOOLEAN', 'BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
-            Common.error('Unhandled proc return_type: %s' % stored_proc_return_type)
-
-        for arg in Common.split(stored_proc_args):
+    def stored_proc_args_to_declare_args_clause(self, stored_proc, args):
+        declare_clause_args = '--arguments\n'
+        for arg in Common.split(self.stored_proc_args):
             matches = re.search(r'(.*)\bDEFAULT\b(.*)'
                 , arg, re.DOTALL | re.IGNORECASE)
             if matches:
@@ -1266,36 +1318,32 @@ eof""".format(ybsql_cmd=ybsql_cmd)
             #print('arg: %s, dt: %s, dts: %s, default: %s' % (arg, arg_datatype, arg_datatype_size, default))
             if arg_name in args:
                 if arg_type == 'VARCHAR':
-                    anonymous_block += ("    %s %s%s = $A$%s$A$;\n"
+                    declare_clause_args += ("    %s %s%s = $A$%s$A$;\n"
                         % (arg_name, arg_type, arg_type_size, args[arg_name]))
                 elif arg_type in ('BOOLEAN', 'BIGINT', 'DATE', 'INT', 'INTEGER', 'SMALLINT'):
-                    anonymous_block += ("    %s %s = %s;\n"
+                    declare_clause_args += ("    %s %s = %s;\n"
                         % (arg_name, arg_type, args[arg_name]))
                 else:
                     Common.error('Unhandled proc arg_type: %s' % arg_type)
             elif default_value:
-                anonymous_block += ("    %s %s = %s;\n"
+                declare_clause_args += ("    %s %s = %s;\n"
                     % (arg_name, arg_type, default_value))
             else:
                 Common.error("Missing proc arg: %s for proc: %s"
                     % (arg_name, stored_proc))
 
-        anonymous_block += ("    --variables\n    %sRAISE INFO '%s%%', %s;%s$$;%s"
-            % (
-                stored_proc_before_return, return_marker, stored_proc_return
-                , stored_proc_after_return, post_sql))
+        return declare_clause_args
 
-        cmd_results = self.ybsql_query(anonymous_block)
-
+    def stored_proc_process_result(self, cmd_result):
         # pg/plsql RAISE INFO commands are sent to stderr.  The following moves
         #   the RAISE INFO data to be returned as stdout.
-        if cmd_results.stderr.strip() != '':
+        if cmd_result.stderr.strip() != '':
             return_value = None
             # TODO need to figure out howto split the real stderr from stderr RAISE INFO output
             stderr = ''
-            stdout = cmd_results.stdout
+            stdout = cmd_result.stdout
             stdout_lines = []
-            for line in cmd_results.stderr.split('\n'):
+            for line in cmd_result.stderr.split('\n'):
                 if line[0:20] == 'INFO:  >!>RETURN<!<:':
                     return_value = line[20:].strip()
                 elif line[0:7] == 'INFO:  ':
@@ -1305,31 +1353,148 @@ eof""".format(ybsql_cmd=ybsql_cmd)
             stdout += '\n'.join(stdout_lines)
 
             if not return_value:
-                Common.error(cmd_results.stderr)
+                Common.error(cmd_result.stderr)
 
-            cmd_results.stderr = stderr
-            cmd_results.stdout = stdout
+            cmd_result.stderr = stderr
+            cmd_result.stdout = stdout
 
-            if stored_proc_return_type == 'BOOLEAN':
+            if self.stored_proc_return_type == 'BOOLEAN':
                 boolean_values = {'t': True, 'f': False, '<NULL>': None}
-                cmd_results.proc_return = boolean_values.get(
+                cmd_result.proc_return = boolean_values.get(
                     return_value, None)
-            elif stored_proc_return_type in ('BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
-                cmd_results.proc_return = (
-                    None
-                    if return_value == '<NULL>'
-                    else int(return_value))
+            elif self.stored_proc_return_type in ('BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
+                cmd_result.proc_return = (
+                    None if return_value == '<NULL>' else int(return_value) )
             else:
-                Common.error("Unhandled proc return_type: %s" % stored_proc_return_type)
+                Common.error("Unhandled proc return_type: %s" % self.stored_proc_return_type)
 
-        return cmd_results
+        return cmd_result
+
+    def stored_proc_parse(self, stored_proc):
+        filepath = Common.util_dir_path + ('/sql/%s.sql' % stored_proc)
+        stored_proc_sql = Common.read_file(filepath)
+
+        regex = r"CREATE\s*(OR\s*REPLACE)?\s*PROCEDURE\s*([a-z0-9_]+)\s*\((.*?)\)\s*(RETURNS(\s*SETOF)?\s*([a-zA-Z_]*).*?)\s+.+?(DECLARE\s*(.+))RETURN(\s*NEXT)?\s*([^;]*);(.*)\$PROC\$"
+        matches = re.search(regex, stored_proc_sql, re.IGNORECASE | re.DOTALL)
+
+        if not matches:
+            Common.error("Stored proc '%s' regex parse stored proc failed." % stored_proc)
+
+        self.stored_proc_name          = matches.group(2)
+        self.stored_proc_args          = matches.group(3)
+        #TODO currently return_type only handles 1 word like; BOOLEAN
+        self.stored_proc_return_setof  = (matches.group(5) is not None)
+        self.stored_proc_before_return = matches.group(8)
+        self.stored_proc_return        = matches.group(10)
+        self.stored_proc_after_return  = matches.group(11)
+
+        if not self.stored_proc_return_setof:
+            self.stored_proc_return_type = matches.group(6).upper()
+            if self.stored_proc_return_type not in ('BOOLEAN', 'BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
+                Common.error('Unhandled proc return_type: %s' % self.stored_proc_return_type)
+        else:
+            self.stored_proc_return_table_type = matches.group(6)
+            regex = r"(CREATE\s*(OR\s*REPLACE)?\s*TABLE\s*)([a-z0-9_]+)(\s*[^;]*)"
+            matches = re.search(regex, stored_proc_sql, re.IGNORECASE | re.DOTALL)
+            if not matches:
+                Common.error("Stored proc '%s' regex parse table failed." % stored_proc)
+            table_name = matches.group(3)
+            self.tmp_table_name = '%s_%s' % (table_name, Common.get_uid())
+            self.create_tmp_table_sql = ('CREATE TEMP TABLE %s%s'
+                % (self.tmp_table_name, matches.group(4)) )
+            self.stored_proc_before_return = re.sub(
+                ('%s%%ROWTYPE' % table_name), ('%s%%ROWTYPE' % self.tmp_table_name)
+                , self.stored_proc_before_return)
+
+    def call_stored_proc_as_anonymous_block(self
+        , stored_proc
+        , args={}
+        , pre_sql=''
+        , post_sql=''):
+        """Convert an SQL stored procedure to an anonymous SQL block,
+        then execute the anonymous SQL block.  This allows a user to run
+        the stored procedure without building the procedure, lowering the
+        barrier to run.
+
+        :param stored_proc: The SQL stored_proc to be run stored in the sql directory
+        :param args: a dictionary of input args/values to the stored_proc call
+        :param pre_sql: SQL to execute before the stored_proc
+        :param post_sql: SQL to execute after the stored_proc
+        """
+        return_marker = '>!>RETURN<!<:'
+
+        self.stored_proc_parse(stored_proc)
+        declare_clause_args = self.stored_proc_args_to_declare_args_clause(stored_proc, args)
+
+        anonymous_block = """
+{pre_sql}
+--proc: {stored_proc_name}
+DO $PROC$
+DECLARE
+    {declare_clause_args}
+    --variables
+    {stored_proc_before_return}
+    RAISE INFO '{return_marker}%', {stored_proc_return};
+    {stored_proc_after_return} $PROC$;
+{post_sql}""".format(
+            pre_sql=pre_sql, post_sql=post_sql
+            , stored_proc_name=self.stored_proc_name
+            , declare_clause_args=declare_clause_args
+            , stored_proc_before_return=self.stored_proc_before_return
+            , return_marker=return_marker, stored_proc_return=self.stored_proc_return
+            , stored_proc_after_return=self.stored_proc_after_return )
+
+        cmd_result = self.db_conn.ybsql_query(anonymous_block)
+        return self.stored_proc_process_result(cmd_result)
+
+    def stored_proc_setof_to_anonymous_block(self
+        , stored_proc
+        , args={}
+        , pre_sql=''
+        , post_sql=''):
+        """Convert an SQL stored procedure which returns a setof to an
+        anonymous SQL block.  This allows a user to run
+        the stored procedure without building the procedure, lowering the
+        barrier to run.
+
+        :param stored_proc: The SQL stored_proc to be run stored in the sql directory
+        :param args: a dictionary of input args/values to the stored_proc call
+        :param pre_sql: SQL to execute before the stored_proc
+        :param post_sql: SQL to execute after the stored_proc
+        """
+
+        self.stored_proc_parse(stored_proc)
+        declare_clause_args = self.stored_proc_args_to_declare_args_clause(stored_proc, args)
+
+        anonymous_block = """
+{pre_sql}
+{create_tmp_table};
+--proc: {stored_proc_name}
+DO $PROC$
+DECLARE
+    {declare_clause_args}
+    --variables
+    {stored_proc_before_return}
+    INSERT INTO {tmp_table_name} VALUES ({stored_proc_return}.*);
+    {stored_proc_after_return} $PROC$;
+{post_sql}""".format(
+            pre_sql=pre_sql, post_sql=post_sql
+            , create_tmp_table=self.create_tmp_table_sql
+            , stored_proc_name=self.stored_proc_name
+            , declare_clause_args=declare_clause_args
+            , stored_proc_before_return=self.stored_proc_before_return
+            , tmp_table_name=self.tmp_table_name, stored_proc_return=self.stored_proc_return
+            , stored_proc_after_return=self.stored_proc_after_return )
+
+        return(self.tmp_table_name, anonymous_block)
 
 class Report:
-    def __init__(self, args_handler, db_conn, columns, query):
+    def __init__(self, args_handler, db_conn, columns, query, pre_sql=''):
         self.args_handler = args_handler
         self.db_conn = db_conn
         self.columns = columns
         self.query = query
+        self.pre_sql = pre_sql
 
     @staticmethod
     def del_data_to_list_data(del_data, delimiter='|'):
@@ -1396,23 +1561,29 @@ class Report:
             del_data.append(delimiter.join(row))
         return '\n'.join(del_data)
 
-    def build(self):
-        query = ''
+    def build(self, is_source_cstore=False):
+        select_clause = ''
         for column in self.columns:
             #query += '%s%s' % (('SELECT\n    ' if query == '' else '\n    , '), Common.quote_object_paths(column))
-            query += '%s%s' % (('SELECT\n    ' if query == '' else '\n    , '), ('"' + column + '"'))
-        query += """\nFROM (
-%s
-) AS foo""" % self.query
+            select_clause += '%s%s' % (('SELECT\n    ' if select_clause == '' else '\n    , '), ('"' + column + '"'))
+
+        query = """{select_clause}\nFROM (
+{query}
+) AS foo""".format(
+            select_clause=select_clause
+            , query=self.query)
 
         args = self.args_handler.args
 
+        #case 1 create printed report
         if args.report_type in ('formatted', 'psv'):
             #adding ybsql column headers to query
             query = """
 \pset tuples_only off
 \pset footer off
-%s""" % query
+{pre_sql}{query}""".format(
+                pre_sql=self.pre_sql
+                , query=query)
 
             self.cmd_results = self.db_conn.ybsql_query(query)
             self.cmd_results.on_error_exit()
@@ -1422,17 +1593,35 @@ class Report:
             elif args.report_type == 'psv':
                 report = self.del_data_processed(self.cmd_results.stdout)
         elif args.report_type in ('ctas', 'insert'):
-            from yb_sys_query_to_user_table import sys_query_to_user_table
+            #case 2 store report to cstore table
+            if (is_source_cstore):
+                if args.report_type == 'ctas':
+                    table_sql = 'CREATE TABLE %s AS ' % Common.quote_object_paths(args.report_dst_table)
+                else:
+                    table_sql = 'INSERT INTO %s ' % Common.quote_object_paths(args.report_dst_table)
+                query = """
+{pre_sql}{table_sql}{query}{dist_clause}""".format(
+                        pre_sql=self.pre_sql
+                        , table_sql=table_sql
+                        , query=query
+                        , dist_clause=(' DISTRIBUTE RANDOM' if args.report_type == 'ctas' else '') )
 
-            args_handler = copy.copy(self.args_handler)
-            if args.report_type == 'ctas':
-                args_handler.args.create_table = True
-            args_handler.args.query = query
-            args_handler.args.table = args.report_dst_table
+                self.cmd_results = self.db_conn.ybsql_query(query)
+                self.cmd_results.on_error_exit()
+            #case 3 store report to rstore table
+            else:
+                from yb_sys_query_to_user_table import sys_query_to_user_table
 
-            sqtout = sys_query_to_user_table(db_conn=self.db_conn, args_handler=args_handler)
-            sqtout.execute()
-            sqtout.cmd_results.on_error_exit()
+                args_handler = copy.copy(self.args_handler)
+                if args.report_type == 'ctas':
+                    args_handler.args.create_table = True
+                args_handler.args.query = query
+                args_handler.args.pre_sql = self.pre_sql
+                args_handler.args.table = args.report_dst_table
+
+                sqtout = sys_query_to_user_table(db_conn=self.db_conn, args_handler=args_handler)
+                sqtout.execute()
+                sqtout.cmd_results.on_error_exit()
 
             report = '--Report type "%s" completed' % args.report_type
 
@@ -1457,7 +1646,9 @@ class Util:
         , 'output_tmplt_default': None
         , 'db_filter_args': {}
         , 'additional_args': None
-        , 'report_columns': None }
+        , 'report_columns': None 
+        , 'report_order_columns': None 
+        , 'report_default_order': None }
 
     def __init__(self, db_conn=None, args_handler=None, init_default=True, util_name=None):
         if util_name:
@@ -1800,7 +1991,7 @@ if __name__ == "__main__":
     print('test_util.db_conn.database: %s' % test_util.db_conn.database)
     print('test_util.db_conn.schema: %s' % test_util.db_conn.schema)
     print('test_util.db_conn.ybdb: %s' % pprint.PrettyPrinter().pformat(test_util.db_conn.ybdb))
-    print('test_util.db_conn.env: %s' % re.sub("'pwd':\s*'.*", "'pwd': Masked", pprint.PrettyPrinter().pformat(test_util.db_conn.env)))
+    print('test_util.db_conn.env: %s' % re.sub("'pwd':\s*'.*", "'pwd': <Masked>", pprint.PrettyPrinter().pformat(test_util.db_conn.env)))
 
     # Print extended information on the environment running this program
     print('platform.platform(): %s' % platform.platform())
