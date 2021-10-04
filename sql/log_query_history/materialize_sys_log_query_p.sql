@@ -7,7 +7,7 @@ CREATE OR REPLACE PROCEDURE materialize_sys_log_query_p(
     LANGUAGE 'plpgsql' 
     VOLATILE
     SECURITY DEFINER
-AS $PROC$
+AS $proc$
 DECLARE
     v_column_list TEXT := '';
     v_sql TEXT := $SQL$
@@ -64,4 +64,4 @@ BEGIN
     END IF;
     --
     RETURN TRUE;
-END; $PROC$
+END; $proc$

@@ -7,7 +7,7 @@ CREATE OR REPLACE PROCEDURE yb_sys_query_to_user_table_p(
     , a_max_varchar_size INTEGER DEFAULT 10000)
     RETURNS BOOLEAN
     LANGUAGE plpgsql
-AS $$
+AS $proc$
 --description:
 --    Materialize a rowstore table or in memory query to a columnstore table.
 --arguments:
@@ -187,4 +187,4 @@ $STR$
     EXECUTE v_query;
     --
     RETURN TRUE;
-END$$;
+END$proc$;

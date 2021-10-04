@@ -10,7 +10,7 @@ CREATE OR REPLACE PROCEDURE yb_chunk_dml_by_integer_lowcard_p(
     , a_execute_chunk_dml   BOOLEAN DEFAULT FALSE )
     RETURNS BOOLEAN
     LANGUAGE plpgsql
-AS $$
+AS $proc$
 -- chunks data where a_interger_column_name column contains lower cardinality data
 --     where a column value may have 1000 or more rows
 DECLARE
@@ -214,4 +214,4 @@ BEGIN
     END IF;
     --
     RETURN (v_total_size = v_running_total_size);
-END$$;
+END$proc$;

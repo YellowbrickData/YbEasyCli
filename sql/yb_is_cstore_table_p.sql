@@ -2,7 +2,7 @@ CREATE OR REPLACE PROCEDURE yb_is_cstore_table_p(
     a_table VARCHAR(200))
     RETURNS BOOLEAN
     LANGUAGE plpgsql
-AS $$
+AS $proc$
 --description:
 --    Check if table resides in the column store.
 --arguments:
@@ -25,4 +25,4 @@ BEGIN
             NULL;
     END;
     RETURN v_ret_value;
-END$$;
+END$proc$;

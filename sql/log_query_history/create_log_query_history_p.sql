@@ -5,7 +5,7 @@ CREATE OR REPLACE PROCEDURE create_log_query_history_p(
     LANGUAGE 'plpgsql' 
     VOLATILE
     SECURITY DEFINER
-AS $PROC$
+AS $proc$
 DECLARE
     v_table_text_name TEXT;
     v_tmp_table_name TEXT;
@@ -40,4 +40,4 @@ BEGIN
     --
     RAISE INFO '--inserted % queries into % and % tables', v_cnt, a_table_name, v_table_text_name;
     RETURN TRUE;
-END; $PROC$
+END; $proc$

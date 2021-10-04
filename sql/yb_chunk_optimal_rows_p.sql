@@ -4,7 +4,7 @@ CREATE OR REPLACE PROCEDURE yb_chunk_optimal_rows_p(
     , a_database VARCHAR )
     RETURNS BIGINT
     LANGUAGE plpgsql
-AS $$
+AS $proc$
 DECLARE
     v_blades INTEGER;
     v_chunks INTEGER;
@@ -50,4 +50,4 @@ BEGIN
     EXECUTE v_sql_chunk_row_size INTO v_chunks, v_chunk_row_size;
     --
     RETURN v_chunk_row_size;
-END$$;
+END$proc$;

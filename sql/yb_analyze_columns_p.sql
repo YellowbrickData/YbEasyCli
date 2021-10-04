@@ -6,7 +6,7 @@ CREATE OR REPLACE PROCEDURE yb_analyze_columns_p(
     , a_delimited_output BOOLEAN DEFAULT FALSE)
     RETURNS BOOLEAN
     LANGUAGE plpgsql
-AS $$
+AS $proc$
 DECLARE
     v_rec_tables RECORD;
     v_rec_aggs RECORD;
@@ -379,4 +379,4 @@ ORDER BY 1 DESC, 3'
     END LOOP;
     --
     RETURN TRUE;
-END$$;
+END$proc$;

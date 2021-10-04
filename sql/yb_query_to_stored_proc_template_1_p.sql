@@ -3,7 +3,7 @@ CREATE OR REPLACE PROCEDURE <stored_proc_name>(_limit BIGINT DEFAULT <limit_defa
     LANGUAGE 'plpgsql' 
     VOLATILE
     SECURITY DEFINER
-AS $PROC$
+AS $CODE$
 DECLARE
     --
     _sql          TEXT := '';
@@ -43,4 +43,4 @@ FROM
     _sql := REPLACE($STR$ SET ybd_query_tags  TO '<tags>' $STR$, '<tags>', _prev_tags);
     EXECUTE _sql ;
     --
-END;$PROC$;
+END;$CODE$;

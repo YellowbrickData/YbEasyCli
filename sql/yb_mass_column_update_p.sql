@@ -5,7 +5,7 @@ CREATE OR REPLACE PROCEDURE yb_mass_column_update_p(
     , a_exec_updates BOOLEAN DEFAULT FALSE)
     RETURNS BOOLEAN
     LANGUAGE plpgsql
-AS $$
+AS $proc$
 -- Description: Update the value of multiple columns
 -- Arguments:
 --    a_update_where_clause: an SQL clause which rtrns a BOOLEAN value to determine which
@@ -183,4 +183,4 @@ BEGIN
     END IF;
     --
     RETURN TRUE;
-END $$;
+END $proc$;

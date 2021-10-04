@@ -7,7 +7,7 @@ CREATE OR REPLACE PROCEDURE yb_query_to_stored_proc_p(
     , a_grant_execute_to VARCHAR(10000) DEFAULT 'public')
     RETURNS BOOLEAN
     LANGUAGE plpgsql
-AS $$
+AS $proc$
 --description:
 --    Create a stored procedure that runs the input a_query with the privileges of the user
 --       difining/creating the stored procedure.
@@ -149,4 +149,4 @@ $STR$
         , '<roles>', a_grant_execute_to);
     --
     RETURN TRUE;
-END$$;
+END$proc$;

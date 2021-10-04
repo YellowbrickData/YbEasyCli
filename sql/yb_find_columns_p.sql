@@ -2,7 +2,7 @@ CREATE OR REPLACE PROCEDURE yb_find_columns(
     a_column_filter_clause VARCHAR(60000) DEFAULT 'TRUE')
     RETURNS BOOLEAN
     LANGUAGE plpgsql
-AS $$
+AS $proc$
 -- Description: Find all columns that match the filter clause
 -- Arguments:
 --    a_column_filter_clause: an SQL where clause which filters the columns to be
@@ -62,4 +62,4 @@ BEGIN
     END LOOP;
     --
     RETURN TRUE;
-END $$;
+END $proc$;

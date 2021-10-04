@@ -10,7 +10,7 @@ CREATE PROCEDURE yb_chunk_dml_by_date_part_p(
     , a_print_chunk_dml   BOOLEAN DEFAULT FALSE )
     RETURNS BOOLEAN
     LANGUAGE plpgsql
-AS $$
+AS $proc$
 DECLARE
     v_rc REFCURSOR;
     v_rec RECORD;
@@ -148,4 +148,4 @@ BEGIN
     END IF;
     --
     RETURN (v_total_size = v_running_total_size);
-END $$;
+END $proc$;
