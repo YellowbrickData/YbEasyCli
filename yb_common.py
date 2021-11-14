@@ -129,7 +129,10 @@ class Common:
 
     @staticmethod
     def split(str, delim=','):
+        """split which handles embedded delims
+        within single/double quotes, parens, brakets, and curley braces"""
         #todo handle escape characters
+        
         open_close_char = {"'":"'", '"':'"', '(':')', '[':']', '{':'}'}
         close_char = []
         for char in open_close_char.keys():
@@ -142,6 +145,7 @@ class Common:
         open_char = []
         token = ''
         tokens = []
+        if len(str):
         for i in range(len(str)):
             if len(open_char) == 0 and str[i] == delim:
                 tokens.append(token.strip())
