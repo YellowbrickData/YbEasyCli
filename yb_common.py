@@ -180,7 +180,7 @@ class Common:
 
 class Cmd:
     cmd_ct = 0
-    def __init__(self, cmd_str, escape_dollar=True, stack_level=2, wait=True):
+    def __init__(self, cmd_str, escape_dollar=True, stack_level=2, wait=True, stdin=None):
         """Spawn a new process to execute the given command.
 
         Example: cmd = Cmd('env | grep -i path')
@@ -195,24 +195,10 @@ class Cmd:
         self.cmd_id = Cmd.cmd_ct
 
         if Common.is_windows:
-            prefix = ".YbEasyCli_Cmd_"
-            fd, tmp_ps1_file = tempfile.mkstemp(prefix=prefix, suffix=".ps1")
-            os.close(fd)
-
-            ps1_str = cmd_str
-            fd = open(tmp_ps1_file, 'w')
-            fd.write(ps1_str)
-            fd.close()
-
-            cmd_str = "powershell -ExecutionPolicy ByPass -Noninteractive -NoLogo -NoProfile -File %s" % tmp_ps1_file
+            cmd_str = self.windows_pre_cmd(cmd_str)
 
         if Common.verbose >= 2:
             trace_line = traceback.extract_stack(None, stack_level)[0]
-            if Common.is_windows:
-                print('%s %s\n%s'
-                    % (
-                        Text.color('--File', style='bold')
-                        , Text.color(tmp_ps1_file, 'cyan'), ps1_str ) )
             print(
                 '%s: %s, %s: %s, %s: %s\n%s\n%s'
                 % (
@@ -231,27 +217,55 @@ class Cmd:
         if escape_dollar and not(Common.is_windows):
             cmd_str = cmd_str.replace('$','\$')
 
+        self.cmd_dtr = cmd_str
         self.start_time = datetime.now()
+
         self.p = subprocess.Popen(
             cmd_str
+            , stdin=subprocess.PIPE
             , stdout=subprocess.PIPE
             , stderr=subprocess.PIPE
             , shell=not(Common.is_windows))
+
+        if stdin:
+            self.p.stdin.write(stdin.encode('utf-8'))
+            self.p.communicate()[0]
+
         if wait:
             self.wait()
 
         if Common.is_windows:
-            #clean up tmp files
-            glob_str = tmp_ps1_file[0:(tmp_ps1_file.find(prefix) + len(prefix))] + '*'
+            cmd_str = self.windows_post_cmd()
+
+    def windows_pre_cmd(self, cmd_str):
+        self.prefix = ".YbEasyCli_Cmd_"
+        fd, self.tmp_ps1_file = tempfile.mkstemp(prefix=self.prefix, suffix=".ps1")
+        os.close(fd)
+
+        ps1_str = cmd_str
+        fd = open(self.tmp_ps1_file, 'w')
+        fd.write(ps1_str)
+        fd.close()
+
+        if Common.verbose >= 2:
+            print('%s %s\n%s'
+                % (
+                    Text.color('--File', style='bold')
+                    , Text.color(self.tmp_ps1_file, 'cyan'), ps1_str ) )
+
+        return "powershell -ExecutionPolicy ByPass -Noninteractive -NoLogo -NoProfile -File %s" % self.tmp_ps1_file
+
+    def windows_post_cmd(self):
+        #clean up old tmp files 
+        glob_str = self.tmp_ps1_file[0:(self.tmp_ps1_file.find(self.prefix) + len(self.prefix))] + '*'
             threshold_time = time.time() - (60*360)
             for tmp_ps1_old_file in glob(glob_str):
                 try:
                     creation_time = os.stat(tmp_ps1_old_file).st_ctime
-                    if creation_time < threshold_time and tmp_ps1_file.replace('\\\\', '\\') != tmp_ps1_old_file:
+                if creation_time < threshold_time and self.tmp_ps1_file.replace('\\\\', '\\') != tmp_ps1_old_file:
                         os.remove(tmp_ps1_old_file)
                 except:
                     None
-
 
     def wait(self):
         #(stdout, stderr) = map(bytes.decode, p.communicate())
