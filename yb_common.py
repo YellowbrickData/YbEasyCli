@@ -97,8 +97,10 @@ class Common:
         return database, schema, table
 
     @staticmethod
-    def quote_object_paths(object_paths):
-        """Convert database object names to have double quotes where required"""
+    def quote_object_paths(object_paths, quote_all=False):
+        """Convert database object names to have double quotes where required
+        quote_all: will quote all names even SQL object names that don't require quotes
+        """
         quote_object_paths = []
         #for object_path in object_paths.split('\n'):
         for object_path in re.split('\r\n|\n', object_paths):
@@ -107,13 +109,23 @@ class Common:
             object_path = object_path.replace('"', '')
             objects = []
             for objct in object_path.split('.'):
-                if len(re.sub('[a-z0-9_]', '', objct)) == 0:
+                if len(re.sub('[a-z0-9_]', '', objct)) == 0 and not quote_all:
                     objects.append(objct)
                 else:
                     objects.append('"' + objct + '"')
             quote_object_paths.append('.'.join(objects))
 
         return '\n'.join(quote_object_paths)
+
+    @staticmethod
+    def qa(object_paths):
+        if type(object_paths) == list:
+            new_list = []
+            for object_path in object_paths:
+                new_list.append(Common.quote_object_paths(object_path, quote_all=True))
+            return new_list
+        else:
+            return Common.quote_object_paths(object_paths, quote_all=True)
 
     @staticmethod
     def split(str, delim=','):
