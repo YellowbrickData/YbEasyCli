@@ -77,6 +77,16 @@ class Common:
         return '%s_%05d' % (datetime.now().strftime('%Y%m%d_%H%M%S'), random.randint(0, 99999))
 
     @staticmethod
+    def str_to_gzip_b64(string):
+        cmdline_args_gz = gzip.compress(bytes(string, 'UTF-8'))
+        return base64.b64encode(cmdline_args_gz).decode()
+
+    @staticmethod
+    def gzip_b64_to_str(gzip_b64_str):
+        gz = base64.b64decode(gzip_b64_str)
+        return gzip.decompress(gz).decode()
+
+    @staticmethod
     def split_db_object_name(object_name):
         """Break a fully or partially qualified DB object name into parts"""
         name_list = object_name.split('.')
