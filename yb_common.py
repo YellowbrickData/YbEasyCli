@@ -529,6 +529,12 @@ class ArgsHandler:
     def args_usage_example(self):
         usage = self.config['usage_example']
         if len(usage):
+            extra = self.config['usage_example_extra']
+            if 'cmd_line_args' in extra:
+                usage['cmd_line_args'] += ' ' + extra['cmd_line_args']
+            if 'file_args' in extra:
+                usage['file_args'].extend(extra['file_args'])
+
             text = ('example usage:'
                 + '\n  %s %s' % (Common.util_file_name, usage['cmd_line_args']))
 
