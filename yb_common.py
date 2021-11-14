@@ -487,28 +487,35 @@ class ArgsHandler:
 
     def add_report_args(self):
         args_optional_grp = self.args_parser.add_argument_group('optional report arguments')
+
         args_optional_grp.add_argument("--report_type"
             , choices=['formatted', 'psv', 'ctas', 'insert'], default='formatted'
             , help=("formatted: output a formatted report, psv: output pipe seperated row data,"
                 " ctas: create a table containing the report data,"
                 " insert: insert report data into an existing table, defaults to formatted") )
+        args_optional_grp.add_argument('--report_delimiter', help=argparse.SUPPRESS, default='|')
         args_optional_grp.add_argument("--report_dst_table", metavar='table'
             , help="report destination table applies to report_type 'ctas' and 'insert' only")
+
+        columns = self.config['report_columns'].split('|')
         args_optional_grp.add_argument("--report_include_columns"
             , nargs='+', metavar='column'
-            , help="limit the report to the list of column names, the report will be created in the column order supplied")
+            , help=("limit the report to the list of column names, the report will be created in the"
+                " column order supplied, available report columns: %s" % ', '.join(columns) ) )
         args_optional_grp.add_argument("--report_exclude_columns"
             , nargs='+', metavar='column'
             , help="list of column names to exclude from the report")
-        if self.config['report_order_columns']:
-            order_choices = self.config['report_order_columns'].split('|')
-            order_default = self.config['report_default_order'].split('|')
+
+        default_order = (self.config['report_default_order'].split('|')
+            if self.config['report_default_order'] != [] else [])
+        default_order_str = ((', defaults to: ' + ' '.join(default_order) )
+            if len(default_order) > 0 else '')
             args_optional_grp.add_argument(
-                "--report_order_by", nargs="+", metavar='column_name <ASC|DESC>', default=order_default
-                , choices=(order_choices + ['ASC', 'DESC'])
-                , help=("order by columns: {order_choices}, defaults to: {order_default}".format(
-                    order_choices=' '.join(order_choices)
-                    , order_default=' '.join(order_default) ) ) )
+            "--report_order_by", nargs="+", metavar='column_name <ASC|DESC>', default=default_order
+            , help=("report order by columns%s" % default_order_str ) )
+
+        args_optional_grp.add_argument(
+            "--report_add_ts_column", action="store_true", help=("add first column with current timestamp to the report" ) )
 
     def add_output_args(self):
         args_optional_grp = self.args_parser.add_argument_group(
@@ -580,22 +587,24 @@ class ArgsHandler:
 
         if ((self.args.report_dst_table and self.args.report_type not in ['ctas', 'insert'])
             or (self.args.report_type in ['ctas', 'insert']) and not(self.args.report_dst_table)):
-            self.args_parser.error("--report_dst_table and --report_type of 'ctas' or 'insert' must be set")
+            self.args_parser.error("both --report_dst_table and --report_type must be set for --report_type of 'ctas' or 'insert'")
 
-        if self.args.report_order_by:
             found_column = False
             order_by_clause = ''
             for token in self.args.report_order_by:
-                if token in ['ASC', 'DESC']:
+            if token.upper() in ['ASC', 'DESC']:
                     if not found_column:
                         self.args_parser.error("invalid --report_order_by: %s" % ' '.join(self.args.report_order_by))
                     else:
                         found_column = False
-                        order_by_clause += ' ' + token
+                    order_by_clause += ' ' + token.upper()
                 else:
+                if token not in report_columns:
+                    self.args_parser.error("order column '%s' is not one of the report columns %s"
+                        % (token, pprint.PrettyPrinter().pformat(report_columns)) )
                     if len(order_by_clause) != 0:
                         order_by_clause += ', '
-                    order_by_clause += token
+                order_by_clause += Common.qa(token)
                     found_column = True
             self.args.report_order_by = order_by_clause
     
