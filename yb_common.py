@@ -26,6 +26,8 @@ from tabulate import tabulate
 # Provides gracefule error when user issues a CTRL-C to break out of a yb_<util>
 #    TODO doesn't work in powershell
 def signal_handler(signal, frame):
+    if Common.verbose >= 3:
+        traceback.print_stack()
     Common.error('user terminated...')
 signal.signal(signal.SIGINT, signal_handler)
 
