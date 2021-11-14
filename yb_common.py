@@ -4,9 +4,11 @@ and command execution that are common to all utilities in this package.
 """
 
 import argparse
+import base64
 import copy
 import csv
 import getpass
+import gzip
 import os
 import platform
 import pprint
@@ -19,12 +21,12 @@ import sys
 import tempfile
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, date
 from glob import glob
 from tabulate import tabulate
 
 # Provides gracefule error when user issues a CTRL-C to break out of a yb_<util>
-#    TODO doesn't work in powershell
+#    TODO doesn't work well in powershell
 def signal_handler(signal, frame):
     if Common.verbose >= 3:
         traceback.print_stack()
@@ -32,7 +34,7 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 class Common:
-    version = '20210926'
+    version = '20211013'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -146,35 +148,35 @@ class Common:
         token = ''
         tokens = []
         if len(str):
-        for i in range(len(str)):
-            if len(open_char) == 0 and str[i] == delim:
+            for i in range(len(str)):
+                if len(open_char) == 0 and str[i] == delim:
+                    tokens.append(token.strip())
+                    token = ''
+                else:
+                    token += str[i]
+
+                if str[i] in open_close_char.keys():
+                    if (str[i] in open_and_close_char
+                        and len(open_char) > 0
+                        and open_char[-1] == str[i]):
+                        None
+                    else:
+                        skip_close = True
+                        open_char.append(str[i])
+
+                if str[i] in close_char and not skip_close:
+                    if (len(open_char) == 0
+                        or open_close_char[open_char[-1]] != str[i]):
+                        Common.error('Invalid Argument List: %s' % str)
+                    else:
+                        open_char.pop()
+                else:
+                    skip_close = False
+
+            if len(open_char) > 0:
+                Common.error('Invalid Argument List: %s' % str)
+            else:
                 tokens.append(token.strip())
-                token = ''
-            else:
-                token += str[i]
-
-            if str[i] in open_close_char.keys():
-                if (str[i] in open_and_close_char
-                    and len(open_char) > 0
-                    and open_char[-1] == str[i]):
-                    None
-                else:
-                    skip_close = True
-                    open_char.append(str[i])
-
-            if str[i] in close_char and not skip_close:
-                if (len(open_char) == 0
-                    or open_close_char[open_char[-1]] != str[i]):
-                    Common.error('Invalid Argument List: %s' % str)
-                else:
-                    open_char.pop()
-            else:
-                skip_close = False
-
-        if len(open_char) > 0:
-            Common.error('Invalid Argument List: %s' % str)
-        else:
-            tokens.append(token.strip())
 
         return tokens
 
@@ -258,14 +260,14 @@ class Cmd:
     def windows_post_cmd(self):
         #clean up old tmp files 
         glob_str = self.tmp_ps1_file[0:(self.tmp_ps1_file.find(self.prefix) + len(self.prefix))] + '*'
-            threshold_time = time.time() - (60*360)
-            for tmp_ps1_old_file in glob(glob_str):
-                try:
-                    creation_time = os.stat(tmp_ps1_old_file).st_ctime
+        threshold_time = time.time() - (60*360)
+        for tmp_ps1_old_file in glob(glob_str):
+            try:
+                creation_time = os.stat(tmp_ps1_old_file).st_ctime
                 if creation_time < threshold_time and self.tmp_ps1_file.replace('\\\\', '\\') != tmp_ps1_old_file:
-                        os.remove(tmp_ps1_old_file)
-                except:
-                    None
+                    os.remove(tmp_ps1_old_file)
+            except:
+                None
 
     def wait(self):
         #(stdout, stderr) = map(bytes.decode, p.communicate())
@@ -510,7 +512,7 @@ class ArgsHandler:
             if self.config['report_default_order'] != [] else [])
         default_order_str = ((', defaults to: ' + ' '.join(default_order) )
             if len(default_order) > 0 else '')
-            args_optional_grp.add_argument(
+        args_optional_grp.add_argument(
             "--report_order_by", nargs="+", metavar='column_name <ASC|DESC>', default=default_order
             , help=("report order by columns%s" % default_order_str ) )
 
@@ -589,24 +591,24 @@ class ArgsHandler:
             or (self.args.report_type in ['ctas', 'insert']) and not(self.args.report_dst_table)):
             self.args_parser.error("both --report_dst_table and --report_type must be set for --report_type of 'ctas' or 'insert'")
 
-            found_column = False
-            order_by_clause = ''
-            for token in self.args.report_order_by:
+        found_column = False
+        order_by_clause = ''
+        for token in self.args.report_order_by:
             if token.upper() in ['ASC', 'DESC']:
-                    if not found_column:
-                        self.args_parser.error("invalid --report_order_by: %s" % ' '.join(self.args.report_order_by))
-                    else:
-                        found_column = False
-                    order_by_clause += ' ' + token.upper()
+                if not found_column:
+                    self.args_parser.error("invalid --report_order_by: %s" % ' '.join(self.args.report_order_by))
                 else:
+                    found_column = False
+                    order_by_clause += ' ' + token.upper()
+            else:
                 if token not in report_columns:
                     self.args_parser.error("order column '%s' is not one of the report columns %s"
                         % (token, pprint.PrettyPrinter().pformat(report_columns)) )
-                    if len(order_by_clause) != 0:
-                        order_by_clause += ', '
+                if len(order_by_clause) != 0:
+                    order_by_clause += ', '
                 order_by_clause += Common.qa(token)
-                    found_column = True
-            self.args.report_order_by = order_by_clause
+                found_column = True
+        self.args.report_order_by = order_by_clause
     
     def args_process(self):
         """Process arguments.
@@ -1285,11 +1287,13 @@ WHERE rolname = CURRENT_USER""")
                                 % os.environ.get("YBDATABASE")))
         """
 
-    ybsql_stderr_strip_warnings = [
-        'WARNING:  setting the restricted parameter "ybd_analyze_after_writes" may lead to unexpected system behavior']
+    def exit_if_not_su(self):
+        if not self.ybdb['is_super_user']:
+            Common.error('this utility must be run by a database super user...')
+
     ybsql_call_count = 0
     def ybsql_query(self, sql_statement
-        , options = '-A -q -t -v ON_ERROR_STOP=1 -X'):
+        , options = '-A -q -t -v ON_ERROR_STOP=1 -X', stdin = None):
         """Run and evaluate a query using ybsql.
 
         :param sql_statement: The SQL command string
@@ -1330,62 +1334,165 @@ eof""".format(ybsql_cmd=ybsql_cmd)
 
         ybsql_cmd = ybsql_cmd % sql_statement
 
-        cmd = self.ybtool_cmd(ybsql_cmd, stack_level=4)
+        cmd = self.ybtool_cmd(ybsql_cmd, stack_level=4, stdin=stdin)
 
-        for warning in self.ybsql_stderr_strip_warnings:
+        return cmd
+
+    ybtool_stderr_strip_warnings = [
+        'WARNING:  setting the restricted parameter "ybd_analyze_after_writes" may lead to unexpected system behavior']
+    def ybtool_cmd(self, cmd, stack_level=3, stdin=None):
+        self.set_env(self.env)
+        cmd = Cmd(cmd, stack_level=stack_level, stdin=stdin)
+        self.set_env(self.env_pre)
+
+        for warning in self.ybtool_stderr_strip_warnings:
             cmd.stderr = cmd.stderr.replace(warning, '').lstrip()
 
         return cmd
 
-    def ybtool_cmd(self, cmd, stack_level=3):
-        self.set_env(self.env)
-        cmd = Cmd(cmd, stack_level=stack_level)
-        self.set_env(self.env_pre)
-
-        return cmd
-
-class AnonymousPl:
-    def __init__(self, db_conn=None):
+#class AnonymousPl:
+class StoredProc:
+    def __init__(self, proc_name, db_conn=None):
         self.db_conn = db_conn
+        self.proc_parse_file(proc_name)
 
-    def stored_proc_args_to_declare_args_clause(self, stored_proc, args):
-        declare_clause_args = '--arguments\n'
-        for arg in Common.split(self.stored_proc_args):
+    def proc_parse_file(self, proc_name):
+        filepath = Common.util_dir_path + ('/sql/%s.sql' % proc_name)
+        self.proc_sql = Common.read_file(filepath)
+
+        regex = r"CREATE\s*(OR\s*REPLACE)?\s*PROCEDURE\s*([a-z0-9_.]+)\s*\((.*?)\)\s*(RETURNS(\s*SETOF)?\s*([a-zA-Z_.]*).*?)\s+.+?(DECLARE\s*(.+))RETURN\s*(NEXT|QUERY\s*EXECUTE)?\s*([^;]*);(.*)\$proc\$"
+        matches = re.search(regex, self.proc_sql, re.IGNORECASE | re.DOTALL)
+
+        if not matches:
+            Common.error("Stored proc '%s' regex parse stored proc failed." % proc_name)
+
+        self.proc_name          = matches.group(2)
+        self.proc_args          = matches.group(3)
+        #TODO currently return_type only handles 1 word like; BOOLEAN
+        self.proc_is_setof      = (matches.group(5) is not None)
+        if not self.proc_is_setof:
+            self.proc_return_type = matches.group(6).upper()
+        else:
+            self.proc_return_table_type = matches.group(6)
+        self.proc_before_return = matches.group(8)
+        self.proc_setof_return  = matches.group(9)
+        self.proc_return        = matches.group(10)
+        self.proc_after_return  = matches.group(11)
+
+        #strip sql_inject check from anonymous block as it serves no purpose in an
+        #  anonymous block and it won't be properly found as it only exists in the sysviews db
+        self.proc_before_return = re.sub(r'.*PERFORM\s*sql_inject_check_p.*\n'
+            , '', self.proc_before_return, 0, re.IGNORECASE)
+
+        self.proc_args_parse()
+
+        if self.proc_is_setof:
+            self.parse_setof_create_table(as_temp_table=True)
+            self.proc_before_return = re.sub(
+                r"([a-z0-9_.]+\.)?([a-z0-9_]+)%ROWTYPE", ('%s%%ROWTYPE' % self.new_table_name)
+                , self.proc_before_return, re.IGNORECASE)
+        else:
+            if self.proc_return_type not in ('BOOLEAN', 'BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
+                Common.error('Unhandled proc return_type: %s' % self.proc_return_type)
+
+    def proc_args_parse(self):
+        self.args = []
+        for arg_str in Common.split(self.proc_args):
+            arg = {}
             matches = re.search(r'(.*)\bDEFAULT\b(.*)'
-                , arg, re.DOTALL | re.IGNORECASE)
+                , arg_str, re.DOTALL | re.IGNORECASE)
             if matches:
-                arg_def = matches.group(1).strip()
-                default_value = matches.group(2).strip()
+                arg['def'] = matches.group(1).strip()
+                arg['default_value'] = matches.group(2).strip()
             else:
-                arg_def = arg.strip()
-                default_value = None
+                arg['def'] = arg_str.strip()
+                arg['default_value'] = None
 
-            matches = re.search(r'([a-zA-Z0-9_]+)\b\s*([ a-zA-z]+)(.*)'
-                , arg_def, re.DOTALL | re.IGNORECASE)
-            arg_name = matches.group(1).strip()
-            arg_type = matches.group(2).strip()
-            arg_type_size = matches.group(3).strip()
+            matches = re.search(r'([a-zA-Z0-9_.]+)\b\s*([ a-zA-z]+)(.*)'
+                , arg['def'], re.DOTALL | re.IGNORECASE)
+            arg['name'] = matches.group(1).strip()
+            arg['type'] = matches.group(2).strip()
+            arg['type_size'] = matches.group(3).strip()
 
+            self.args.append(arg)
+
+    def parse_setof_create_table(self, new_table_name=None, as_temp_table=False):
+        # get the CREATE TABLE
+        regex = r"((CREATE\s*(OR\s*REPLACE)?\s*TABLE\s*)([a-z0-9_.]+\.)?([a-z0-9_]+)[^;]*;)"
+        matches = re.search(regex, self.proc_sql, re.IGNORECASE | re.DOTALL)
+
+        # strip everything off the CREATE TABLE after the column definitions
+        regex = (r"((ON\s*COMMIT|SORT\s*ON|CLUSTER\s*ON|PARTITION\*BY|DISTRIBUTE\s*ON|DISTRIBUTE\s*REPLICATE|DISTRIBUTE\s*RANDOM)[^;]*)")
+        result = re.sub(regex, '', matches.group(1), 1, re.IGNORECASE | re.DOTALL)
+
+        # parse CREATE TBALE statement
+        regex = r"(CREATE\s*(OR\s*REPLACE)?\s*TABLE\s*)([a-z0-9_.]+\.)?([a-z0-9_]+)\s*\((\s*[^;]*)\)"
+        matches = re.search(regex, result, re.IGNORECASE | re.DOTALL)
+
+        if not matches:
+            Common.error("Stored proc '%s' regex parse table failed." % self.proc_name)
+        self.new_table_name = new_table_name if new_table_name else ('%s_%s' % (matches.group(4), Common.get_uid()))
+        temp_clause = ' TEMP' if as_temp_table else ''
+
+        self.create_new_table_sql = ('CREATE%s TABLE %s (%s)'
+            % (temp_clause, self.new_table_name, matches.group(5)) )
+        
+        self.row_cols = []
+        self.row_cols_def = {}
+        col_defs = re.sub(r"^\s*--.*$", '', matches.group(5), 0, re.MULTILINE) # strip commented columns
+
+        for col_def_str in Common.split(col_defs):
+            col_def = {}
+            matches = re.search(r'^\s*"?([^\s"]*)\"?(.*)$'
+                , col_def_str, re.DOTALL | re.IGNORECASE)
+            col_name = matches.group(1).strip()
+            col_def['type'] = matches.group(2).strip()
+            col_def['def'] = col_def_str
+
+            self.row_cols.append(col_name)
+            self.row_cols_def[col_name] = col_def
+
+    def get_proc_declaration(self):
+        types = []
+        for arg in self.args:
+            types.append(arg['type'])
+
+        return '%s(%s)' % (self.proc_name, ', '.join(types))
+
+    def input_args_to_args_clause(self, input_args, is_declare=True):
+        args_clause = '--arguments\n' if is_declare else '\n'
+        delim = ';' if is_declare else ','
+
+        for arg in self.args:
             #print('arg: %s, dt: %s, dts: %s, default: %s' % (arg, arg_datatype, arg_datatype_size, default))
-            if arg_name in args:
-                if arg_type == 'VARCHAR':
-                    declare_clause_args += ("    %s %s%s = $A$%s$A$;\n"
-                        % (arg_name, arg_type, arg_type_size, args[arg_name]))
-                elif arg_type in ('BOOLEAN', 'BIGINT', 'DATE', 'INT', 'INTEGER', 'SMALLINT'):
-                    declare_clause_args += ("    %s %s = %s;\n"
-                        % (arg_name, arg_type, args[arg_name]))
+            if arg['name'] in input_args:
+                if arg['type'] == 'VARCHAR':
+                    arg_type = ' %s%s' % (arg['type'], arg['type_size'])
+                    arg_value = '$a$%s$a$' % input_args[arg['name']]
+                elif arg['type'] in ('BOOLEAN', 'BIGINT', 'DATE', 'INT', 'INTEGER', 'NUMERIC', 'SMALLINT'):
+                    arg_type = ' %s' % arg['type']
+                    arg_value = input_args[arg['name']]
+                elif arg['type'] == 'TIMESTAMP':
+                    arg_type = ' %s' % arg['type']
+                    #arg_value = "TO_TIMESTAMP('%s', 'YYYY-MM-DD HH24:MI:SS.US')" % input_args[arg['name']].strftime('%Y-%m-%d %H:%M:%S.%f')
+                    arg_value = "'%s'::TIMESTAMP" % input_args[arg['name']].strftime('%Y-%m-%d %H:%M:%S.%f')
                 else:
-                    Common.error('Unhandled proc arg_type: %s' % arg_type)
-            elif default_value:
-                declare_clause_args += ("    %s %s = %s;\n"
-                    % (arg_name, arg_type, default_value))
+                    Common.error('Unhandled proc arg_type: %s' % arg['type'])
+            elif arg['default_value']:
+                arg_type = ' %s' % arg['type']
+                arg_value = arg['default_value']
             else:
                 Common.error("Missing proc arg: %s for proc: %s"
-                    % (arg_name, stored_proc))
+                    % (arg['name'], self.proc_name))
+            if not is_declare:
+                arg_type = ''
+            args_clause += ("    %s%s := %s%s\n" % (arg['name'], arg_type, arg_value, delim))
 
-        return declare_clause_args
+        if not is_declare:
+            args_clause = args_clause[:-2]
+        return args_clause
 
-    def stored_proc_process_result(self, cmd_result):
+    def process_anonymous_block_result(self, cmd_result):
         # pg/plsql RAISE INFO commands are sent to stderr.  The following moves
         #   the RAISE INFO data to be returned as stdout.
         if cmd_result.stderr.strip() != '':
@@ -1409,56 +1516,19 @@ class AnonymousPl:
             cmd_result.stderr = stderr
             cmd_result.stdout = stdout
 
-            if self.stored_proc_return_type == 'BOOLEAN':
+            if self.proc_return_type == 'BOOLEAN':
                 boolean_values = {'t': True, 'f': False, '<NULL>': None}
                 cmd_result.proc_return = boolean_values.get(
                     return_value, None)
-            elif self.stored_proc_return_type in ('BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
+            elif self.proc_return_type in ('BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
                 cmd_result.proc_return = (
                     None if return_value == '<NULL>' else int(return_value) )
             else:
-                Common.error("Unhandled proc return_type: %s" % self.stored_proc_return_type)
+                Common.error("Unhandled proc return_type: %s" % self.proc_return_type)
 
         return cmd_result
 
-    def stored_proc_parse(self, stored_proc):
-        filepath = Common.util_dir_path + ('/sql/%s.sql' % stored_proc)
-        stored_proc_sql = Common.read_file(filepath)
-
-        regex = r"CREATE\s*(OR\s*REPLACE)?\s*PROCEDURE\s*([a-z0-9_]+)\s*\((.*?)\)\s*(RETURNS(\s*SETOF)?\s*([a-zA-Z_]*).*?)\s+.+?(DECLARE\s*(.+))RETURN(\s*NEXT)?\s*([^;]*);(.*)\$PROC\$"
-        matches = re.search(regex, stored_proc_sql, re.IGNORECASE | re.DOTALL)
-
-        if not matches:
-            Common.error("Stored proc '%s' regex parse stored proc failed." % stored_proc)
-
-        self.stored_proc_name          = matches.group(2)
-        self.stored_proc_args          = matches.group(3)
-        #TODO currently return_type only handles 1 word like; BOOLEAN
-        self.stored_proc_return_setof  = (matches.group(5) is not None)
-        self.stored_proc_before_return = matches.group(8)
-        self.stored_proc_return        = matches.group(10)
-        self.stored_proc_after_return  = matches.group(11)
-
-        if not self.stored_proc_return_setof:
-            self.stored_proc_return_type = matches.group(6).upper()
-            if self.stored_proc_return_type not in ('BOOLEAN', 'BIGINT', 'INT', 'INTEGER', 'SMALLINT'):
-                Common.error('Unhandled proc return_type: %s' % self.stored_proc_return_type)
-        else:
-            self.stored_proc_return_table_type = matches.group(6)
-            regex = r"(CREATE\s*(OR\s*REPLACE)?\s*TABLE\s*)([a-z0-9_]+)(\s*[^;]*)"
-            matches = re.search(regex, stored_proc_sql, re.IGNORECASE | re.DOTALL)
-            if not matches:
-                Common.error("Stored proc '%s' regex parse table failed." % stored_proc)
-            table_name = matches.group(3)
-            self.tmp_table_name = '%s_%s' % (table_name, Common.get_uid())
-            self.create_tmp_table_sql = ('CREATE TEMP TABLE %s%s'
-                % (self.tmp_table_name, matches.group(4)) )
-            self.stored_proc_before_return = re.sub(
-                ('%s%%ROWTYPE' % table_name), ('%s%%ROWTYPE' % self.tmp_table_name)
-                , self.stored_proc_before_return)
-
-    def call_stored_proc_as_anonymous_block(self
-        , stored_proc
+    def call_proc_as_anonymous_block(self
         , args={}
         , pre_sql=''
         , post_sql=''):
@@ -1467,39 +1537,36 @@ class AnonymousPl:
         the stored procedure without building the procedure, lowering the
         barrier to run.
 
-        :param stored_proc: The SQL stored_proc to be run stored in the sql directory
-        :param args: a dictionary of input args/values to the stored_proc call
-        :param pre_sql: SQL to execute before the stored_proc
-        :param post_sql: SQL to execute after the stored_proc
+        :param args: a dictionary of input args/values to use when calling the stored proc
+        :param pre_sql: SQL to execute before the stored proc
+        :param post_sql: SQL to execute after the stored proc
         """
         return_marker = '>!>RETURN<!<:'
 
-        self.stored_proc_parse(stored_proc)
-        declare_clause_args = self.stored_proc_args_to_declare_args_clause(stored_proc, args)
+        declare_clause_args = self.input_args_to_args_clause(args)
 
         anonymous_block = """
 {pre_sql}
---proc: {stored_proc_name}
+--proc: {proc_name}
 DO $PROC$
 DECLARE
     {declare_clause_args}
     --variables
-    {stored_proc_before_return}
-    RAISE INFO '{return_marker}%', {stored_proc_return};
-    {stored_proc_after_return} $PROC$;
+    {proc_before_return}
+    RAISE INFO '{return_marker}%', {proc_return};
+    {proc_after_return} $PROC$;
 {post_sql}""".format(
             pre_sql=pre_sql, post_sql=post_sql
-            , stored_proc_name=self.stored_proc_name
+            , proc_name=self.proc_name
             , declare_clause_args=declare_clause_args
-            , stored_proc_before_return=self.stored_proc_before_return
-            , return_marker=return_marker, stored_proc_return=self.stored_proc_return
-            , stored_proc_after_return=self.stored_proc_after_return )
+            , proc_before_return=self.proc_before_return
+            , return_marker=return_marker, proc_return=self.proc_return
+            , proc_after_return=self.proc_after_return )
 
         cmd_result = self.db_conn.ybsql_query(anonymous_block)
-        return self.stored_proc_process_result(cmd_result)
+        return self.process_anonymous_block_result(cmd_result)
 
-    def stored_proc_setof_to_anonymous_block(self
-        , stored_proc
+    def proc_setof_to_anonymous_block(self
         , args={}
         , pre_sql=''
         , post_sql=''):
@@ -1508,36 +1575,52 @@ DECLARE
         the stored procedure without building the procedure, lowering the
         barrier to run.
 
-        :param stored_proc: The SQL stored_proc to be run stored in the sql directory
-        :param args: a dictionary of input args/values to the stored_proc call
-        :param pre_sql: SQL to execute before the stored_proc
-        :param post_sql: SQL to execute after the stored_proc
+        :param args: a dictionary of input args/values to use when calling the stored proc
+        :param pre_sql: SQL to execute before the stored proc
+        :param post_sql: SQL to execute after the stored proc
         """
 
-        self.stored_proc_parse(stored_proc)
-        declare_clause_args = self.stored_proc_args_to_declare_args_clause(stored_proc, args)
+        declare_clause_args = self.input_args_to_args_clause(args)
+
+        var_ret_rec=''
+        if self.proc_setof_return == 'NEXT':
+            insert_stmt = 'INSERT INTO {new_table_name} VALUES ({proc_return}.*)'
+        elif self.proc_setof_return == 'QUERY EXECUTE':
+            var_ret_rec = """_{new_table_name}_rec {new_table_name}%ROWTYPE;
+    """.format(new_table_name=self.new_table_name)
+            insert_stmt = """FOR _{new_table_name}_rec IN EXECUTE( {proc_return} ) 
+    LOOP
+        INSERT INTO {new_table_name} VALUES (_{new_table_name}_rec.*);
+    END LOOP"""
+        else:
+            Common.error("Stored proc '%s' unhandled setof return clause '%s'." % (
+                self.proc_name, self.proc_setof_return) )
+
+        insert_stmt = insert_stmt.format(
+                new_table_name=self.new_table_name, proc_return=self.proc_return )
 
         anonymous_block = """
 {pre_sql}
 {create_tmp_table};
---proc: {stored_proc_name}
+--proc: {proc_name}
 DO $PROC$
 DECLARE
     {declare_clause_args}
     --variables
-    {stored_proc_before_return}
-    INSERT INTO {tmp_table_name} VALUES ({stored_proc_return}.*);
-    {stored_proc_after_return} $PROC$;
+    {var_ret_rec}{proc_before_return}
+    {insert_stmt};
+    {proc_after_return} $PROC$;
 {post_sql}""".format(
             pre_sql=pre_sql, post_sql=post_sql
-            , create_tmp_table=self.create_tmp_table_sql
-            , stored_proc_name=self.stored_proc_name
+            , create_tmp_table=self.create_new_table_sql
+            , proc_name=self.proc_name
             , declare_clause_args=declare_clause_args
-            , stored_proc_before_return=self.stored_proc_before_return
-            , tmp_table_name=self.tmp_table_name, stored_proc_return=self.stored_proc_return
-            , stored_proc_after_return=self.stored_proc_after_return )
+            , var_ret_rec=var_ret_rec
+            , proc_before_return=self.proc_before_return
+            , insert_stmt=insert_stmt
+            , proc_after_return=self.proc_after_return )
 
-        return(self.tmp_table_name, anonymous_block)
+        return(self.new_table_name, anonymous_block)
 
 class Report:
     def __init__(self, args_handler, db_conn, columns, query, pre_sql=''):
@@ -1549,9 +1632,18 @@ class Report:
 
     @staticmethod
     def del_data_to_list_data(del_data, delimiter='|'):
-        rows = list(csv.reader(del_data.strip().split('\n'), delimiter=delimiter))
-        headers = rows[0]
-        data = rows[1:]
+        raw_data = del_data.split('\n', 1) # split the first row the header row from the data rows
+        headers = raw_data[0].split(delimiter)
+
+        regex = r"(^([^{delimiter}]*{delimiter}){{{num_headers_minus_1}}}[^{delimiter}]*$)".format(
+            num_headers_minus_1=(len(headers)-1)
+            , delimiter=('\\%s' % hex(ord(delimiter))[1:]) )
+
+        data = []
+        matches = re.finditer(regex, raw_data[1], re.MULTILINE)
+        for matchNum, match in enumerate(matches, start=1):
+            data.append(match.groups(0)[0].split(delimiter))
+
         return (headers, data)
 
     def list_data_sort(self, headers, list_data):
@@ -1563,36 +1655,36 @@ class Report:
                 , reverse=self.args_handler.args.report_sort_reverse)
         return (headers, list_data)
 
-    def list_data_filtered(self, headers, list_data):
-        #the include list will also reorder the columns as supplied
-        if (hasattr(self.args_handler.args, 'report_include_columns')
-            and self.args_handler.args.report_include_columns):
-            new_headers = [header for header in self.args_handler.args.report_include_columns if header in headers]
-            new_data = []
-            for i in range(0,len(list_data)):
-                new_data.append([None]*len(new_headers))
-            new_col_index = 0
-            for header in new_headers:
-                col_index = headers.index(header)
-                row_index = 0
-                for row in list_data:
-                    new_data[row_index][new_col_index] = row[col_index]
-                    row_index += 1
-                new_col_index += 1
-            list_data = new_data
-            headers = new_headers
+    #def list_data_filtered(self, headers, list_data):
+    #    #the include list will also reorder the columns as supplied
+    #    if (hasattr(self.args_handler.args, 'report_include_columns')
+    #        and self.args_handler.args.repox`rt_include_columns):
+    #        new_headers = [header for header in self.args_handler.args.report_include_columns if header in headers]
+    #        new_data = []
+    #        for i in range(0,len(list_data)):
+    #            new_data.append([None]*len(new_headers))
+    #        new_col_index = 0
+    #        for header in new_headers:
+    #            col_index = headers.index(header)
+    #            row_index = 0
+    #            for row in list_data:
+    #                new_data[row_index][new_col_index] = row[col_index]
+    #                row_index += 1
+    #            new_col_index += 1
+    #        list_data = new_data
+    #        headers = new_headers
 
-        if (hasattr(self.args_handler.args, 'report_exclude_columns')
-            and self.args_handler.args.report_exclude_columns):
-            index = len(headers)
-            for header in reversed(headers):
-                index -= 1
-                if header in self.args_handler.args.report_exclude_columns:
-                    for row in list_data:
-                        del row[index]
-            headers = [header for header in headers if header not in self.args_handler.args.report_exclude_columns]
+    #    if (hasattr(self.args_handler.args, 'report_exclude_columns')
+    #        and self.args_handler.args.report_exclude_columns):
+    #        index = len(headers)
+    #        for header in reversed(headers):
+    #            index -= 1
+    #            if header in self.args_handler.args.report_exclude_columns:
+    #                for row in list_data:
+    #                    del row[index]
+    #        headers = [header for header in headers if header not in self.args_handler.args.report_exclude_columns]
 
-        return (headers, list_data)
+    #    return (headers, list_data)
 
     def del_data_to_formatted_report(self, del_data, delimiter='|'):
         (headers, data) = Report.del_data_to_list_data(del_data, delimiter)
@@ -1613,38 +1705,48 @@ class Report:
         return '\n'.join(del_data)
 
     def build(self, is_source_cstore=False):
-        select_clause = ''
-        for column in self.columns:
-            #query += '%s%s' % (('SELECT\n    ' if query == '' else '\n    , '), Common.quote_object_paths(column))
-            select_clause += '%s%s' % (('SELECT\n    ' if select_clause == '' else '\n    , '), ('"' + column + '"'))
-
-        query = """{select_clause}\nFROM (
-{query}
-) AS foo""".format(
-            select_clause=select_clause
-            , query=self.query)
-
         args = self.args_handler.args
+
+        query = """WITH
+report_data AS (
+    {query}
+)
+SELECT
+    {at}{columns}
+FROM report_data""".format(
+            query=self.query
+            , at=('LOCALTIMESTAMP AS "at", ' if args.report_add_ts_column else '')
+            , columns=('\n    , '.join(map(Common.qa, self.columns))) )
 
         #case 1 create printed report
         if args.report_type in ('formatted', 'psv'):
-            #adding ybsql column headers to query
+            if args.report_type == 'formatted':
+                delimiter = chr(31) # ASCII US(unit separator)
+            elif args.report_type == 'psv':
+                delimiter = args.report_delimiter
+
+            escape_str = '\\' if Common.is_windows else '\\\\'
+            fieldsep_clause = "'%s%s'" % (escape_str, hex(ord(delimiter))[1:])
+
             query = """
 \pset tuples_only off
 \pset footer off
+\pset fieldsep {fieldsep_clause}
 {pre_sql}{query}""".format(
-                pre_sql=self.pre_sql
+                fieldsep_clause=fieldsep_clause
+                , pre_sql=self.pre_sql
                 , query=query)
 
             self.cmd_results = self.db_conn.ybsql_query(query)
             self.cmd_results.on_error_exit()
 
             if args.report_type == 'formatted':
-                report = self.del_data_to_formatted_report(self.cmd_results.stdout)
+                report = self.del_data_to_formatted_report(self.cmd_results.stdout, delimiter)
             elif args.report_type == 'psv':
-                report = self.del_data_processed(self.cmd_results.stdout)
+                report = self.del_data_processed(self.cmd_results.stdout, delimiter)
+
         elif args.report_type in ('ctas', 'insert'):
-            #case 2 store report to cstore table
+            #case 2 store report from cstore table
             if (is_source_cstore):
                 if args.report_type == 'ctas':
                     table_sql = 'CREATE TABLE %s AS ' % Common.quote_object_paths(args.report_dst_table)
@@ -1659,7 +1761,8 @@ class Report:
 
                 self.cmd_results = self.db_conn.ybsql_query(query)
                 self.cmd_results.on_error_exit()
-            #case 3 store report to rstore table
+
+            #case 3 store report from rstore table
             else:
                 from yb_sys_query_to_user_table import sys_query_to_user_table
 
@@ -1679,7 +1782,7 @@ class Report:
         return report
 
 
-class Util:
+class Util(object):
     conn_args_file = {'$HOME/conn.args': """--host yb89
 --dbuser dze
 --conn_db stores"""}
@@ -1692,14 +1795,17 @@ class Util:
         , 'optional_args_multi': []
         , 'positional_args_usage': None
         , 'default_args': {}
-        , 'usage_example': {}
+        , 'usage_example': {
+            'cmd_line_args': '@$HOME/conn.args'
+            , 'file_args': [ conn_args_file ] }
+        , 'usage_example_extra': {}
         , 'output_tmplt_vars': None
         , 'output_tmplt_default': None
         , 'db_filter_args': {}
         , 'additional_args': None
-        , 'report_columns': None 
-        , 'report_order_columns': None 
-        , 'report_default_order': None }
+        , 'report_sp_location': '.'
+        , 'report_columns': None
+        , 'report_default_order': [] }
 
     def __init__(self, db_conn=None, args_handler=None, init_default=True, util_name=None):
         if util_name:
