@@ -474,21 +474,15 @@ class ArgsHandler:
         Creates a new group for optional arguments.
         """
         self.args_parser.add_argument(
-            "--help", "--usage", "-u"
-            , action="help"
+            "--help", "--usage", "-u", action="help"
             , help="display this help message and exit")
         self.args_parser.add_argument(
-            "--verbose"
-            , type=int, default=0, choices=range(1, 4)
-            , help="display verbose execution{1 - info, 2 - debug, "
-                "3 - extended}")
+            "--verbose", type=int, default=0, choices=range(1, 4)
+            , help="display verbose execution{1 - info, 2 - debug, 3 - extended}")
         self.args_parser.add_argument(
-            "--nocolor"
-            , action="store_true"
-            , help="turn off colored text output")
+            "--nocolor", action="store_true", help="turn off colored text output")
         self.args_parser.add_argument(
-            "--version", "-v"
-            , action="version", version=Common.version
+            "--version", "-v", action="version", version=Common.version
             , help="display the program version and exit")
 
     def add_report_args(self):
