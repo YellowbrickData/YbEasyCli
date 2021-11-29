@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_sysprocs_bulk_data_xfer.py [options]
+      yb_sysprocs_log_bulk_xfer.py [options]
 
 PURPOSE:
       Transformed subset active bulk transfers (ybload & ybunload) from sys.load and sys.unload.
 
 OPTIONS:
       See the command line help message for all options.
-      (yb_sysprocs_bulk_data_xfer.py --help)
+      (yb_sysprocs_log_bulk_xfer.py --help)
 
 Output:
       The report as a formatted table, pipe seperated value rows, or inserted into a database table.
