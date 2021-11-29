@@ -5,13 +5,24 @@ from yb_common import Common, Report, StoredProc, Text, Util
 class SPReportUtil(Util):
     sysviews_db = 'sysviews'
 
-    def __init__(self, db_conn=None, args_handler=None, init_default=True, util_name=None):
-        proc_name = (self.__class__.__name__).replace('report_', '') + '_p'
-        self.sp = StoredProc(proc_name=('%s/%s' % (self.config['report_sp_location'], proc_name) ) )
-        self.config['report_columns'] = '|'.join(self.sp.row_cols)
-        self.config['optional_args_single'] = [] 
+    def __init__(self, db_conn=None, args_handler=None, init_default=True, util_name=None, strip_warnings=[]):
+        self.strip_warnings=strip_warnings
+        self.config['optional_args_single'] = []
+        self.config['report_columns'] = 'get_post_db_conn'
 
-        super(SPReportUtil, self).__init__(db_conn=None, args_handler=None, init_default=True, util_name=None)
+        super(SPReportUtil, self).__init__(db_conn, args_handler, init_default, util_name)
+
+        full_proc_name = '{location}_yb{version}/{proc_name}'.format(
+            location=self.config['report_sp_location']
+            , version=(4 if self.db_conn.ybdb['version_major'] < 5 else 5)
+            , proc_name= ((self.__class__.__name__).replace('report_', '') + '_p') )
+        if StoredProc.proc_file_exists(full_proc_name):
+            self.sp = StoredProc(full_proc_name)
+        else:
+            Common.error('is not implemented for YBDB version: %d' % self.db_conn.ybdb['version_major'])
+
+        self.config['report_columns'] = '|'.join(self.sp.row_cols)
+        self.args_handler.process_report_args()
 
         self.select_columns = ', '.join(Common.qa(self.config['report_columns']))
         self.db_filter_args.schema_set_all_if_none()
@@ -28,7 +39,8 @@ class SPReportUtil(Util):
         return Report(
             self.args_handler, self.db_conn
             , self.config['report_columns']
-            , report_query, pre_sql = anonymous_pl).build(is_source_cstore=True)
+            , report_query, pre_sql = anonymous_pl
+            , strip_warnings=self.strip_warnings).build(is_source_cstore=True)
 
     def get_create_table(self):
         self.sp.parse_setof_create_table(new_table_name=self.args_handler.args.report_dst_table)
@@ -55,7 +67,7 @@ class SPReportUtil(Util):
             % (self.db_conn.ybdb['user'], self.sp.get_proc_declaration()) )
         result = self.db_conn.ybsql_query(proc_priv_query)
         if result.stdout.strip() != 't':
-            Common.error('this report may only be run be a DB super user'
+            Common.error('this report may only be run by a DB super user'
                 '\nor you may ask your DBA to perform the non-super user prerequisites'
                 '\nwhich require installing the sysviews library and granting permissions')
 
@@ -74,7 +86,8 @@ class SPReportUtil(Util):
         report = Report(
             self.args_handler, self.db_conn
             , self.config['report_columns']
-            , report_query).build()
+            , report_query
+            , strip_warnings=self.strip_warnings).build()
         self.db_conn.env['conn_db'] = pre_conn_db
 
         if report_type in ('ctas', 'insert'):
