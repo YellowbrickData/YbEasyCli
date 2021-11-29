@@ -29,7 +29,9 @@ class report_rel(SPReportUtil):
         return self.build({'_yb_util_filter' : self.db_filter_sql() })
 
 def main():
-    print(report_rel().execute())
+    # YB 4 looks to be throwing an eronious warning with these sys views which I'm stripping
+    strip_warnings = [r'WARNING:  Error querying database metadata.*(RETURN QUERY|FOR over EXECUTE statement)']
+    print(report_rel(strip_warnings=strip_warnings).execute())
     exit(0)
 
 if __name__ == "__main__":
