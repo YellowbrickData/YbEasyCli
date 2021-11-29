@@ -50,6 +50,8 @@ class Common:
 
     @staticmethod
     def error(msg, exit_code=1, color='red', no_exit=False):
+        if Common.verbose >= 3:
+            traceback.print_stack()
         sys.stderr.write("%s: %s\n" % (
             Text.color(Common.util_file_name, style='bold')
             , Text.color(msg, color)))
@@ -58,6 +60,8 @@ class Common:
 
     @staticmethod
     def read_file(file_path, on_read_error_exit=True, color='red'):
+        if Common.verbose >= 3:
+            print('%s: %s' % (Text.color('--Reading file', style='bold'), file_path) )
         data = None
         try:
             with open(file_path) as f:
