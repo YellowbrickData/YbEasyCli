@@ -23,6 +23,8 @@ class report_sysviews(SPReportUtil):
         , 'report_default_order': 'schema|procedure|arguments' }
 
     def execute(self):
+        if self.db_conn.ybdb['is_super_user']:
+            self.db_conn.env['conn_db'] = 'sysviews'
         return self.build()
 
 def main():
