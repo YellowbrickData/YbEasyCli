@@ -9,7 +9,7 @@ PURPOSE:
 
 from datetime import datetime
 
-from yb_common import AnonymousPl, ArgDate, Common, Util, UtilArgParser
+from yb_common import ArgDate, Common, StoredProc, Util, UtilArgParser
 
 class create_calendar_table(Util):
     config = {
@@ -41,9 +41,8 @@ class create_calendar_table(Util):
 
         print('--Creating calendar table: %s' % table)
 
-        cmd_results = AnonymousPl(self.db_conn).call_stored_proc_as_anonymous_block(
-            'yb_create_calendar_table_p'
-            , args = {
+        cmd_results = StoredProc('yb_create_calendar_table_p', self.db_conn).call_proc_as_anonymous_block(
+            args = {
                 'a_table' : table
                 , 'a_start_date'          : "TO_DATE('%s', 'YYYY-MM-DD')" % self.args_handler.args.start_date.strftime("%Y-%m-%d")
                 , 'a_end_date'            : "TO_DATE('%s', 'YYYY-MM-DD')" % self.args_handler.args.end_date.strftime("%Y-%m-%d")

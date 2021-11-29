@@ -15,7 +15,7 @@ Output:
 """
 import sys
 
-from yb_common import AnonymousPl, Util
+from yb_common import StoredProc, Util
 
 class mass_column_update(Util):
     """Issue the ybsql command used to list the column names comprising an
@@ -36,9 +36,8 @@ class mass_column_update(Util):
         , 'db_filter_args': {'owner':'tableowner', 'schema':'schemaname', 'table':'tablename', 'column':'columnname', 'datatype':'datatype'} }
 
     def execute(self):
-        self.cmd_results = AnonymousPl(self.db_conn).call_stored_proc_as_anonymous_block(
-            'yb_mass_column_update_p'
-            , args = {
+        self.cmd_results = StoredProc('yb_mass_column_update_p', self.db_conn).call_proc_as_anonymous_block(
+            args = {
                 'a_update_where_clause' : self.args_handler.args.update_where_clause
                 , 'a_set_clause' : self.args_handler.args.set_clause
                 , 'a_column_filter_clause' : self.db_filter_sql()

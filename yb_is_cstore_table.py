@@ -13,7 +13,7 @@ OPTIONS:
 Output:
       True/False
 """
-from yb_common import AnonymousPl, Common, Util
+from yb_common import Common, StoredProc, Util
 
 class is_cstore_table(Util):
     """Issue the ybsql command used to determine if a table is stored as a column store table.
@@ -27,9 +27,8 @@ class is_cstore_table(Util):
             , 'file_args': [Util.conn_args_file] } }
 
     def execute(self):
-        self.cmd_results = AnonymousPl(self.db_conn).call_stored_proc_as_anonymous_block(
-            'yb_is_cstore_table_p'
-            , args = {
+        self.cmd_results = StoredProc('yb_is_cstore_table_p', self.db_conn).call_proc_as_anonymous_block(
+            args = {
                 'a_table' : Common.quote_object_paths(self.args_handler.args.table)})
 
         self.cmd_results.write()

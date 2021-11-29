@@ -16,7 +16,7 @@ Output:
 import sys
 from tabulate import tabulate
 
-from yb_common import AnonymousPl, Common, Util
+from yb_common import Common, StoredProc, Util
 
 class analyze_columns(Util):
     """Issue the ybsql command used to analyze the data content of a table's column/s
@@ -36,9 +36,8 @@ class analyze_columns(Util):
         , 'db_filter_args': {'owner':'tableowner', 'schema':'schemaname', 'column':'columnname'} }
 
     def execute(self):
-        self.cmd_results = AnonymousPl(self.db_conn).call_stored_proc_as_anonymous_block(
-            'yb_analyze_columns_p'
-            , args = {
+        self.cmd_results = StoredProc('yb_analyze_columns_p', self.db_conn).call_proc_as_anonymous_block(
+            args = {
                 'a_database'           : self.db_conn.database
                 , 'a_table'            : self.args_handler.args.table
                 , 'a_filter_clause'    : self.db_filter_sql()

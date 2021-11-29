@@ -14,7 +14,7 @@ OPTIONS:
 Output:
       A stored procedure.
 """
-from yb_common import AnonymousPl, ArgIntRange, Common, Text, Util
+from yb_common import ArgIntRange, Common, Text, StoredProc, Util
 
 class query_to_stored_proc(Util):
     """Issue the ybsql command used to create a stored procedure that runs the provided 
@@ -59,9 +59,8 @@ ORDER BY session_duration DESC
             % (Common.util_dir_path, 'sql/yb_query_to_stored_proc_template_1_p.sql'))
         stored_proc_template = Common.read_file(stored_proc_template_file)
 
-        self.cmd_results = AnonymousPl(self.db_conn).call_stored_proc_as_anonymous_block(
-            'yb_query_to_stored_proc_p'
-            , args = {
+        self.cmd_results = StoredProc('yb_query_to_stored_proc_p', self.db_conn).call_proc_as_anonymous_block(
+            args = {
                 'a_query' : self.args_handler.args.query
                 , 'a_stored_proc_name' : self.stored_proc
                 , 'a_stored_proc_template' : stored_proc_template

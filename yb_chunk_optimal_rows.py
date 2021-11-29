@@ -19,7 +19,7 @@ NOTES:
 """
 import sys
 
-from yb_common import AnonymousPl, Util
+from yb_common import StoredProc, Util
 
 class chunk_optimal_rows(Util):
     """Issue the ybsql command to determine the optimal number of rows per chunk for a table.
@@ -43,9 +43,8 @@ class chunk_optimal_rows(Util):
             if self.args_handler.args.database
             else self.db_conn.database)
 
-        self.cmd_results = AnonymousPl(self.db_conn).call_stored_proc_as_anonymous_block(
-            'yb_chunk_optimal_rows_p'
-            , args = {
+        self.cmd_results = StoredProc('yb_chunk_optimal_rows_p', self.db_conn).call_proc_as_anonymous_block(
+            args = {
                 'a_table'      : self.args_handler.args.table
                 , 'a_schema'   : schema
                 , 'a_database' : database})

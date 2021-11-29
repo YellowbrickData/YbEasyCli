@@ -16,7 +16,7 @@ Output:
 """
 import sys
 
-from yb_common import AnonymousPl, ArgIntRange, Util
+from yb_common import ArgIntRange, StoredProc, Util
 
 class chunk_dml_by_date_part(Util):
     """Issue the ybsql command used to create/execute DML chunked by date/timestamp column
@@ -39,9 +39,8 @@ ORDER BY sale_ts\"\"\"
 --chunk_rows 100000000"""} ] } }
 
     def execute(self):
-        self.cmd_results = AnonymousPl(self.db_conn).call_stored_proc_as_anonymous_block(
-            'yb_chunk_dml_by_date_part_p'
-            , args = {
+        self.cmd_results = StoredProc('yb_chunk_dml_by_date_part_p', self.db_conn).call_proc_as_anonymous_block(
+            args = {
                 'a_table'               : self.args_handler.args.table
                 , 'a_ts_column'         : self.args_handler.args.column
                 , 'a_date_part'         : self.args_handler.args.date_part
