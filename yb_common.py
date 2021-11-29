@@ -28,13 +28,11 @@ from tabulate import tabulate
 # Provides gracefule error when user issues a CTRL-C to break out of a yb_<util>
 #    TODO doesn't work well in powershell
 def signal_handler(signal, frame):
-    if Common.verbose >= 3:
-        traceback.print_stack()
     Common.error('user terminated...')
 signal.signal(signal.SIGINT, signal_handler)
 
 class Common:
-    version = '20211013'
+    version = '20211129'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -572,51 +570,51 @@ class ArgsHandler:
 
     def process_report_args(self):
         if self.config['report_columns'] != 'get_post_db_conn':
-        if (self.args.report_include_columns and self.args.report_exclude_columns):
-            self.args_parser.error('only --report_include_columns or --report_exclude_columns may be defined but not both')
+            if (self.args.report_include_columns and self.args.report_exclude_columns):
+                self.args_parser.error('only --report_include_columns or --report_exclude_columns may be defined but not both')
 
-        report_columns = self.config['report_columns'].split('|')
-        if self.args.report_include_columns:
-            self.args.report_include_columns = re.sub(r'\s+', '|', ' '.join(self.args.report_include_columns).strip()).split('|')
-            for column in self.args.report_include_columns:
-                if column not in report_columns:
-                    self.args_parser.error("include column '%s' is not one of the report columns %s"
-                        % (column, pprint.PrettyPrinter().pformat(report_columns)) )
-            self.config['report_columns'] = self.args.report_include_columns
-        elif self.args.report_exclude_columns:
-            self.args.report_exclude_columns = re.sub(r'\s+', '|', ' '.join(self.args.report_exclude_columns).strip()).split('|')
-            for column in self.args.report_exclude_columns:
-                if column not in report_columns:
-                    self.args_parser.error("exclude column '%s' is not one of the report columns %s"
-                        % (column, pprint.PrettyPrinter().pformat(report_columns)) )
-            for column in self.args.report_exclude_columns:
-                report_columns.remove(column)
-            self.config['report_columns'] = report_columns
-        else:
-            self.config['report_columns'] = report_columns
-
-        if ((self.args.report_dst_table and self.args.report_type not in ['ctas', 'insert'])
-            or (self.args.report_type in ['ctas', 'insert']) and not(self.args.report_dst_table)):
-            self.args_parser.error("both --report_dst_table and --report_type must be set for --report_type of 'ctas' or 'insert'")
-
-        found_column = False
-        order_by_clause = ''
-        for token in self.args.report_order_by:
-            if token.upper() in ['ASC', 'DESC']:
-                if not found_column:
-                    self.args_parser.error("invalid --report_order_by: %s" % ' '.join(self.args.report_order_by))
-                else:
-                    found_column = False
-                    order_by_clause += ' ' + token.upper()
+            report_columns = self.config['report_columns'].split('|')
+            if self.args.report_include_columns:
+                self.args.report_include_columns = re.sub(r'\s+', '|', ' '.join(self.args.report_include_columns).strip()).split('|')
+                for column in self.args.report_include_columns:
+                    if column not in report_columns:
+                        self.args_parser.error("include column '%s' is not one of the report columns %s"
+                            % (column, pprint.PrettyPrinter().pformat(report_columns)) )
+                self.config['report_columns'] = self.args.report_include_columns
+            elif self.args.report_exclude_columns:
+                self.args.report_exclude_columns = re.sub(r'\s+', '|', ' '.join(self.args.report_exclude_columns).strip()).split('|')
+                for column in self.args.report_exclude_columns:
+                    if column not in report_columns:
+                        self.args_parser.error("exclude column '%s' is not one of the report columns %s"
+                            % (column, pprint.PrettyPrinter().pformat(report_columns)) )
+                for column in self.args.report_exclude_columns:
+                    report_columns.remove(column)
+                self.config['report_columns'] = report_columns
             else:
-                if token not in report_columns:
-                    self.args_parser.error("order column '%s' is not one of the report columns %s"
-                        % (token, pprint.PrettyPrinter().pformat(report_columns)) )
-                if len(order_by_clause) != 0:
-                    order_by_clause += ', '
-                order_by_clause += Common.qa(token)
-                found_column = True
-        self.args.report_order_by = order_by_clause
+                self.config['report_columns'] = report_columns
+
+            if ((self.args.report_dst_table and self.args.report_type not in ['ctas', 'insert'])
+                or (self.args.report_type in ['ctas', 'insert']) and not(self.args.report_dst_table)):
+                self.args_parser.error("both --report_dst_table and --report_type must be set for --report_type of 'ctas' or 'insert'")
+
+            found_column = False
+            order_by_clause = ''
+            for token in self.args.report_order_by:
+                if token.upper() in ['ASC', 'DESC']:
+                    if not found_column:
+                        self.args_parser.error("invalid --report_order_by: %s" % ' '.join(self.args.report_order_by))
+                    else:
+                        found_column = False
+                        order_by_clause += ' ' + token.upper()
+                else:
+                    if token not in report_columns:
+                        self.args_parser.error("order column '%s' is not one of the report columns %s"
+                            % (token, pprint.PrettyPrinter().pformat(report_columns)) )
+                    if len(order_by_clause) != 0:
+                        order_by_clause += ', '
+                    order_by_clause += Common.qa(token)
+                    found_column = True
+            self.args.report_order_by = order_by_clause
     
     def args_process(self):
         """Process arguments.
@@ -1300,8 +1298,10 @@ WHERE rolname = CURRENT_USER""")
             Common.error('this utility must be run by a database super user...')
 
     ybsql_call_count = 0
+    ybtool_stderr_strip_warnings = [
+        'WARNING:  setting the restricted parameter "ybd_analyze_after_writes" may lead to unexpected system behavior']
     def ybsql_query(self, sql_statement
-        , options = '-A -q -t -v ON_ERROR_STOP=1 -X', stdin = None):
+        , options = '-A -q -t -v ON_ERROR_STOP=1 -X', stdin = None, strip_warnings=[]):
         """Run and evaluate a query using ybsql.
 
         :param sql_statement: The SQL command string
@@ -1317,6 +1317,8 @@ WHERE rolname = CURRENT_USER""")
         :return: The result produced by running the given command
         """
         self.ybsql_call_count += 1
+        strip_warnings.extend(self.ybtool_stderr_strip_warnings)
+
         sql_statement = ("SET ybd_query_tags TO 'YbEasyCli:%s:ybsql(%d)';\n%s"
             % (Common.util_name, self.ybsql_call_count, sql_statement))
         if self.current_schema:
@@ -1342,30 +1344,35 @@ eof""".format(ybsql_cmd=ybsql_cmd)
 
         ybsql_cmd = ybsql_cmd % sql_statement
 
-        cmd = self.ybtool_cmd(ybsql_cmd, stack_level=4, stdin=stdin)
+        cmd = self.ybtool_cmd(ybsql_cmd, stack_level=4, stdin=stdin, strip_warnings=strip_warnings)
 
         return cmd
 
-    ybtool_stderr_strip_warnings = [
-        'WARNING:  setting the restricted parameter "ybd_analyze_after_writes" may lead to unexpected system behavior']
-    def ybtool_cmd(self, cmd, stack_level=3, stdin=None):
+    def ybtool_cmd(self, cmd, stack_level=3, stdin=None, strip_warnings=[]):
         self.set_env(self.env)
         cmd = Cmd(cmd, stack_level=stack_level, stdin=stdin)
         self.set_env(self.env_pre)
 
-        for warning in self.ybtool_stderr_strip_warnings:
-            cmd.stderr = cmd.stderr.replace(warning, '').lstrip()
+        for warning in strip_warnings:
+            cmd.stderr = re.sub(warning, '', cmd.stderr, 0, re.MULTILINE | re.DOTALL).lstrip()
 
         return cmd
 
-#class AnonymousPl:
 class StoredProc:
     def __init__(self, proc_name, db_conn=None):
         self.db_conn = db_conn
         self.proc_parse_file(proc_name)
 
+    @staticmethod
+    def proc_file(proc_name):
+        return Common.util_dir_path + ('/sql/%s.sql' % proc_name)
+
+    @staticmethod
+    def proc_file_exists(proc_name):
+        return os.access(StoredProc.proc_file(proc_name), os.R_OK)
+
     def proc_parse_file(self, proc_name):
-        filepath = Common.util_dir_path + ('/sql/%s.sql' % proc_name)
+        filepath = StoredProc.proc_file(proc_name)
         self.proc_sql = Common.read_file(filepath)
 
         regex = r"CREATE\s*(OR\s*REPLACE)?\s*PROCEDURE\s*([a-z0-9_.]+)\s*\((.*?)\)\s*(RETURNS(\s*SETOF)?\s*([a-zA-Z_.]*).*?)\s+.+?(DECLARE\s*(.+))RETURN\s*(NEXT|QUERY\s*EXECUTE)?\s*([^;]*);(.*)\$proc\$"
@@ -1631,12 +1638,13 @@ DECLARE
         return(self.new_table_name, anonymous_block)
 
 class Report:
-    def __init__(self, args_handler, db_conn, columns, query, pre_sql=''):
+    def __init__(self, args_handler, db_conn, columns, query, pre_sql='', strip_warnings=[]):
         self.args_handler = args_handler
         self.db_conn = db_conn
         self.columns = columns
         self.query = query
         self.pre_sql = pre_sql
+        self.strip_warnings = strip_warnings
 
     @staticmethod
     def del_data_to_list_data(del_data, delimiter='|'):
@@ -1745,7 +1753,7 @@ FROM report_data""".format(
                 , pre_sql=self.pre_sql
                 , query=query)
 
-            self.cmd_results = self.db_conn.ybsql_query(query)
+            self.cmd_results = self.db_conn.ybsql_query(query, strip_warnings=self.strip_warnings)
             self.cmd_results.on_error_exit()
 
             if args.report_type == 'formatted':
@@ -1767,7 +1775,7 @@ FROM report_data""".format(
                         , query=query
                         , dist_clause=(' DISTRIBUTE RANDOM' if args.report_type == 'ctas' else '') )
 
-                self.cmd_results = self.db_conn.ybsql_query(query)
+                self.cmd_results = self.db_conn.ybsql_query(query, strip_warnings=self.strip_warnings)
                 self.cmd_results.on_error_exit()
 
             #case 3 store report from rstore table
