@@ -348,7 +348,7 @@ class ArgsHandler:
         if self.config['output_tmplt_default']:
             self.add_output_args()
 
-        if self.config['report_columns']:
+        if self.config['report_columns'] is not None:
             self.add_report_args()
 
         self.db_filter_args = DBFilterArgs(
@@ -503,11 +503,14 @@ class ArgsHandler:
         args_optional_grp.add_argument("--report_dst_table", metavar='table'
             , help="report destination table applies to report_type 'ctas' and 'insert' only")
 
-        columns = self.config['report_columns'].split('|')
+        columns_help_extra = (
+            (', available report columns: %s' % self.config['report_columns'].replace('|', ', ') )
+            if self.config['report_columns'] != 'get_post_db_conn'
+            else '')
         args_optional_grp.add_argument("--report_include_columns"
             , nargs='+', metavar='column'
             , help=("limit the report to the list of column names, the report will be created in the"
-                " column order supplied, available report columns: %s" % ', '.join(columns) ) )
+                " column order supplied%s" % columns_help_extra ) )
         args_optional_grp.add_argument("--report_exclude_columns"
             , nargs='+', metavar='column'
             , help="list of column names to exclude from the report")
@@ -568,6 +571,7 @@ class ArgsHandler:
         return(text)
 
     def process_report_args(self):
+        if self.config['report_columns'] != 'get_post_db_conn':
         if (self.args.report_include_columns and self.args.report_exclude_columns):
             self.args_parser.error('only --report_include_columns or --report_exclude_columns may be defined but not both')
 
