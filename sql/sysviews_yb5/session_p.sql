@@ -60,7 +60,12 @@ CREATE TABLE session_t
 ** Create the procedure.
 */
 CREATE OR REPLACE PROCEDURE session_p()
-   RETURNS SETOF session_t AS 
+   RETURNS SETOF session_t
+   LANGUAGE 'plpgsql'
+   VOLATILE
+   CALLED ON NULL INPUT
+   SECURITY DEFINER
+AS 
 $proc$
 DECLARE
 
@@ -113,10 +118,6 @@ BEGIN
 
 END;   
 $proc$ 
-LANGUAGE 'plpgsql' 
-VOLATILE
-CALLED ON NULL INPUT
-SECURITY DEFINER
 ;
 
 -- ALTER FUNCTION session_p()

@@ -67,7 +67,6 @@ AS
 $proc$
 DECLARE
 
-   _pred         TEXT := '';
    _sql          TEXT := '';
 
    _fn_name   VARCHAR(256) := 'storage_by_table_p';
