@@ -4,7 +4,7 @@ USAGE:
       yb_exec_ybtool.py [options]
 
 PURPOSE:
-      Execute a ybtool with a unified DB connection arguements/method.
+      Execute a ybtool with a unified DB connection arguments/method.
 
 OPTIONS:
       See the command line help message for all options.
@@ -19,11 +19,11 @@ import sys
 from yb_common import Util
 
 class ExecYBTool(Util):
-    """Execute a ybtool with a unified DB connection arguements/method.
+    """Execute a ybtool with a unified DB connection arguments/method.
     """
     config = {
         'description': (
-            'Execute a ybtool with a unified DB connection arguements/method.'
+            'Execute a ybtool with a unified DB connection arguments/method.'
             '\n'
             '\nnote:'
             '\n  Mainly used to provide a unified DB login method for all ybtools. '
