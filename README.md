@@ -50,6 +50,7 @@ See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/5.2/adminis
 -   **[yb_ddl_stored_proc](./yb_ddl_stored_proc.py):** Return the stored procedure/s DDL for the requested database.  Use stored procedure filters to limit the set of stored procedures returned.
 -   **[yb_ddl_table](./yb_ddl_table.py):** Return the table/s DDL for the requested database.  Use table filters to limit the set of tables returned.
 -   **[yb_ddl_view](./yb_ddl_view.py):** Return the view/s DDL for the requested database.  Use view filters to limit the set of views returned.
+-   **[yb_exec_ybtool](./yb_exec_ybtool.py):** Execute a ybtool with a unified DB connection arguements/method.
 -   **[yb_find_columns](./yb_find_columns.py):** List column names and column attributes for filtered columns.
 -   **[yb_get_column_name](./yb_get_column_name.py):** List/Verifies that the specified table/view column name if it exists.
 -   **[yb_get_column_names](./yb_get_column_names.py):** List/Verifies that the specified column names exist.
