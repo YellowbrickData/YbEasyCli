@@ -337,7 +337,6 @@ class ArgsHandler:
 
         self.args_process_init()
 
-        self.args_add_positional_args() #TODO unused, may remove in the future
         self.args_add_optional()
         self.args_add_connection_group()
 
@@ -362,11 +361,8 @@ class ArgsHandler:
         """Create an ArgumentParser object.
 
         :param description: Text to display before the argument help
-        :param positional_args_usage: Description of how positional arguments
-                                      are used
         """
         description = self.config['description']
-        positional_args_usage = self.config['positional_args_usage']
 
         description_epilog = (
             '\n'
@@ -381,34 +377,13 @@ class ArgsHandler:
 
         self.args_parser = UtilArgParser(
             description=description
-            , usage="%%(prog)s %s[options]" % (
-                positional_args_usage + ' '
-                if positional_args_usage
-                else '')
+            , usage="%s [options]" % Common.util_file_name
             , add_help=False
             , formatter_class=self.formatter
             , epilog=epilog
             , fromfile_prefix_chars='@')
 
         self.args_parser.convert_arg_line_to_args = convert_arg_line_to_args
-        self.args_parser.positional_args_usage = positional_args_usage
-
-    def args_add_positional_args(self):
-        """Add positional arguments to the class's ArgumentParser object."""
-        if self.args_parser.positional_args_usage:
-            for arg in self.args_parser.positional_args_usage.split(' '):
-                # Optional arguments are surrounded by square brackets
-                trimmed_arg = arg.lstrip('[').rstrip(']')
-                is_optional = len(trimmed_arg) != len(arg)
-
-                if is_optional:
-                    self.args_parser.add_argument(
-                        trimmed_arg, nargs='?'
-                        , help="optional %s to process" % trimmed_arg)
-                else:
-                    self.args_parser.add_argument(
-                        trimmed_arg
-                        , help="%s to process" % trimmed_arg)
 
     def args_add_connection_group(self, type=None, type_desc=''):
         """Add conceptual grouping to improve the display of help messages.
@@ -1809,7 +1784,6 @@ class Util(object):
         , 'required_args_single': []
         , 'optional_args_single': ['schema']
         , 'optional_args_multi': []
-        , 'positional_args_usage': None
         , 'default_args': {}
         , 'usage_example': {
             'cmd_line_args': '@$HOME/conn.args'

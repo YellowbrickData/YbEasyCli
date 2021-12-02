@@ -275,7 +275,6 @@ class execute_test_action:
 
         args_handler.args_process_init()
 
-        args_handler.args_add_positional_args()
         args_handler.args_add_optional()
 
         args_test_required_grp = args_handler.args_parser.add_argument_group(
