@@ -318,6 +318,10 @@ class ArgsHandler:
     """
     def __init__(self, config, init_default=True):
         self.config = config
+        self.has_optional_args = False
+        self.has_connection_args = False
+        self.has_report_args = False
+        self.has_output_args = False
         if init_default:
             self.init_default()
 
@@ -390,6 +394,7 @@ class ArgsHandler:
 
         Creates a new group for arguments related to connection.
         """
+        self.has_connection_args = True
         if not type:
             conn_grp = self.args_parser.add_argument_group(
                 'connection arguments')
@@ -452,6 +457,7 @@ class ArgsHandler:
 
         Creates a new group for optional arguments.
         """
+        self.has_optional_args = True
         self.args_parser.add_argument(
             "--help", "--usage", "-u", action="help"
             , help="display this help message and exit")
@@ -465,6 +471,8 @@ class ArgsHandler:
             , help="display the program version and exit")
 
     def add_report_args(self):
+        self.has_report_args = True
+
         args_optional_grp = self.args_parser.add_argument_group('optional report arguments')
 
         args_optional_grp.add_argument("--report_type"
@@ -500,6 +508,8 @@ class ArgsHandler:
             "--report_add_ts_column", action="store_true", help=("add first column with current timestamp to the report" ) )
 
     def add_output_args(self):
+        self.has_output_args = True
+
         args_optional_grp = self.args_parser.add_argument_group(
             'optional output arguments')
 
@@ -598,9 +608,10 @@ class ArgsHandler:
         """
         self.args = self.args_parser.parse_args()
 
-        if self.config['report_columns']:
+        if self.has_report_args:
             self.process_report_args()
 
+        if self.has_optional_args:
         # TODO turned off color for Powershell, it seems to partially work in Powershell
         if self.args.nocolor or Common.is_windows:
             Text.nocolor = True
