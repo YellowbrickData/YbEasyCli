@@ -32,7 +32,7 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 class Common:
-    version = '20211129'
+    version = '20211202'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -370,7 +370,7 @@ class ArgsHandler:
         :param description: Text to display before the argument help
         """
         description = self.config['description']
-
+        
         description_epilog = (
             '\n'
             '\noptional argument file/s:'
@@ -388,7 +388,8 @@ class ArgsHandler:
             , add_help=False
             , formatter_class=self.formatter
             , epilog=epilog
-            , fromfile_prefix_chars='@')
+            , fromfile_prefix_chars='@'
+            , conflict_handler="resolve")
 
         self.args_parser.convert_arg_line_to_args = convert_arg_line_to_args
 
@@ -615,11 +616,11 @@ class ArgsHandler:
             self.process_report_args()
 
         if self.has_optional_args:
-        # TODO turned off color for Powershell, it seems to partially work in Powershell
-        if self.args.nocolor or Common.is_windows:
-            Text.nocolor = True
+            # TODO turned off color for Powershell, it seems to partially work in Powershell
+            if self.args.nocolor or Common.is_windows:
+                Text.nocolor = True
 
-        Common.verbose = self.args.verbose
+            Common.verbose = self.args.verbose
 
         return self.args
 
