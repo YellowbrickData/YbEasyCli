@@ -231,8 +231,11 @@ class Cmd:
             , stderr=subprocess.PIPE
             , shell=not(Common.is_windows))
 
-        if stdin:
-            self.p.stdin.write(stdin.encode('utf-8'))
+        # TODO the handling of streamed input/output needs alot of work
+        # check to see if data is being piped in to the cmd
+        if isinstance(stdin, bool) and stdin and (not sys.stdin.isatty()):
+            self.p.stdin.write(sys.stdin.read().encode('utf-8'))
+        elif isinstance(stdin, str) and stdin:
             self.p.communicate()[0]
 
         if wait:
