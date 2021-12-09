@@ -45,6 +45,7 @@ See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/5.2/adminis
 -   **[yb_chunk_dml_by_integer](./yb_chunk_dml_by_integer.py):** Chunk DML by INTEGER column.
 -   **[yb_chunk_optimal_rows](./yb_chunk_optimal_rows.py):** Determine the optimal number of rows per chunk for a table(experimental).
 -   **[yb_create_calendar_table](./yb_create_calendar_table.py):** Create a calendar dimension table.
+-   **[yb_create_dev_db](./yb_create_dev_db.py):** Create a new development DB based on an existing DB.
 -   **[yb_create_log_query_history](./yb_create_log_query_history.py):** Build/update long term history db table/views sourced from the sys.log_query view.
 -   **[yb_ddl_sequence](./yb_ddl_sequence.py):** Return the sequence/s DDL for the requested database.  Use sequence filters to limit the set of sequences returned.
 -   **[yb_ddl_stored_proc](./yb_ddl_stored_proc.py):** Return the stored procedure/s DDL for the requested database.  Use stored procedure filters to limit the set of stored procedures returned.
