@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.06.15 - Yellowbrick Technical Support 
 ** . 2020.02.09 - Yellowbrick Technical Support 
 */
@@ -120,8 +121,6 @@ END;
 $proc$ 
 ;
 
--- ALTER FUNCTION session_p()
---    SET search_path = pg_catalog,pg_temp;
 
 COMMENT ON FUNCTION session_p() IS 
 'Description:
@@ -138,6 +137,6 @@ Notes:
 . Transformed session information similar to pg_stat_activity.
 
 Version:
-. 2020.06.15 - Yellowbrick Technical Support 
+. 2020.12.09 - Yellowbrick Technical Support 
 '
 ;

@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.06.15 - Yellowbrick Technical Support 
 ** . 2020.02.09 - Yellowbrick Technical Support 
 */
@@ -58,9 +59,6 @@ DECLARE
   
 BEGIN  
 
-   /* Txn read_only to protect against potential SQL injection attacks on sp that take args
-   SET TRANSACTION       READ ONLY;
-   */
    _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
    EXECUTE _sql ;    
 
@@ -79,8 +77,6 @@ END;
 $proc$
 ;
 
--- ALTER FUNCTION proc_name_p( DataTypesIfAny )
---    SET search_path = pg_catalog,pg_temp;
    
 COMMENT ON FUNCTION proc_name_p( DataTypesIfAny ) IS 
 'Description:
@@ -98,6 +94,6 @@ Notes:
 . general_usage_notes
 
 Version:
-. 2020.06.15 - Yellowbrick Technical Support
+. 2021.12.09 - Yellowbrick Technical Support
 '
 ;

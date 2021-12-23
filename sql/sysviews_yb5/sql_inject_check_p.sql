@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.11.05 - Yellowbrick Technical Support 
 */
 CREATE OR REPLACE PROCEDURE sql_inject_check_p(_type VARCHAR, _sql VARCHAR(60000))
@@ -61,6 +62,6 @@ Arguments:
   _sql: the SQL clause being checked
 
 Version:
-. 2021.11.05 - Yellowbrick Technical Support
+. 2021.12.09 - Yellowbrick Technical Support
 '
 ;

@@ -14,13 +14,15 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.04.22 - Yellowbrick Technical Support 
 */
 
 /* ****************************************************************************
 **  Example results:
 **
-
+** pool_id | req_mb | slots | running | queued | planning | preparing | cancelling | blocked | spilling | max_mins
+** ---------+--------+-------+---------+--------+----------+-----------+------------+---------+----------+----------
 ** ...
 */
 
@@ -144,6 +146,8 @@ COMMENT ON FUNCTION wlm_state_p() IS
 'Description:
 Returns current active WLM profile state metrics by pool.
   
+Includes pool, size, and active and queued statements in the poool.
+  
 Examples:
   SELECT * FROM wlm_state_p();  
   
@@ -154,6 +158,6 @@ Notes:
 . Changes in the current profile are not reflected until saved/activated.
 
 Revision:
-. 2021.04.22 - Yellowbrick Technical Support  
+. 2021.12.09 - Yellowbrick Technical Support  
 '
 ;

@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.05.08 - Yellowbrick Technical Support
 ** . 2020.06.15 - Yellowbrick Technical Support 
 ** . 2020.02.09 - Yellowbrick Technical Support 
@@ -120,8 +121,6 @@ END;
 $proc$ 
 ;
 
--- ALTER FUNCTION wlm_active_profile_p()
---    SET search_path = pg_catalog,pg_temp;
 
 COMMENT ON FUNCTION wlm_active_profile_p() IS 
 'Description:
@@ -137,6 +136,6 @@ Notes:
 . Changes in the current profile are not reflected until saved/activated.
 
 Revision History:
-. 2021.05.08 - Yellowbrick Technical Support 
+. 2021.12.09 - Yellowbrick Technical Support 
 '
 ;

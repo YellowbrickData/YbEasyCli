@@ -5,11 +5,11 @@
 ** . create the procedures
 **
 ** To grant default permissions on the procedures, run sysviews_grant.sql .
-** To test the procedures, run sysviews_test.sql .
 **
 ** Version history:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.05.07 - Yellowbrick Technical Support
-** 2021.05.07 - For Yellowbrick version >= 5.0 only.
+** . 2021.05.07 - For Yellowbrick version >= 5.0 only.
 */
 
 \echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -29,6 +29,7 @@ SELECT LEFT( setting, 1 ) AS ver_m FROM pg_settings WHERE name = 'yb_server_vers
 
 \echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 \echo Create the stored procedures
+\i  sql_inject_check_p.sql
 \i  all_user_objs_p.sql
 \i  analyze_immed_user_p.sql
 \i  analyze_immed_sess_p.sql
@@ -52,7 +53,6 @@ SELECT LEFT( setting, 1 ) AS ver_m FROM pg_settings WHERE name = 'yb_server_vers
 \i  schema_p.sql
 \i  session_p.sql
 \i  session_smry_p.sql
-\i  sql_inject_check_p.sql
 \i  storage_by_db_p.sql
 \i  storage_by_schema_p.sql
 \i  storage_by_table_p.sql

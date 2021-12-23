@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.10.22 - Yellowbrick Technical Support 
 */
 
@@ -160,7 +161,7 @@ BEGIN
         ' || quote_ident( _db_name ) || '.pg_catalog.pg_class r,
         ' || quote_ident( _db_name ) || '.pg_catalog.pg_attribute a
       WHERE 
-             r.oid     > 16384
+             r.oid    >= 16384
          AND nr.oid    = r.relnamespace
          AND r.oid     = a.attrelid
          AND a.attnotnull 
@@ -184,8 +185,6 @@ END;
 $proc$
 ;
 
--- ALTER FUNCTION table_constraints_p( DataTypesIfAny )
---    SET search_path = pg_catalog,pg_temp;
    
 COMMENT ON FUNCTION table_constraints_p( VARCHAR, VARCHAR ) IS 
 'Description:
@@ -199,6 +198,6 @@ Arguments:
 . _db_like VARCHAR - (reqd) LIKE pattern for name of database(s) to query.
 
 Version:
-. 2020.10.22 - Yellowbrick Technical Support
+. 2020.12.09 - Yellowbrick Technical Support
 '
 ;

@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.04.26 - Yellowbrick Technical Support
 ** . 2020.10.30 - Yellowbrick Technical Support 
 */ 
@@ -223,6 +224,6 @@ Arguments:
                   The default is ''%''
 
 Revision:
-. 2021.05.08 - Yellowbrick Technical Support
+. 2021.12.09 - Yellowbrick Technical Support
 '
 ;

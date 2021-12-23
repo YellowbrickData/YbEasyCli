@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Version History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.04.21 - Yellowbrick Technical Support
 ** . 2020.06.15 - Yellowbrick Technical Support
 ** . 2020.02.16 - Yellowbrick Technical Support
@@ -128,8 +129,6 @@ END;
 $proc$ 
 ;
 
--- ALTER FUNCTION storage_p()
---    SET search_path = pg_catalog,pg_temp;
 
 COMMENT ON FUNCTION storage_p() IS 
 'Description:
@@ -146,6 +145,6 @@ Notes:
 . "other" includes uncommitted shards (i.e. running loads, etc..) and system overhead.
 
 Version:
-. 2021.04.21 - Yellowbrick Technical Support 
+. 2021.12.09 - Yellowbrick Technical Support 
 '  
 ;

@@ -2,7 +2,9 @@
 **
 ** Simple ybsql script for default GRANTs on the sysviews procedures and tables.
 **
-** 2020.04.25
+** Version history:
+** . 2021.12.09 - ybCliUtils inclusion.
+** . 2020.04.25
 */
 
 SET search_path TO public,pg_catalog;

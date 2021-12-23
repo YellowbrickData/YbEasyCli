@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.11.13 - Yellowbrick Technical Support
 */
 
@@ -311,6 +312,6 @@ Examples:
   SELECT * FROM table_skew_p( );
   
 Version:
-. 2021.11.13 - Yellowbrick Technical Support 
+. 2021.12.09 - Yellowbrick Technical Support 
 '
 ;

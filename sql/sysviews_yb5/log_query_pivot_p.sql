@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.10.31 - Yellowbrick Technical Support 
 ** . 2020.07.31 - Yellowbrick Technical Support 
 ** . 2020.06.15 - Yellowbrick Technical Support 
@@ -97,8 +98,6 @@ DECLARE
   
 BEGIN  
 
-   -- SET TRANSACTION       READ ONLY;
-   
    _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
    EXECUTE _sql ;    
 
@@ -193,8 +192,6 @@ END;
 $proc$
 ;
 
--- ALTER FUNCTION log_query_pivot_p( TIMESTAMP )
---   SET search_path = pg_catalog,pg_temp;
 
 COMMENT ON FUNCTION log_query_pivot_p( TIMESTAMP ) IS 
 'Description:
@@ -228,7 +225,7 @@ Notes:
 . Analyze and drop table statements are deliberatly 
 
 Version:
-. 2020.10.31 - Yellowbrick Technical Support 
+. 2022.12.09 - Yellowbrick Technical Support 
 '
 ;
 

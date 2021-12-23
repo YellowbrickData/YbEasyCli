@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.07.26 - Yellowbrick Technical Support 
 */
 
@@ -122,8 +123,6 @@ END;
 $proc$
 ;
 
--- ALTER FUNCTION column_dstr_p( VARCHAR, VARCHAR, VARCHAR, VARCHAR, NUMERIC )
---    SET search_path = pg_catalog,pg_temp;
    
 COMMENT ON FUNCTION column_dstr_p( VARCHAR, VARCHAR, VARCHAR, VARCHAR, NUMERIC ) IS 
 'Description:
@@ -162,7 +161,7 @@ Notes:
   procedure
 
 Version:
-. 2020.07.26 - Yellowbrick Technical Support
+. 2020.12.09 - Yellowbrick Technical Support
 '
 ;
 

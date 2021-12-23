@@ -1,7 +1,7 @@
 /* ****************************************************************************
 ** storage_by_db_p()
 **
-** Appliance storage summary by database; committed data space used by database.
+** Appliance storage committed data storage space used by database.
 **
 ** Usage:
 **   See COMMENT ON FUNCTION statement after CREATE PROCEDURE.
@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Version History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.05.08 - Yellowbrick Technical Support
 ** . 2020.06.15 - Yellowbrick Technical Support
 ** . 2020.02.16 - Yellowbrick Technical Support
@@ -47,7 +48,6 @@ CREATE TABLE storage_by_db_t
    )
 ;
 
-DROP   PROCEDURE IF EXISTS storage_by_db_p(VARCHAR);
 
 /* ****************************************************************************
 ** Create the procedure.
@@ -129,8 +129,6 @@ END;
 $proc$ 
 ;
 
--- ALTER FUNCTION storage_by_db_p()
---    SET search_path = pg_catalog,pg_temp;
    
 COMMENT ON FUNCTION storage_by_db_p(VARCHAR) IS 
 'Description:
@@ -143,6 +141,6 @@ Arguments:
 . None  
 
 Version:
-. 2021.05.08 - Yellowbrick Technical Support 
+. 2021.12.09 - Yellowbrick Technical Support 
 '
 ;

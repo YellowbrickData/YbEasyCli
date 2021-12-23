@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.06.15 - Yellowbrick Technical Support 
 ** . 2020.03.05 - Yellowbrick Technical Support 
 */
@@ -182,8 +183,6 @@ END;
 $proc$ 
 ;
 
--- ALTER FUNCTION column_stats_p( VARCHAR, VARCHAR, VARCHAR )
---    SET search_path = pg_catalog,pg_temp;
 
 COMMENT ON FUNCTION column_stats_p( VARCHAR, VARCHAR, VARCHAR, VARCHAR ) IS 
 'Description:
@@ -200,6 +199,6 @@ Arguments:
 . table  ilike  - (optional) An ILIKE pattern for the table name.  i.e. ''fact%''.
 
 Version:
-. 2020.06.15 - Yellowbrick Technical Support  
+. 2021.12.09 - Yellowbrick Technical Support  
 '
 ;

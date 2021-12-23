@@ -3,8 +3,8 @@
 ** Generate GRANT and REVOKE statements for an existing database object. 
 **
 ** Description:
-** This is often needed when migrating databases from one appliance to another
-** because the permissions on the database itself are not restored.
+** This is useful when migrating databases from one appliance to another with older
+** YB versions because the permissions on the database itself were not restored.
 **
 ** The only GRANT/REVOKE'able permissions on a database are:
 ** . CREATE     C    
@@ -16,25 +16,27 @@
 **   FOR THE CURRENT DB.
 **
 ** Version history:
-** . 2020-05-29 (rek)
+** . 2021.12.09 - ybCliUtils inclusion.
+** . 2020-05-29 - Yellowbrick Technical Support
 */
 
-/* Example results 
-
-/* =T/yellowbrick ...
-REVOKE ALL ON denav FROM PUBLIC ;
-GRANT TEMPORARY ON DATABASE denav TO PUBLIC ;
-
-/* denav_group=c/yellowbrick ...
-GRANT CONNECT ON DATABASE denav TO denav_group ;
-
-/* john=c/yellowbrick * /
-GRANT CONNECT ON DATABASE denav TO john ;
-
-/* yellowbrick=CTc/yellowbrick ...
-GRANT CREATE, TEMPORARY, CONNECT ON DATABASE denav TO yellowbrick ;
-
-*/
+-- Example results 
+--
+--
+--/* =T/yellowbrick ...               */
+--REVOKE ALL ON denav FROM PUBLIC ;
+--GRANT TEMPORARY ON DATABASE denav TO PUBLIC ;
+--
+--/* denav_group=c/yellowbrick ...
+--GRANT CONNECT ON DATABASE denav TO denav_group ;
+--
+--/* john=c/yellowbrick               */
+--GRANT CONNECT ON DATABASE denav TO john ;
+--
+--/* yellowbrick=CTc/yellowbrick ...  */
+--GRANT CREATE, TEMPORARY, CONNECT ON DATABASE denav TO yellowbrick ;
+--
+--*/
 
 
 WITH db_acls AS

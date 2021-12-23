@@ -135,6 +135,10 @@ Technical implementation details
 Revision history
 ================================================================================
 
+2021.12.09
+-------------------
+Updated for inclusion in YbEasyCLI.
+
 2021.05.09
 -------------------
 . Updated for only Yellowbrick version 5.x

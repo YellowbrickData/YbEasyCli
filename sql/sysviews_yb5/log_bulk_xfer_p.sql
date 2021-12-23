@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2021.12.09 - ybcli inclusion.
 ** . 2021.05.08 - Yellowbrick Technical Support 
 */
 
@@ -122,8 +123,6 @@ END;
 $proc$ 
 ;
 
--- ALTER FUNCTION log_bulk_xfer_p()
---    SET search_path = pg_catalog,pg_temp;
 
 COMMENT ON FUNCTION log_bulk_xfer_p() IS 
 'Description:
@@ -138,6 +137,6 @@ Arguments:
 . none
 
 Version:
-. 2021.05.08 - Yellowbrick Technical Support 
+. 2021.12.09 - Yellowbrick Technical Support 
 '
 ;

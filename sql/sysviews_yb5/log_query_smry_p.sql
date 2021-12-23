@@ -14,6 +14,7 @@
 **
 **
 ** Revision History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.05.05 - Yellowbrick Technical Support  (for version 5.x)
 ** . 2020.06.15 - Yellowbrick Technical Support 
 ** . 2020.02.09 - Yellowbrick Technical Support 
@@ -86,8 +87,6 @@ DECLARE
     
 BEGIN
 
-   -- SET TRANSACTION READ ONLY;
-
    _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
    EXECUTE _sql ; 
    
@@ -147,8 +146,6 @@ END;
 $proc$
 ;
 
--- ALTER FUNCTION log_query_smry_p( TIMESTAMP )
---    SET search_path = pg_catalog,pg_temp;
 
 COMMENT ON FUNCTION log_query_smry_p( TIMESTAMP ) IS 
 'Description:
@@ -174,6 +171,6 @@ NOTE:
   of the action but instead the time of the preceeding CTAS, DROP, etc...
 
 Version:
-. 2021.05.05 - Yellowbrick Technical Support    
+. 2021.12.09 - Yellowbrick Technical Support    
 '
 ;

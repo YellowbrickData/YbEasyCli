@@ -16,12 +16,17 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.07.31 - Yellowbrick Technical Support 
 */
 
 CREATE OR REPLACE PROCEDURE analyze_immed_user_p( _off_or_on VARCHAR ) 
-RETURNS VOID AS
-$$
+	RETURNS VOID 
+	LANGUAGE 'plpgsql' 
+	VOLATILE
+	SECURITY DEFINER
+AS
+$proc$
 DECLARE
    _sql       TEXT    := '';
    _as_user   VARCHAR := session_user ;
@@ -30,10 +35,7 @@ BEGIN
    EXECUTE 'ALTER USER ' || _as_user || ' SET ybd_analyze_after_writes  TO ' || _off_or_on ; 
  
 END;
-$$
-LANGUAGE 'plpgsql' 
-VOLATILE
-SECURITY DEFINER
+$proc$
 ;
 
 
@@ -50,6 +52,6 @@ Arguments:
                Case insensitive.
  
 Revision:
-. 2020.05.19 - Yellowbrick Technical Support
+. 2021.12.09 - Yellowbrick Technical Support
 '
 ;

@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.06.15 - Yellowbrick Technical Support 
 ** . 2020.02.09 - Yellowbrick Technical Support 
 */
@@ -103,8 +104,6 @@ END;
 $proc$ 
 ;
 
--- ALTER FUNCTION rowstore_by_table_p()
---   SET search_path = pg_catalog,pg_temp;
 
 COMMENT ON FUNCTION rowstore_by_table_p() IS 
 'Description:
@@ -122,6 +121,6 @@ Notes:
 . The columnstore storage space is not included in these numbers.
 
 Version:
-. 2021.04.26 - Yellowbrick Technical Support 
+. 2021.12.09 - Yellowbrick Technical Support 
 '
 ;

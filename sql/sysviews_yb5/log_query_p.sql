@@ -19,6 +19,7 @@
 **   see the statements run by all users.
 **
 ** Revision History:
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.05.07 - Yellowbrick Technical Support 
 ** . 2021.04.20 - Yellowbrick Technical Support 
 ** . 2020.06.15 - Yellowbrick Technical Support   
@@ -159,8 +160,6 @@ END;
 $proc$
 ;
 
--- ALTER FUNCTION log_query_p( VARCHAR )
---    SET search_path = pg_catalog,pg_temp;
 
 COMMENT ON FUNCTION log_query_p( VARCHAR, INTEGER ) IS 
 'Description:
@@ -184,6 +183,6 @@ Arguments:
                     Default: predicate for only statements in the last hour.
 
 Version:
-** . 2021.05.07 - Yellowbrick Technical Support 
+. 2021.12.09 - Yellowbrick Technical Support 
 '
 ;
