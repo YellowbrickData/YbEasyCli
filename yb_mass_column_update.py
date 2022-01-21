@@ -31,7 +31,7 @@ class mass_column_update(Util):
         , 'optional_args_single': []
         , 'optional_args_multi': ['owner', 'schema', 'table', 'column', 'datatype']
         , 'usage_example': {
-            'cmd_line_args': "@$HOME/conn.args --datatype_like 'CHAR%' --update_where_clause \"<columnname> = 'NULL'\" --set_clause NULL --"
+            'cmd_line_args': "@$HOME/conn.args --datatype_like 'CHAR%' --update_where_clause \"<column> = 'NULL'\" --set_clause NULL --"
             , 'file_args': [Util.conn_args_file] }
         , 'db_filter_args': {'owner':'tableowner', 'schema':'schemaname', 'table':'tablename', 'column':'columnname', 'datatype':'datatype'} }
 
