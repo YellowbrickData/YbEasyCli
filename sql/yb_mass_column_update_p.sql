@@ -94,9 +94,10 @@ table_cols AS (
 SELECT
     '    ' AS i1, i1 || i1 AS i2
     , DECODE(TRUE, is_first_row_in_table, 'SELECT' || CHR(13) || CHR(10) || i2, i2 || ', ')
-    || REPLACE(
-        $STR2$SUM(DECODE(TRUE, <update_where_clause>, 1, 0)) AS "update_<column>_ct"$STR2$
-        , '<column>', columnname) || CHR(13) || CHR(10)
+    || REPLACE(REPLACE(
+        $STR2$SUM(DECODE(TRUE, <update_where_clause>, 1, 0)) AS "update_<columnname>_ct"$STR2$
+        , '<column>', ('"' || columnname || '"' ))
+        , '<columnname>', columnname ) || CHR(13) || CHR(10)
     || DECODE(TRUE, is_last_row_in_table, i1 || 'FROM' || CHR(13) || CHR(10) || i2 || tablepath , '')
     AS check_query
     , DECODE(TRUE, is_first_row_in_table, '', i1 || 'UNION ALL ') || 'SELECT '
@@ -155,11 +156,11 @@ BEGIN
             FOR v_rec_check IN EXECUTE v_query_check
             lOOP
                 v_query_update := REPLACE(REPLACE(REPLACE(REPLACE(
-                    $STR1$UPDATE <tablepath> SET "<column>" = <set_clause> WHERE <update_where_clause>$STR1$
+                    $STR1$UPDATE <tablepath> SET <column> = <set_clause> WHERE <update_where_clause>$STR1$
                     , '<update_where_clause>', a_update_where_clause)
                     , '<set_clause>', a_set_clause)
                     , '<tablepath>', v_rec_check.tablepath)
-                    , '<column>', v_rec_check.columnname);
+                    , '<column>', ('"' || v_rec_check.columnname || '"' ) );
                 IF a_exec_updates THEN
                     v_query_update := REPLACE(
                         '/* updating <ct> row/s */ ' || v_query_update
