@@ -83,7 +83,7 @@ def main():
         else:
             sys.stdout.write(acs.cmd_results.stdout)
     if acs.cmd_results.stderr != '':
-        Common.error(acs.cmd_results.stderr, no_exit=True)
+        Common.error(acs.cmd_results.stderr, exit_code=None)
     else:
         sys.stdout.write('-- Completed column analysis.\n')
 

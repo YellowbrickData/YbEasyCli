@@ -25,14 +25,20 @@ from datetime import datetime, date
 from glob import glob
 from tabulate import tabulate
 
-# Provides gracefule error when user issues a CTRL-C to break out of a yb_<util>
-#    TODO doesn't work well in powershell
 def signal_handler(signal, frame):
+    """
+    Provides gracefule error when user issues a CTRL-C to break out of a yb_<util>
+    TODO doesn't work well in powershell
+    """
     Common.error('user terminated...')
 signal.signal(signal.SIGINT, signal_handler)
 
 class Common:
-    version = '20211209'
+    """
+    Grouping of attributes in methods commonly use in ybutils
+    """
+
+    version = '20220121'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -43,17 +49,17 @@ class Common:
     is_cygwin = sys.platform == 'cygwin'
 
     if not is_windows:
-        # supresses Linux error thrown when using pipe; like: 'yb_<util> | head -10'
+        """supresses Linux error thrown when using pipe; like: 'yb_<util> | head -10'"""
         signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
     @staticmethod
-    def error(msg, exit_code=1, color='red', no_exit=False):
+    def error(msg, exit_code=1, color='red'):
         if Common.verbose >= 3:
             traceback.print_stack()
         sys.stderr.write("%s: %s\n" % (
             Text.color(Common.util_file_name, style='bold')
-            , Text.color(msg, color)))
-        if not no_exit:
+            , Text.color(msg, color) ) )
+        if exit_code is not None:
             exit(exit_code)
 
     @staticmethod
@@ -78,15 +84,24 @@ class Common:
 
     @staticmethod
     def get_uid():
+        """Simple UID made of timestamp and a random 5 digit number, not meant to be bullet proof"""
         return '%s_%05d' % (datetime.now().strftime('%Y%m%d_%H%M%S'), random.randint(0, 99999))
 
     @staticmethod
     def str_to_gzip_b64(string):
+        """
+        Package a string to be transmitted as a gzipped/base64 string.
+        For example take an 'ls' of 1000 files and make the list small via gzip and get rid of
+            special chars, newlines, ... with base64.
+        """
         cmdline_args_gz = gzip.compress(bytes(string, 'UTF-8'))
         return base64.b64encode(cmdline_args_gz).decode()
 
     @staticmethod
     def gzip_b64_to_str(gzip_b64_str):
+        """
+        Unpackage a string transmitted as a base64/gzipped.
+        """
         gz = base64.b64decode(gzip_b64_str)
         return gzip.decompress(gz).decode()
 
@@ -103,7 +118,13 @@ class Common:
     @staticmethod
     def quote_object_paths(object_paths, quote_all=False):
         """Convert database object names to have double quotes where required
-        quote_all: will quote all names even SQL object names that don't require quotes
+
+        Args:
+            object_paths (str): one or more DB object paths delimited by new lines
+            quote_all (bool, optional): Will quote all names even SQL object names that don't require quotes. Defaults to False.
+
+        Returns:
+            str: DB quoted objects
         """
         quote_object_paths = []
         #for object_path in object_paths.split('\n'):
@@ -123,6 +144,14 @@ class Common:
 
     @staticmethod
     def qa(object_paths):
+        """Quote all DB objects uses quote_object_paths method
+
+        Args:
+            object_paths (str or list of str): DB objects to be quoted
+
+        Returns:
+            str or list of str: fully quoted DB objects
+        """
         if type(object_paths) == list:
             new_list = []
             for object_path in object_paths:
@@ -133,10 +162,22 @@ class Common:
 
     @staticmethod
     def split(str, delim=','):
-        """split which handles embedded delims
-        within single/double quotes, parens, brakets, and curley braces"""
-        #todo handle escape characters
-        
+        """Split strings with embeded delimiters.
+        For example: '''"dog", "cat", "bird,parrot", "fish"'''
+        Returns: ['"dog"', '"cat"', '"bird,parrot"', '"fish"']
+
+        Args:€
+            str: string to split
+            delim (str, optional): [description]. Defaults to ','.
+
+        Returns:
+            list of str: contains the split string
+
+        Todo:
+            handle escape characters
+        """
+
+        # these are the pairs of open:close characters that will protect a delimiter from being split
         open_close_char = {"'":"'", '"':'"', '(':')', '[':']', '{':'}'}
         close_char = []
         for char in open_close_char.keys():
@@ -307,7 +348,7 @@ class Cmd:
                 if quote
                 else self.stdout)
         if self.stderr != '':
-            Common.error(self.stderr, no_exit=True)
+            Common.error(self.stderr, exit_code=None)
         sys.stdout.write(tail)
 
     def on_error_exit(self, write=True, head='', tail=''):
@@ -2077,7 +2118,7 @@ SELECT * FROM clstr
 class UtilArgParser(argparse.ArgumentParser):
     @staticmethod
     def error(message):
-        Common.error('error: %s' % message, no_exit=True)
+        Common.error('error: %s' % message, exit_code=None)
         #disabling printing of complete help after error as the error scrolls off the screen
         #self.print_help()
         sys.stderr.write("for complete help, execute: %s\n" % (
