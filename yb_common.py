@@ -38,7 +38,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20220121'
+    version = '20220202'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -166,7 +166,7 @@ class Common:
         For example: '''"dog", "cat", "bird,parrot", "fish"'''
         Returns: ['"dog"', '"cat"', '"bird,parrot"', '"fish"']
 
-        Args:€
+        Args:
             str: string to split
             delim (str, optional): [description]. Defaults to ','.
 
