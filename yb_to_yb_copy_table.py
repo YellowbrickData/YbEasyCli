@@ -103,6 +103,8 @@ class yb_to_yb_copy_table(Util):
             "--threads"
             , type=ArgIntRange(1,20), default=1
             , help="when set data copying will be performed in parallel ybunload/ybload threads")
+        copy_table_o_grp.add_argument("--dry_run", action="store_true"
+            , help="prints all the ybunload/ybload commands without running the commands, defaults to FALSE")
 
     def set_db_connections(self):
         pwd = os.environ['YBPASSWORD'] if 'YBPASSWORD' in os.environ else None
@@ -276,6 +278,7 @@ class yb_to_yb_copy_table(Util):
         total_chunks = len(chunks_sql)
         format_CofC = 'chunk%.0{len}dof%.0{len}d'.format(len=len(str(total_chunks)))
         total_threads = self.args_handler.args.threads
+        is_dry_run = self.args_handler.args.dry_run
         format_TofT = '_thread%.0{len}dof%.0{len}d'.format(len=len(str(total_threads)))
         TofT = ''
         thread_clause = ''
@@ -292,9 +295,12 @@ class yb_to_yb_copy_table(Util):
                     unload_sql=unload_sql.rstrip().rstrip(';') + thread_clause
                     , CofC=CofC
                     , TofT=TofT)
-                cmd = Cmd(copy_cmd, False, wait=False)
-                cmd.TofT = TofT
-                cmd_threads.append(cmd)
+                if is_dry_run:
+                    print(copy_cmd)
+                else:
+                    cmd = Cmd(copy_cmd, False, wait=False)
+                    cmd.TofT = TofT
+                    cmd_threads.append(cmd)
 
             thread_exit_code = 0
             thread_failed = False
