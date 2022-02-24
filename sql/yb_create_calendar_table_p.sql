@@ -27,20 +27,19 @@ input_cte AS (
         , ((last_date - first_date) + 1)::BIGINT         AS total_days
 )
 , wrkrs_cte AS (
-    /* Gen sequential values even if you have failed blades. */
+    /* Generate sequential values even if you have failed blades. */
     SELECT
-        worker_lid                              AS worker_lid
-        , RANK() OVER( ORDER BY worker_lid ) -1 AS use_id
+        worker_lid AS use_lid
     FROM sys.rowgenerator
     WHERE range BETWEEN 0 and 0
 )
 , seq_cte AS (
     SELECT
-        r.row_number +( w.use_id * 3652059::BIGINT ) AS num
+        r.row_number +( w.use_lid * 3652059::BIGINT ) AS num
     FROM
         sys.rowgenerator AS r
         JOIN wrkrs_cte AS w
-            ON r.worker_lid = w.worker_lid
+            ON r.worker_lid = w.use_lid
     WHERE
         --3652059 = TO_DATE('9999-12-31', 'YYYY-MM-DD') - TO_DATE('0000-01-01', 'YYYY-MM-DD') + 1
         range BETWEEN 1 AND 3652059
