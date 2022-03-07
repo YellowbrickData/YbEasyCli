@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-TODO 
+TODO
 USAGE:
       yb_wl_profiler_heatmap.py [options]
 
@@ -22,9 +22,9 @@ from datetime import datetime
 from yb_common import Common, DBConnect, Text, Util
 
 def floatIfFloat(str):
-    try: 
+    try:
         return float(str)
-    except ValueError: 
+    except ValueError:
         return str
 
 class wl_profiler(Util):
@@ -67,6 +67,8 @@ class wl_profiler(Util):
             'wl profiler heatmap argument')
         wl_profiler_grp.add_argument("--keep_db_objects", action="store_false"
             , help="do not delete the temporary db object, defaults to FALSE")
+        wl_profiler_grp.add_argument("--close_workbook", action="store_true"
+            , help="run in batch mode - don't display the HeatMap Workbook, just silently save it to disk")
 
     def complete_db_conn(self):
         self.wlp_version = (4 if self.db_conn.ybdb['version_major'] <= 4 else 5)
@@ -125,7 +127,9 @@ class wl_profiler(Util):
             % Text.color('positively', style='bold'))
         shutil.copyfile(xlsm_template, '../' + self.filename)
         sheets = ['Data', 'Totals_User', 'Totals_App', 'Totals_Pool', 'Totals_Step']
+
         import xlwings
+        xl_already_running = len(xlwings.apps) > 0
         wb = xlwings.Book('../' + self.filename)
         for sheet_name in sheets:
             file_suffix = sheet_name.split('_')[-1].lower()
@@ -139,8 +143,13 @@ class wl_profiler(Util):
                 sheet.range('A2').value = rows
             csv_file.close()
         wb.save()
-        wb.app.quit()
-        #wb.close()
+        if self.args_handler.args.close_workbook:
+            if not xl_already_running:
+                wb.app.quit()
+            else:
+                wb.close()
+        else:
+            wb.activate()
 
     def execute(self):
         self.complete_db_conn()
