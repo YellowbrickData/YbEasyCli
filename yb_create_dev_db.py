@@ -46,6 +46,8 @@ class CreateDevDB(Util):
         args_grp = self.args_handler.args_parser.add_argument_group('create database arguments')
         args_grp.add_argument("--create_rules", required=True,       help='rules to create the target database')
         args_grp.add_argument("--dst_db",       required=True,       help='the target database name')
+        args_grp.add_argument("--dst_db_encoding",  choices=('UTF8', 'LATIN9'), default=None
+            , help="set the destination database encoding, defaults to the encoding of the source database")
         args_grp.add_argument("--no_create_db", action="store_true", help="don't create the target database, defaults to FALSE")
         args_grp.add_argument("--exec_sql",     action="store_true", help="execute generated SQL in the target database, defaults to FALSE")
 
@@ -154,7 +156,11 @@ SELECT * FROM (
 
         sql = '%s\n\n%s' % (self.get_create_schemas(), sql)
 
-        create_db_sql = 'CREATE DATABASE %s ENCODING %s;' % (self.args_handler.args.dst_db, self.db_conn.ybdb['database_encoding'])
+        db_encode = (self.args_handler.args.dst_db_encoding
+            if self.args_handler.args.dst_db_encoding
+            else self.db_conn.ybdb['database_encoding'] )
+
+        create_db_sql = 'CREATE DATABASE %s ENCODING %s;' % (self.args_handler.args.dst_db, db_encode)
         if self.args_handler.args.exec_sql:
             if not self.args_handler.args.no_create_db:
                 # Create target database first ...
