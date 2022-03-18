@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_copy_db.py [options]
+      yb_create_dev_db.py [options]
 
 PURPOSE:
       Create a new development DB based on an existing DB.
 
 OPTIONS:
       See the command line help message for all options.
-      (yb_exec_ybtool.py --help)
+      (yb_create_dev_db.py --help)
 
 Output:
       TODO.
