@@ -10,6 +10,7 @@
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.05.07 - Yellowbrick Technical Support
 ** . 2021.05.07 - For Yellowbrick version >= 5.0 only.
+** . 2022.03.27 - added query_rule_events_p.sql
 */
 
 \echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -46,6 +47,7 @@ SELECT LEFT( setting, 1 ) AS ver_m FROM pg_settings WHERE name = 'yb_server_vers
 \i  log_query_timing_p.sql
 \i  procedure_p.sql
 \i  query_p.sql
+\i  query_rule_events_p.sql
 \i  query_steps_p.sql
 \i  rel_p.sql
 \i  rowstore_p.sql

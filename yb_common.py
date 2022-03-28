@@ -38,7 +38,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20220318'
+    version = '20220327'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -1828,7 +1828,6 @@ FROM report_data""".format(
 
         return report
 
-
 class Util(object):
     conn_args_file = {'$HOME/conn.args': """--host yb89
 --dbuser dze
@@ -2113,6 +2112,51 @@ SELECT * FROM clstr
                 ybsql_py_key_values.append(
                     """\\echo "%s": ""\" %s ""\"\n""" % (k,v) )
         return ybsql_py_key_values
+
+class UtilDualDBConn(Util):
+
+    def init(self, src_conn=None, dst_conn=None, args_handler=None):
+        """ This initialization performs argument parsing and login verification.
+        It also provides access to functions such as logging and command
+        execution.
+        """
+        if src_conn:
+            self.src_conn = src_conn
+            self.dst_conn = dst_conn
+            self.args_handler = args_handler
+        else:
+            self.args_handler = ArgsHandler(self.config, init_default=False)
+
+            self.add_args()
+
+            self.args_handler.args_process()
+
+    def set_db_connections(self):
+        pwd = os.environ['YBPASSWORD'] if 'YBPASSWORD' in os.environ else None
+        src_pwd = os.environ['SRC_YBPASSWORD'] if 'SRC_YBPASSWORD' in os.environ else None
+        if src_pwd:
+            os.environ['YBPASSWORD'] = src_pwd
+        self.src_conn = DBConnect(args_handler=self.args_handler, conn_type='src')
+        if pwd:
+            os.environ['YBPASSWORD'] = pwd
+        elif src_pwd:
+            del os.environ['YBPASSWORD']
+
+        dst_pwd = os.environ['DST_YBPASSWORD'] if 'DST_YBPASSWORD' in os.environ else None
+        if dst_pwd:
+            os.environ['YBPASSWORD'] = dst_pwd
+        self.dst_conn = DBConnect(args_handler=self.args_handler, conn_type='dst')
+        if pwd:
+            os.environ['YBPASSWORD'] = pwd
+        elif dst_pwd:
+            del os.environ['YBPASSWORD']
+
+    def add_args(self):
+        self.args_handler.args_process_init()
+        self.args_handler.args_add_optional()
+        self.args_handler.args_add_connection_group('src', 'source')
+        self.args_handler.args_add_connection_group('dst', 'destination')
+        self.args_handler.args_usage_example()
 
 
 class UtilArgParser(argparse.ArgumentParser):

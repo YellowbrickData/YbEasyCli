@@ -30,11 +30,13 @@ class SPReportUtil(Util):
             if self.args_handler.args.report_order_by != ''
             else '')
 
-    def build_for_su(self, args):
+    def build_for_su(self, args, where_clause):
         (new_table_name, anonymous_pl) = self.sp.proc_setof_to_anonymous_block(args)
 
-        report_query = ('SELECT %s FROM %s%s'
-            % (self.select_columns, new_table_name, self.order_by_clause) )
+        where_clause = ((' WHERE %s' % where_clause) if where_clause else '')
+
+        report_query = ('SELECT %s FROM %s%s%s'
+            % (self.select_columns, new_table_name, where_clause, self.order_by_clause) )
 
         return Report(
             self.args_handler, self.db_conn
@@ -56,7 +58,7 @@ class SPReportUtil(Util):
                 , cols=('\n    , '.join(cols) ) )
 
     #TODO much of the build_for_non_su logic might be more appropriate in the Report class
-    def build_for_non_su(self, args):
+    def build_for_non_su(self, args, where_clause):
         pre_conn_db = self.db_conn.env['conn_db']
         self.db_conn.env['conn_db'] = self.sysviews_db
         if Common.verbose >= 3:
@@ -72,11 +74,14 @@ class SPReportUtil(Util):
                 '\nwhich require installing the sysviews library and granting permissions')
 
         args_clause = self.sp.input_args_to_args_clause(args, is_declare=False)
-        report_query = ('SELECT {at}{columns} FROM {proc}({args}){order_by}'.format(
+        where_clause = ((' WHERE %s' % where_clause) if where_clause else '')
+
+        report_query = ('SELECT {at}{columns} FROM {proc}({args}){where}{order_by}'.format(
             at=('LOCALTIMESTAMP AS "at", ' if self.args_handler.args.report_add_ts_column else '')
             , columns=self.select_columns
             , proc=self.sp.proc_name
             , args=args_clause
+            , where=where_clause
             , order_by=self.order_by_clause) )
 
         report_type = self.args_handler.args.report_type
@@ -105,10 +110,10 @@ class SPReportUtil(Util):
 
         return report
 
-    def build(self, args={}):
+    def build(self, args={}, where_clause=None):
         if self.db_conn.ybdb['is_super_user']:
-            report = self.build_for_su(args)
+            report = self.build_for_su(args, where_clause)
         else:
-            report = self.build_for_non_su(args)
+            report = self.build_for_non_su(args, where_clause)
         
         return report
