@@ -37,7 +37,7 @@ class wl_profiler(Util):
             '\nnote:'
             '\n  This utility requires 2 db user logins, a non-super-user to create temporary db objects and a'
             '\n  db super-user to read the system views.'
-            '\n  You can also create the heatmap manualy by following the README steps in sql/wl_profiler_ybX.')
+            '\n  You can also create the heatmap manually by following the README steps in sql/wl_profiler_ybX.')
         , 'optional_args_single': []
         , 'usage_example': {
             'cmd_line_args': '@$HOME/conn.args'

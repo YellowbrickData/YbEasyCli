@@ -47,6 +47,7 @@ See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/5.2/adminis
 -   **[yb_create_calendar_table](./yb_create_calendar_table.py):** Create a calendar dimension table.
 -   **[yb_create_dev_db](./yb_create_dev_db.py):** Create a new development DB based on an existing DB.
 -   **[yb_create_log_query_history](./yb_create_log_query_history.py):** Build/update long term history db table/views sourced from the sys.log_query view.
+-   **[yb_create_loopback_remote_server](./yb_create_loopback_remote_server.py):** Create a loopback remote server for testing database replication.
 -   **[yb_ddl_sequence](./yb_ddl_sequence.py):** Return the sequence/s DDL for the requested database.  Use sequence filters to limit the set of sequences returned.
 -   **[yb_ddl_stored_proc](./yb_ddl_stored_proc.py):** Return the stored procedure/s DDL for the requested database.  Use stored procedure filters to limit the set of stored procedures returned.
 -   **[yb_ddl_table](./yb_ddl_table.py):** Return the table/s DDL for the requested database.  Use table filters to limit the set of tables returned.
@@ -79,6 +80,7 @@ See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/5.2/adminis
 -   **[yb_sysprocs_log_query_timing](./yb_sysprocs_log_query_timing.py):** Details on completed backend statements.
 -   **[yb_sysprocs_procedure](./yb_sysprocs_procedure.py):** User created stored procedures.
 -   **[yb_sysprocs_query](./yb_sysprocs_query.py):** Transformed subset of sys.query columns for currently running statements.
+-   **[yb_sysprocs_query_rule_events](./yb_sysprocs_query_rule_events.py):** Return the WLM rule events for a query.
 -   **[yb_sysprocs_query_steps](./yb_sysprocs_query_steps.py):** Currently executing statements actual vs plan metrics by plan node.
 -   **[yb_sysprocs_rel](./yb_sysprocs_rel.py):** All user "relations" (tables, views, & sequences) in all databases.
 -   **[yb_sysprocs_rowstore](./yb_sysprocs_rowstore.py):** Rowstore overal metrics including size of data in user tables.
