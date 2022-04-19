@@ -1,7 +1,7 @@
 CREATE OR REPLACE PROCEDURE yb_chunk_dml_by_integer_yyyymmdd_p(
     a_table                  VARCHAR
     , a_yyyymmdd_column VARCHAR
-    , a_dml                  VARCHAR
+    , a_dml                  VARCHAR(10000)
     , a_min_chunk_size       BIGINT DEFAULT
     , a_verbose              BOOLEAN DEFAULT TRUE
     , a_add_null_chunk       BOOLEAN DEFAULT FALSE
