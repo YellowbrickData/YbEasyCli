@@ -44,17 +44,6 @@ class wl_profiler(Util):
             , 'file_args': [Util.conn_args_file] } }
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    @staticmethod
-    def test_prerequisites():
-        try:
-            import xlwings
-        except Exception as e:
-            if str(e) == "No module named 'xlwings'":
-                Common.error("the python xlwings library is required, please run 'python -m pip install xlwings' or see https://docs.xlwings.org/en/stable/installation.html for installation instructions")
-            else:
-                Common.error(e)
-            exit(1)
-
     def additional_args(self):
         su_connection_grp = self.args_handler.args_parser.add_argument_group(
             'super user connection arguments')
@@ -64,15 +53,62 @@ class wl_profiler(Util):
             , help="prompt for password instead of using the SU_YBPASSWORD env variable")
 
         wl_profiler_grp = self.args_handler.args_parser.add_argument_group(
-            'wl profiler heatmap argument')
+            'wl profiler heatmap optional arguments')
         wl_profiler_grp.add_argument("--keep_db_objects", action="store_false"
             , help="do not delete the temporary db object, defaults to FALSE")
         wl_profiler_grp.add_argument("--close_workbook", action="store_true"
-            , help="run in batch mode - don't display the HeatMap Workbook, just silently save it to disk")
+            , help="don't display the heatmap, just save the spreadsheet to disk, defaults to FALSE")
+
+        wl_profiler_grp = self.args_handler.args_parser.add_argument_group(
+            'wl profiler heatmap optional arguments for building heatmap in 2 separate steps')
+        wl_profiler_grp.add_argument("--step1", action="store_true"
+            , help="step 1, retrieve heatmap data as CSV data in a single Zip file")
+        wl_profiler_grp.add_argument("--step2", metavar="csv_zip_file"
+            , help="step 2, build heatmap Excel from the provided CSV data")
+
+    def additional_args_process(self):
+        if not(self.args_handler.args.step1 or self.args_handler.args.step2):
+            self.step1 = self.step2 = True
+            self.csv_zip_file = None
+        elif self.args_handler.args.step1 and self.args_handler.args.step2:
+            Common.error('error: arguments --step1 and --step2, expected one not both arguments')
+        elif self.args_handler.args.step1:
+            self.step1 = True
+            self.step2 = False
+            self.csv_zip_file = None
+        elif self.args_handler.args.step2:
+            self.step1 = False
+            self.step2 = True
+            self.csv_zip_file = self.args_handler.args.step2
+            self.args_handler.args.skip_db_conn = True
+
+        if self.step2:
+            try:
+                import xlwings
+            except Exception as e:
+                if str(e) == "No module named 'xlwings'":
+                    Common.error("the python xlwings library is required, please run 'python -m pip install xlwings' or see https://docs.xlwings.org/en/stable/installation.html for installation instructions")
+                else:
+                    Common.error(e)
+                exit(1)
+
+    def init(self):
+        if self.step1:
+            self.complete_db_conn()
+            self.wlp_version = (4 if self.db_conn.ybdb['version_major'] <= 4 else 5)
+            self.profile_name = "yb_wl_profile__%s__v%s__%s" % (self.db_conn.env['host'].replace('.', '_'), self.wlp_version, self.ts)
+        elif self.csv_zip_file:
+            self.profile_name = self.csv_zip_file.rsplit('.', 1)[0]
+            self.wlp_version = int(self.profile_name.split('__')[2][1:])
+
+        print('--creating temp directory: %s' % self.profile_name)
+        os.mkdir(self.profile_name)
+        os.chdir(self.profile_name)
+
+        if self.csv_zip_file:
+            shutil.unpack_archive('../%s' % self.csv_zip_file, '.', 'zip')
 
     def complete_db_conn(self):
-        self.wlp_version = (4 if self.db_conn.ybdb['version_major'] <= 4 else 5)
-
         if self.db_conn.ybdb['is_super_user']:
             self.args_handler.args_parser.error("dbuser '%s' must not ba a db super user..." % self.db_conn.ybdb['user'])
 
@@ -119,23 +155,31 @@ class wl_profiler(Util):
             result = script['conn'].ybsql_query(sql)
             result.on_error_exit()
 
-    def load_csv_to_xls(self):
+    def build_csv_data(self):
+        self.run_sql()
+        if not self.step2:
+            shutil.make_archive('../%s' % self.profile_name, 'zip', '../%s' % self.profile_name)
+            print('--created Zip file: %s.zip' % self.profile_name)
+
+    def build_heatmap(self):
         xlsm_template = ('%s/sql/wl_profiler_yb%d/wl_profile.xlsm' %
                 (Common.util_dir_path, self.wlp_version) )
+        self.filename = '%s.xlsm' % self.profile_name
         print('--creating Excel file: %s' % self.filename)
+        self.filename = '../%s' % self.filename
         print('--Excel may present dialogues, reply %s to all dialogues to complete WL profile spreadsheet'
             % Text.color('positively', style='bold'))
-        shutil.copyfile(xlsm_template, '../' + self.filename)
+        shutil.copyfile(xlsm_template, self.filename)
         sheets = ['Data', 'Totals_User', 'Totals_App', 'Totals_Pool', 'Totals_Step']
 
         import xlwings
         xl_already_running = len(xlwings.apps) > 0
-        wb = xlwings.Book('../' + self.filename)
+        wb = xlwings.Book(self.filename)
         for sheet_name in sheets:
             file_suffix = sheet_name.split('_')[-1].lower()
             sheet = wb.sheets[sheet_name]
 
-            with open('wl_profiler_%s.csv' % file_suffix) as csv_file:
+            with open('wl_profiler_%s.csv' % (file_suffix)) as csv_file:
                 rows = []
                 csv_reader = csv.reader(csv_file, delimiter=',')
                 for row in csv_reader:
@@ -152,28 +196,21 @@ class wl_profiler(Util):
             wb.activate()
 
     def execute(self):
-        self.complete_db_conn()
+        self.init()
 
-        self.profile_name = "yb_wl_profile__%s__%s" % (self.db_conn.env['host'].replace('.', '_'), self.ts)
-        self.filename = '%s.xlsm' % self.profile_name
-        print('--creating temp directory: %s' % self.profile_name)
-        os.mkdir(self.profile_name)
-        os.chdir(self.profile_name)
+        if self.step1:
+            self.build_csv_data()
 
-        self.run_sql()
-        self.load_csv_to_xls()
+        if self.step2:
+            self.build_heatmap()
 
-        print('--created Excel file: %s' % self.filename)
         print('--droping temp directory: %s' % self.profile_name)
         os.chdir('..')
         shutil.rmtree(self.profile_name)
 
+
 def main():
-    wl_profiler.test_prerequisites()
-
-    wlp = wl_profiler()
-
-    wlp.execute()
+    wl_profiler().execute()
 
 
 if __name__ == "__main__":
