@@ -38,7 +38,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20220327'
+    version = '20220419'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -467,6 +467,8 @@ class ArgsHandler:
                 , action="store_true"
                 , help= "prompt for password instead of using the "
                     "YBPASSWORD env variable")
+            conn_grp.add_argument(
+                "--skip_db_conn", action="store_true", help=argparse.SUPPRESS)
         else:
             conn_grp = self.args_parser.add_argument_group(
                 'connection %s arguments' % type_desc)
@@ -494,6 +496,8 @@ class ArgsHandler:
                 , action="store_true"
                 , help= "prompt for password instead of using the "
                     "YBPASSWORD env variable")
+            conn_grp.add_argument(
+                "--%s_skip_db_conn" % type, action="store_true", help=argparse.SUPPRESS)
 
         return conn_grp
 
@@ -1308,21 +1312,6 @@ WHERE rolname = CURRENT_USER""")
                     , Text.color(self.ybdb['database_encoding'], fg='cyan')
                     , Text.color('YBDB', style='bold')
                     , Text.color(self.ybdb['version'], fg='cyan')))
-        #TODO fix this block
-        """
-        if self.Common.args.verbose >= 2:
-            print(
-                'export YBHOST=%s;export YBPORT=%s;export YBUSER=%s%s'
-                % (
-                    os.environ.get("YBHOST")
-                    , os.environ.get("YBPORT")
-                    , os.environ.get("YBUSER")
-                    , ''
-                        if os.environ.get("YBDATABASE") is None
-                        else
-                            ';export YBDATABASE=%s'
-                                % os.environ.get("YBDATABASE")))
-        """
 
     def exit_if_not_su(self):
         if not self.ybdb['is_super_user']:
@@ -1880,7 +1869,8 @@ class Util(object):
             self.additional_args_process()
             if Common.verbose >= 3:
                 print('args: %s' % pprint.PrettyPrinter().pformat(vars(self.args_handler.args)))
-            self.db_conn = DBConnect(self.args_handler)
+            if not self.args_handler.args.skip_db_conn:
+                self.db_conn = DBConnect(self.args_handler)
 
         if hasattr(self.args_handler, 'db_filter_args'):
             self.db_filter_args = self.args_handler.db_filter_args
