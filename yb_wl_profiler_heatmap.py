@@ -136,14 +136,14 @@ class wl_profiler(Util):
 
     def run_sql(self):
         sql_scripts = [
-            {'file': 'step0_wl_profiler_drop_objects.sql', 'conn': self.db_conn}
-            , {'file': 'step1_wl_profiler_create_objects.sql', 'conn': self.db_conn}
-            , {'file': 'step2_wl_profiler_su_populate.sql', 'conn': self.su_db_conn, 'schema': self.db_conn.schema}
-            , {'file': 'step3_wl_profiler_populate.sql', 'conn': self.db_conn}
-            , {'file': 'step4_wl_profiler_create_csv_files.sql', 'conn': self.db_conn} ]
+            {'file': 'step0_wl_profiler_drop_objects.sql', 'conn': self.db_conn, 'options':'-A -q -t -v ON_ERROR_STOP=1 -X'}
+            , {'file': 'step1_wl_profiler_create_objects.sql', 'conn': self.db_conn, 'options':'-A -q -t -v ON_ERROR_STOP=1 -X'}
+            , {'file': 'step2_wl_profiler_su_populate.sql', 'conn': self.su_db_conn, 'options':('-A -q -t -v ON_ERROR_STOP=1 -X -v owner=%s' % self.db_conn.ybdb['user']), 'schema': self.db_conn.schema}
+            , {'file': 'step3_wl_profiler_populate.sql', 'conn': self.db_conn, 'options':'-A -q -t -v ON_ERROR_STOP=1 -X'}
+            , {'file': 'step4_wl_profiler_create_csv_files.sql', 'conn': self.db_conn, 'options':'-A -q -t -v ON_ERROR_STOP=1 -X'} ]
 
         if self.args_handler.args.keep_db_objects:
-            sql_scripts.append({'file': 'step0_wl_profiler_drop_objects.sql', 'conn': self.db_conn})
+            sql_scripts.append({'file': 'step0_wl_profiler_drop_objects.sql', 'conn': self.db_conn, 'options':'-A -q -t -v ON_ERROR_STOP=1 -X'})
 
         for script in sql_scripts:
             filename = ('%s/sql/wl_profiler_yb%d/%s' %
@@ -152,7 +152,7 @@ class wl_profiler(Util):
             sql = open(filename).read()
             if 'schema' in script:
                 sql = "SET SCHEMA '%s';\n%s" % (script['schema'], sql)
-            result = script['conn'].ybsql_query(sql)
+            result = script['conn'].ybsql_query(sql, options=script['options'])
             result.on_error_exit()
 
     def build_csv_data(self):
