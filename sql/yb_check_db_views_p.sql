@@ -30,17 +30,21 @@ BEGIN
     FOR v_rec IN EXECUTE v_query_views
     LOOP
         BEGIN
-            --The '*' in the SELECT is required to insure that all columns have the correct datatype mappings
+           --The '*' in the SELECT is required to insure that all columns have the correct datatype mappings
             EXECUTE 'SELECT * FROM ' || v_rec.view_path_quoted || ' WHERE FALSE';
             --RAISE INFO 'GOOD VIEW: %', v_rec.viewname; --DEBUG
         EXCEPTION
             WHEN OTHERS THEN
                 --RAISE INFO 'ERROR --> % %', SQLERRM, SQLSTATE; --DEBUG
-                IF
-                    STRPOS(SQLERRM, 'does not exist') > 0
-                    OR STRPOS(SQLERRM, 'invalid') > 0 THEN
-                    RAISE INFO '%', v_rec.view_path;
-                END IF;
+                -- I decided to have all SQLERRM report a broken view
+                --     I'm no longer looking for specific SQLERRM
+                --IF
+                --    STRPOS(SQLERRM, 'does not exist') > 0
+                --    OR STRPOS(SQLERRM, 'invalid') > 0 THEN
+                --    OR STRPOS(SQLERRM, 'incorrect type') > 0 THEN
+                --    RAISE INFO '%', v_rec.view_path;
+                --END IF;
+                RAISE INFO '%', v_rec.view_path;
         END;
     END LOOP;
     --
