@@ -30,12 +30,15 @@ BEGIN
     FOR v_rec IN EXECUTE v_query_views
     LOOP
         BEGIN
-            EXECUTE 'SELECT 1 FROM ' || v_rec.view_path_quoted || ' WHERE FALSE';
+            --The '*' in the SELECT is required to insure that all columns have the correct datatype mappings
+            EXECUTE 'SELECT * FROM ' || v_rec.view_path_quoted || ' WHERE FALSE';
             --RAISE INFO 'GOOD VIEW: %', v_rec.viewname; --DEBUG
         EXCEPTION
             WHEN OTHERS THEN
                 --RAISE INFO 'ERROR --> % %', SQLERRM, SQLSTATE; --DEBUG
-                IF STRPOS(SQLERRM, 'does not exist') > 0 THEN
+                IF
+                    STRPOS(SQLERRM, 'does not exist') > 0
+                    OR STRPOS(SQLERRM, 'invalid') > 0 THEN
                     RAISE INFO '%', v_rec.view_path;
                 END IF;
         END;
