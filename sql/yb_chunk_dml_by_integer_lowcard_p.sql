@@ -2,8 +2,8 @@ CREATE OR REPLACE PROCEDURE yb_chunk_dml_by_integer_lowcard_p(
     a_table                 VARCHAR
     , a_integer_column      VARCHAR
     , a_dml                 VARCHAR(10000)
-    , a_table_where_clause  VARCHAR DEFAULT 'TRUE'
     , a_min_chunk_size      BIGINT
+    , a_table_where_clause  VARCHAR DEFAULT 'TRUE'
     , a_verbose             BOOLEAN DEFAULT TRUE
     , a_add_null_chunk      BOOLEAN DEFAULT TRUE
     , a_print_chunk_dml     BOOLEAN DEFAULT FALSE
