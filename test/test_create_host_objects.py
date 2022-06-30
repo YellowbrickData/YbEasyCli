@@ -89,13 +89,24 @@ class create_objects:
                 config.set(section, 'db2', test_db2)
                 break
 
+        yb6_acls = ''
+        if DBConn.ybdb['version_major'] >= 6:
+            cmd_results = DBConn.ybsql_query(
+                """SELECT 'GRANT USAGE ON CLUSTER "' || cluster_name || '" TO "{user}";'::VARCHAR(256) FROM sys.cluster
+UNION ALL
+SELECT 'ALTER USER "{user}" SET DEFAULT_CLUSTER "' || cluster_name || '";' FROM sys.cluster WHERE is_default_cluster
+ORDER BY 1 DESC""".format(user = test_user))
+            cmd_results.on_error_exit()
+            yb6_acls = cmd_results.stdout
+
         cmd_results = DBConn.ybsql_query(
             "CREATE DATABASE {db1} ENCODING=LATIN9; CREATE DATABASE {db2} ENCODING=UTF8;"
             " ALTER DATABASE {db1} OWNER TO {user};"
             " ALTER DATABASE {db2} OWNER TO {user};"
             " GRANT CONNECT ON DATABASE {db1} TO {user};"
-            " GRANT CONNECT ON DATABASE {db2} TO {user};".format(
-                db1 = test_db1, db2 = test_db2, user = test_user))
+            " GRANT CONNECT ON DATABASE {db2} TO {user};"
+            " {yb6_acls}".format(
+                db1 = test_db1, db2 = test_db2, user = test_user, yb6_acls = yb6_acls))
         cmd_results.on_error_exit()
         print("\nCreated '%s' as LATIN9 DB..." % Text.color(test_db1, 'cyan'))
         print("Created '%s' as UTF8 DB..." % Text.color(test_db2, 'cyan'))
@@ -188,25 +199,23 @@ class create_objects:
 
         ddl_dev_types_t__data = """INSERT INTO %s.data_types_t
 WITH
-wrkrs AS (
-    SELECT 
-        worker_lid                              AS worker_lid
-        , RANK() OVER( ORDER BY worker_lid ) -1 AS use_id
-    FROM sys.rowgenerator  
+min_worker_lid AS (
+    SELECT
+        MIN(worker_lid) AS min_worker_lid
+    FROM sys.rowgenerator
     WHERE range BETWEEN 0 and 0
 )
 , seq AS (
     SELECT
-        r.row_number + ( w.use_id * 1000000::BIGINT ) AS seq
+        r.row_number + 1 AS seq
         , seq::VARCHAR(32) AS seq_char
         , LENGTH(seq_char) AS seq_char_len
     FROM
         sys.rowgenerator AS r
-        JOIN wrkrs       AS w
-            ON r.worker_lid = w.worker_lid
     WHERE
         range BETWEEN 1 AND 1000000
-        AND seq BETWEEN 1 AND 1000000
+        AND worker_lid = (SELECT min_worker_lid FROM min_worker_lid)
+    ORDER BY 1
 )
 , cols AS (
     SELECT

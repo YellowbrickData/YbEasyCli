@@ -58,7 +58,7 @@ database|column|table_order|data_type|is_1null_2dist_3sort_4clust_5part|bytes_ma
 {db1}|dev.data_types_t.col19|19|INTEGER|X----|4|1000000|0|2410|||||||-
 -- Completed column analysis.""")
         , stderr=''
-        , map_out={r'109342': 'XXXXXX'})
+        , map_out={r'10934(2|3)': 'XXXXXX'})
  
     , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col3 --output_format 3 --level 3'
         , exit_code=0
