@@ -180,6 +180,7 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
         else:
             args_handler = copy.deepcopy(self.args_handler)
             args_handler.args.exec_output = False
+            orig_template = args_handler.args.template
             args_handler.args.template = ('{%s_path}|{ordinal}|{owner}|{database}|{schema}|{%s}'
                 % (self.object_type, self.object_type))
             code = ('get_{object_type}_names'
@@ -188,6 +189,8 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
             gons = eval(code)
 
             object_meta_data_rows = gons.execute()
+            # I needed to add this as the deepcopy seems to cary over some pointers
+            args_handler.args.template = orig_template
 
             describe_objects = []
             if object_meta_data_rows.strip() != '':
