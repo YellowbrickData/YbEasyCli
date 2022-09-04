@@ -38,7 +38,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20220708'
+    version = '20220903'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -388,7 +388,8 @@ class ArgsHandler:
         self.args_add_optional()
         self.args_add_connection_group()
 
-        self.config['additional_args']()
+        if self.config['additional_args']:
+            self.config['additional_args']()
 
         if self.config['output_tmplt_default']:
             self.add_output_args()
@@ -668,6 +669,12 @@ class ArgsHandler:
             Common.verbose = self.args.verbose
 
         return self.args
+
+    def set_args_to_default(self):
+        self.args = lambda:None
+        for action in self.args_parser._actions:
+            if not action.required and action.dest != "help":
+                setattr(self.args, action.dest, action.default)
 
     @staticmethod
     def DBConnect(description):
@@ -1847,12 +1854,16 @@ class Util(object):
         else:
             self.util_name = self.__class__.__name__
 
-        for k, v in Util.config_default.items():
-            if k not in self.config.keys():
-                self.config[k] = v
+        self.set_config_defaults(self.config)
 
         if init_default:
             self.init_default(db_conn, args_handler)
+
+    @staticmethod
+    def set_config_defaults(config):
+        for k, v in Util.config_default.items():
+            if k not in config.keys():
+                config[k] = v
 
     def init_default(self, db_conn=None, args_handler=None):
         if db_conn: # util called from code with import
@@ -2169,12 +2180,12 @@ def convert_arg_line_to_args(line):
         None
     else:
         if convert_arg_line_to_args.in_hard_quote:
-            convert_arg_line_to_args.dollar_str += '\n'
+            convert_arg_line_to_args.triple_quote_str += '\n'
         line_len = len(line)
         loc = 0
         args_str = ''
         while loc < line_len:
-            # find '$$' in str
+            # find '"""' in str
             if line[loc:loc+3] == '"""':
                 loc += 3
                 convert_arg_line_to_args.in_hard_quote = not convert_arg_line_to_args.in_hard_quote
@@ -2183,11 +2194,12 @@ def convert_arg_line_to_args(line):
                         convert_arg_line_to_args.args.extend(shlex.split(args_str))
                         args_str = ''
                 else:
-                    if len(convert_arg_line_to_args.dollar_str) > 0:
-                        convert_arg_line_to_args.args.append(convert_arg_line_to_args.dollar_str)
+                    if len(convert_arg_line_to_args.triple_quote_str) > 0:
+                        convert_arg_line_to_args.args.append(convert_arg_line_to_args.triple_quote_str)
+                        convert_arg_line_to_args.triple_quote_str = ''
             else:
                 if convert_arg_line_to_args.in_hard_quote:
-                    convert_arg_line_to_args.dollar_str += line[loc]
+                    convert_arg_line_to_args.triple_quote_str += line[loc]
                 else:
                     args_str += line[loc]
                 loc += 1
@@ -2200,7 +2212,7 @@ def convert_arg_line_to_args(line):
         yield convert_arg_line_to_args.args[convert_arg_line_to_args.arg_ct-1]
 
 convert_arg_line_to_args.in_hard_quote = False
-convert_arg_line_to_args.dollar_str = ''
+convert_arg_line_to_args.triple_quote_str = ''
 convert_arg_line_to_args.args = []
 convert_arg_line_to_args.arg_ct = 0
 
