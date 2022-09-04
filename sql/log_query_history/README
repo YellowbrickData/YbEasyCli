@@ -26,7 +26,7 @@ Running the create_log_query_history_p stored procedure.
     delta of queries from sys.log_query since the last run of create_log_query_history_p.
 
     Note that sys.log_query holds a history of X number of days of queries.  The X number and is set in the
-    SMC->Configure->Retention->Statistics to Retain.  Make sure that the delta in days between running
+    SMC->Configure->Settings->Retention->Statistics to Retain.  Make sure that the delta in days between running
     create_log_query_history_p is less than 'Statistics to Retain' number of days.  Not doing so will cause
     you to loss some of the query history.
 
