@@ -35,16 +35,7 @@ BEGIN
             --RAISE INFO 'GOOD VIEW: %', v_rec.viewname; --DEBUG
         EXCEPTION
             WHEN OTHERS THEN
-                --RAISE INFO 'ERROR --> % %', SQLERRM, SQLSTATE; --DEBUG
-                -- I decided to have all SQLERRM report a broken view
-                --     I'm no longer looking for specific SQLERRM
-                --IF
-                --    STRPOS(SQLERRM, 'does not exist') > 0
-                --    OR STRPOS(SQLERRM, 'invalid') > 0 THEN
-                --    OR STRPOS(SQLERRM, 'incorrect type') > 0 THEN
-                --    RAISE INFO '%', v_rec.view_path;
-                --END IF;
-                RAISE INFO '%', v_rec.view_path;
+                RAISE INFO '-- %|%|%', v_rec.view_path, SQLSTATE, SQLERRM;
         END;
     END LOOP;
     --
