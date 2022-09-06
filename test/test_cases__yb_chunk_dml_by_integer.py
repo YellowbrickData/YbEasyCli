@@ -6,7 +6,7 @@ map_out = {
 test_cases = [
     test_case(
         cmd=('yb_chunk_dml_by_integer.py @{argsdir}/yb_chunk_dml_by_integer__args1 '
-            '--column col4 --execute_chunk_dml')
+            '--column col4 --execute_chunk_dml --column_cardinality low')
         , exit_code=0
         , stdout="""-- Running DML chunking.
 --2020-08-22 18:19:38.201736-06: Starting Integer Chunking, first calculating group counts
@@ -39,7 +39,7 @@ test_cases = [
 
     , test_case(
         cmd=('yb_chunk_dml_by_integer.py @{argsdir}/yb_chunk_dml_by_integer__args1 '
-            '--column col4 --print_chunk_dml --null_chunk_off --verbose_chunk_off')
+            '--column col4 --print_chunk_dml --column_cardinality low --null_chunk_off --verbose_chunk_off')
         , exit_code=0
         , stdout="""-- Running DML chunking.
 INSERT INTO new_chunked_table SELECT * FROM {db1}.dev.data_types_t WHERE /* chunk_clause(chunk: 1, size: 100000) >>>*/ 1000000 <= col4 AND col4 < 47500950000 /*<<< chunk_clause */;
@@ -57,7 +57,7 @@ INSERT INTO new_chunked_table SELECT * FROM {db1}.dev.data_types_t WHERE /* chun
 
     , test_case(
         cmd=('yb_chunk_dml_by_integer.py @{argsdir}/yb_chunk_dml_by_integer__args1 '
-            '--column col4 --print_chunk_dml')
+            '--column col4 --column_cardinality low --print_chunk_dml')
         , exit_code=0
         , stdout="""-- Running DML chunking.
 --2020-08-22 19:26:27.672082-06: Starting Integer Chunking, first calculating group counts

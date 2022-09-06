@@ -64,6 +64,8 @@ ORDER BY sale_id\"\"\"
             "--column", required=True
             , help="the column which is used to create chunks on the"
                 " DML, the column must be a integer data type")
+        args_chunk_r_grp.add_argument("--column_cardinality", choices=['low', 'high'], required=True
+            , help="should be set to the cardinality of the column, a primary key column would be high cardinality")
         args_chunk_r_grp.add_argument(
             "--dml", required=True
             , help="DML to perform  in chunks, the DML"
@@ -76,8 +78,6 @@ ORDER BY sale_id\"\"\"
 
         args_chunk_o_grp = self.args_handler.args_parser.add_argument_group(
             'optional chunking arguments')
-        args_chunk_o_grp.add_argument("--column_cardinality", choices=['low', 'high'], default="low"
-            , help="should be set to high if column cardinality is high, defaults to low")
         args_chunk_o_grp.add_argument("--table_where_clause", default="TRUE"
             , help="filter the records to chunk, if this filter is applied it should also be"
                 " part of dml provided")
