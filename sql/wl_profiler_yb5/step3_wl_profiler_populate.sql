@@ -20,11 +20,17 @@ q AS (
         , slot
         , num_workers
         , longest_worker_id
+        , submit_time
+        , done_time
+        , state_time
+        , restart_time
         , NVL(wait_lock_ms, 0.0) AS wl_wait_lock_ms
         , NVL(wait_parse_ms, 0.0) + NVL(wait_plan_ms, 0.0) + NVL(wait_assemble_ms, 0.0) + NVL(wait_compile_ms, 0.0) AS wl_wait_prep_ms
         , NVL(parse_ms, 0.0) + NVL(plan_ms, 0.0) + NVL(assemble_ms, 0.0) + NVL(compile_ms, 0.0) AS wl_prep_ms
         , NVL(acquire_resources_ms, 0.0) AS wl_queue_ms
-        , NVL(wait_run_cpu_ms, 0.0) + NVL(wait_run_io_ms, 0.0) + NVL(wait_run_spool_ms, 0.0) + NVL(run_ms, 0.0) AS wl_run_ms
+        --, NVL(wait_run_cpu_ms, 0.0) + NVL(wait_run_io_ms, 0.0) + NVL(wait_run_spool_ms, 0.0) + NVL(run_ms, 0.0) AS wl_run_ms
+        -- wait_run_*_ms are included in run_ms
+        , NVL(run_ms, 0.0) AS wl_run_ms
         , NVL(client_ms, 0.0) + NVL(wait_client_ms, 0.0) AS wl_client_ms
         , NVL(restart_time, submit_time) AS ts01_start
         , ts01_start         + MAKE_INTERVAL(0,0,0,0,0,0,COALESCE(wl_wait_lock_ms,0)/1000.0) AS ts02_end_wait_lock
@@ -75,6 +81,10 @@ SELECT
     , priority
     , slot
     , num_workers
+    , submit_time
+    , done_time
+    , state_time
+    , restart_time
     , longest_worker_id
     , wl_wait_lock_ms
     , wl_wait_prep_ms

@@ -18,8 +18,10 @@ SELECT
     , slot
     , num_workers
     , longest_worker_id
-    , restart_time
     , submit_time
+    , done_time
+    , state_time
+    , restart_time
     , parse_ms             --prepare timing
     , wait_parse_ms        --wait_prep timing
     , wait_lock_ms         --wait_lock timing
