@@ -2,6 +2,7 @@ CREATE OR REPLACE PROCEDURE materialize_sys_log_query_p(
     a_table_name VARCHAR(256)
     , a_object_owner VARCHAR(256)
     , a_where_clause VARCHAR(10000) DEFAULT 'TRUE'
+    , a_create_query_text_table BOOLEAN DEFAULT TRUE
     , a_create_view BOOLEAN DEFAULT FALSE)
     RETURNS BOOLEAN
     LANGUAGE 'plpgsql' 
@@ -41,26 +42,28 @@ BEGIN
         DISTRIBUTE ON (query_id)';
     EXECUTE 'ALTER TABLE ' || a_table_name || ' OWNER TO '      || a_object_owner;
     --
-    EXECUTE '
-        CREATE TABLE ' || v_table_text_name || ' AS
-        SELECT
-            DISTINCT query_id, query_text
-        FROM sys.log_query
-        WHERE ' || a_where_clause || '
-        DISTRIBUTE ON (query_id)';
-    EXECUTE 'ALTER TABLE ' || v_table_text_name || ' OWNER TO ' || a_object_owner;
-    --
-    IF a_create_view THEN
+    IF a_create_query_text_table THEN
         EXECUTE '
-            CREATE VIEW ' || v_view_name || ' AS
+            CREATE TABLE ' || v_table_text_name || ' AS
             SELECT
-                q.*
-                , qt.query_text
-            FROM
-                ' || a_table_name || ' AS q
-                JOIN ' || v_table_text_name || ' AS qt
-                    USING (query_id)';
-        EXECUTE 'ALTER VIEW '  || v_view_name || ' OWNER TO '    || a_object_owner;
+                DISTINCT query_id, query_text
+            FROM sys.log_query
+            WHERE ' || a_where_clause || '
+            DISTRIBUTE ON (query_id)';
+        EXECUTE 'ALTER TABLE ' || v_table_text_name || ' OWNER TO ' || a_object_owner;
+        --
+        IF a_create_view THEN
+            EXECUTE '
+                CREATE OR REPLACE VIEW ' || v_view_name || ' AS
+                SELECT
+                    q.*
+                    , qt.query_text
+                FROM
+                    ' || a_table_name || ' AS q
+                    JOIN ' || v_table_text_name || ' AS qt
+                        USING (query_id)';
+            EXECUTE 'ALTER VIEW '  || v_view_name || ' OWNER TO '    || a_object_owner;
+        END IF;
     END IF;
     --
     RETURN TRUE;

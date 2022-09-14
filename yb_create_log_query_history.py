@@ -28,7 +28,7 @@ class create_log_query_history(Util):
             'Build/update long term history db table/views sourced from the sys.log_query view.'
             '\n'
             '\nnote:'
-            '\n  On the first execution the create_log_query_history will;'
+            '\n  On the first execution, create_log_query_history will;'
             '\n      1. request super user credentials to create supporting stored procs.'
             '\n      2. create the history query table, query_text table and query view.'
             '\n  Every run inserts new log queries into the history query and query_text tables.')
@@ -45,6 +45,8 @@ class create_log_query_history(Util):
         log_query_hist_grp.add_argument("--where_clause", default="TRUE"
             , help=("where clause applied to sys.log_query to limit the queries for which history is maintained,"
                 " defaults to 'TRUE' meaning all queries") )
+        log_query_hist_grp.add_argument("--without_query_text", action="store_false"
+            , help=("create query log history without the sys.loq_query.query_text column data" ) )
 
     def complete_db_conn(self):
         if self.db_conn.ybdb['is_super_user']:
@@ -55,9 +57,11 @@ class create_log_query_history(Util):
         result = self.db_conn.ybsql_query("""
 SELECT create_log_query_history_p(
     '{log_table_name}'
-    , $${where_clause}$$);""".format(
+    , $${where_clause}$$
+    , {without_query_text});""".format(
             log_table_name=Common.quote_object_paths(self.args_handler.args.log_table_name)
-            , where_clause=self.args_handler.args.where_clause) )
+            , where_clause=self.args_handler.args.where_clause
+            , without_query_text=self.args_handler.args.without_query_text) )
         return(result)
 
     def create_su_db_conn(self):
@@ -83,8 +87,8 @@ SELECT create_log_query_history_p(
         sql = open(filename).read()
         sql = ("""SET SCHEMA '%s';
             %s;
-            GRANT EXECUTE ON PROCEDURE materialize_sys_log_query_p(VARCHAR, VARCHAR, VARCHAR, BOOLEAN) TO %s;"""
-                % (self.db_conn.schema, sql, self.db_conn.env['dbuser']) )
+            GRANT EXECUTE ON PROCEDURE materialize_sys_log_query_p(VARCHAR, VARCHAR, VARCHAR, BOOLEAN, BOOLEAN) TO %s;"""
+                % (self.db_conn.schema, sql, self.db_conn.ybdb['user']) )
         result = self.su_db_conn.ybsql_query(sql)
         result.on_error_exit()
 
@@ -118,8 +122,10 @@ SELECT create_log_query_history_p(
             self.create_su_db_conn()
             self.create_stored_procs()
             result = self.create_log_query_history()
-        self.fix_stored_proc_stdout(result)
+        if (result.exit_code):
+            result.on_error_exit()
 
+        self.fix_stored_proc_stdout(result)
         result.on_error_exit()
         result.write()
 
