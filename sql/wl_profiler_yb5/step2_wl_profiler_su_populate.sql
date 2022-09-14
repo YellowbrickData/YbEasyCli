@@ -33,9 +33,9 @@ SELECT
     , wait_compile_ms      --wait_prep timing
     , acquire_resources_ms --queue timing (assuming this is throttle and queue)
     , run_ms               --run timing
-    , wait_run_cpu_ms      --run timing
-    , wait_run_io_ms       --run timing
-    , wait_run_spool_ms    --run timing
+    , wait_run_cpu_ms      --overlap timing
+    , wait_run_io_ms       --overlap timing
+    , wait_run_spool_ms    --overlap timing
     , client_ms            --client timing
     , wait_client_ms       --client timing
     , total_ms             --overlap timing
