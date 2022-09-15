@@ -43,6 +43,7 @@ SELECT
     , restart_ms           --overlap timing
     , wlm_runtime_ms       --overlap timing
     , spool_ms             --overlap timing
+    , (SELECT MAX(num_workers) AS max_num_workers from sys.log_query) AS max_num_workers
     , SUBSTR(query_text, 1, 1000) AS query_text_1000
 FROM
     sys.log_query

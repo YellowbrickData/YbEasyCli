@@ -27,7 +27,7 @@ from tabulate import tabulate
 
 def signal_handler(signal, frame):
     """
-    Provides gracefule error when user issues a CTRL-C to break out of a yb_<util>
+    Provides graceful error when user issues a CTRL-C to break out of a yb_<util>
     TODO doesn't work well in powershell
     """
     Common.error('user terminated...')
@@ -38,7 +38,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20220907'
+    version = '20220915'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -49,7 +49,7 @@ class Common:
     is_cygwin = sys.platform == 'cygwin'
 
     if not is_windows:
-        """supresses Linux error thrown when using pipe; like: 'yb_<util> | head -10'"""
+        """suppresses Linux error thrown when using pipe; like: 'yb_<util> | head -10'"""
         signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
     @staticmethod

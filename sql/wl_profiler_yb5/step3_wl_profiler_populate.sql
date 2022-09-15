@@ -30,15 +30,22 @@ q AS (
         , NVL(acquire_resources_ms, 0.0) AS wl_queue_ms
         --, NVL(wait_run_cpu_ms, 0.0) + NVL(wait_run_io_ms, 0.0) + NVL(wait_run_spool_ms, 0.0) + NVL(run_ms, 0.0) AS wl_run_ms
         -- wait_run_*_ms are included in run_ms
-        , NVL(run_ms, 0.0) AS wl_run_ms
+        --, NVL(run_ms, 0.0) AS wl_run_ms
+        , NVL(run_ms, 0.0) - (NVL(wait_run_cpu_ms, 0.0) + NVL(wait_run_io_ms, 0.0)) AS wl_run_ms
+        , NVL(wait_run_io_ms, 0.0) AS wl_io_ms
         , NVL(client_ms, 0.0) + NVL(wait_client_ms, 0.0) AS wl_client_ms
         , NVL(restart_time, submit_time) AS ts01_start
         , ts01_start         + MAKE_INTERVAL(0,0,0,0,0,0,COALESCE(wl_wait_lock_ms,0)/1000.0) AS ts02_end_wait_lock
         , ts02_end_wait_lock + MAKE_INTERVAL(0,0,0,0,0,0,COALESCE(wl_wait_prep_ms,0)/1000.0) AS ts03_end_wait_prep
         , ts03_end_wait_prep + MAKE_INTERVAL(0,0,0,0,0,0,COALESCE(wl_prep_ms,0)/1000.0)      AS ts04_end_prep
         , ts04_end_prep      + MAKE_INTERVAL(0,0,0,0,0,0,COALESCE(wl_queue_ms,0)/1000.0)     AS ts05_end_queue
-        , ts05_end_queue     + MAKE_INTERVAL(0,0,0,0,0,0,COALESCE(wl_run_ms,0)/1000.0)       AS ts06_end_run
-        , ts06_end_run       + MAKE_INTERVAL(0,0,0,0,0,0,COALESCE(wl_client_ms,0)/1000.0)    AS ts07_end_client
+        , DECODE(num_workers, max_num_workers
+              , ts05_end_queue     + MAKE_INTERVAL(0,0,0,0,0,0,COALESCE(wl_run_ms,0)/1000.0)
+              , ts05_end_queue)                                                              AS ts06_end_run
+        , DECODE(num_workers, max_num_workers
+              , ts06_end_run       + MAKE_INTERVAL(0,0,0,0,0,0,COALESCE(wl_io_ms,0)/1000.0)
+              , ts06_end_run)                                                                AS ts07_end_io
+        , ts07_end_io        + MAKE_INTERVAL(0,0,0,0,0,0,COALESCE(wl_client_ms,0)/1000.0)    AS ts08_end_client
         , parse_ms             --prepare timing
         , wait_parse_ms        --wait_prep timing
         , wait_lock_ms         --wait_lock timing
@@ -50,9 +57,9 @@ q AS (
         , wait_compile_ms      --wait_prep timing
         , acquire_resources_ms --queue timing (assuming this is throttle and queue)
         , run_ms               --run timing
-        , wait_run_cpu_ms      --run timing
-        , wait_run_io_ms       --run timing
-        , wait_run_spool_ms    --run timing
+        , wait_run_cpu_ms      --overlap timing
+        , wait_run_io_ms       --overlap timing
+        , wait_run_spool_ms    --overlap timing
         , client_ms            --client timing
         , wait_client_ms       --client timing
         , total_ms             --overlap timing
@@ -98,7 +105,8 @@ SELECT
     , ts04_end_prep
     , ts05_end_queue
     , ts06_end_run
-    , ts07_end_client
+    , ts07_end_io
+    , ts08_end_client
     , parse_ms             --prepare timing
     , wait_parse_ms        --wait_prep timing
     , wait_lock_ms         --wait_lock timing
@@ -110,9 +118,9 @@ SELECT
     , wait_compile_ms      --wait_prep timing
     , acquire_resources_ms --queue timing (assuming this is throttle and queue)
     , run_ms               --run timing
-    , wait_run_cpu_ms      --run timing
-    , wait_run_io_ms       --run timing
-    , wait_run_spool_ms    --run timing
+    , wait_run_cpu_ms      --overlap timing
+    , wait_run_io_ms       --overlap timing
+    , wait_run_spool_ms    --overlap timing
     , client_ms            --client timing
     , wait_client_ms       --client timing
     , total_ms             --overlap timing
@@ -192,30 +200,42 @@ hr AS (
         hr JOIN q ON ts05_end_queue < fhr AND ts06_end_run >= shr
     GROUP BY 1,2,3,4
 )
+, t_io AS (
+    SELECT
+        hr, usr, app, pool
+        , SUM((EXTRACT(EPOCH FROM DECODE(TRUE, ts07_end_io > fhr, fhr, ts07_end_io))
+        - EXTRACT(EPOCH FROM DECODE(TRUE, ts06_end_run < shr, shr, ts06_end_run)))/60.0)::NUMERIC(10,2) AS io_mnts
+    FROM
+        hr JOIN q ON ts06_end_run < fhr AND ts07_end_io >= shr
+    GROUP BY 1,2,3,4
+)
 , t_client AS (
     SELECT
         hr, usr, app, pool
-        , SUM((EXTRACT(EPOCH FROM DECODE(TRUE, ts07_end_client > fhr, fhr, ts07_end_client))
-        - EXTRACT(EPOCH FROM DECODE(TRUE, ts06_end_run < shr, shr, ts06_end_run)))/60.0)::NUMERIC(10,2) AS client_mnts
+        , SUM((EXTRACT(EPOCH FROM DECODE(TRUE, ts08_end_client > fhr, fhr, ts08_end_client))
+        - EXTRACT(EPOCH FROM DECODE(TRUE, ts07_end_io < shr, shr, ts07_end_io)))/60.0)::NUMERIC(10,2) AS client_mnts
     FROM
-        hr JOIN q ON ts06_end_run < fhr AND ts07_end_client >= shr
+        hr JOIN q ON ts07_end_io < fhr AND ts08_end_client >= shr
     GROUP BY 1,2,3,4
 )
 SELECT
     hr, usr, app, pool
     , COALESCE(wait_lock_mnts, 0) AS wait_lock_mnts
     , COALESCE(wait_prep_mnts, 0) AS wait_prep_mnts
-    , COALESCE(prep_mnts, 0) AS prep_mnts
-    , COALESCE(queue_mnts, 0) AS queue_mnts
-    , COALESCE(run_mnts, 0) AS run_mnts
-    , COALESCE(client_mnts, 0) AS client_mnts
+    , COALESCE(prep_mnts, 0)      AS prep_mnts
+    , COALESCE(queue_mnts, 0)     AS queue_mnts
+    , COALESCE(run_mnts, 0)       AS run_mnts
+    , COALESCE(io_mnts, 0)        AS io_mnts
+    , run_mnts + io_mnts          AS run_plus_io_mnts
+    , COALESCE(client_mnts, 0)    AS client_mnts
 FROM
     t_wait_lock
     FULL OUTER JOIN t_wait_prep USING (hr, usr, app, pool)
-    FULL OUTER JOIN t_prep USING (hr, usr, app, pool)
-    FULL OUTER JOIN t_queue USING (hr, usr, app, pool)
-    FULL OUTER JOIN t_run USING (hr, usr, app, pool)
-    FULL OUTER JOIN t_client USING (hr, usr, app, pool)
+    FULL OUTER JOIN t_prep      USING (hr, usr, app, pool)
+    FULL OUTER JOIN t_queue     USING (hr, usr, app, pool)
+    FULL OUTER JOIN t_run       USING (hr, usr, app, pool)
+    FULL OUTER JOIN t_io        USING (hr, usr, app, pool)
+    FULL OUTER JOIN t_client    USING (hr, usr, app, pool)
 ORDER BY 1,2,3,4 DESC
 ;
 
@@ -229,13 +249,15 @@ CREATE VIEW wl_profiler_user_sum_v AS
 WITH
 s AS (
     SELECT
-        usr, LOWER(usr) AS lusr
-        , SUM(wait_lock_mnts) AS wait_lock_mnts
-        , SUM(wait_prep_mnts) AS wait_prep_mnts
-        , SUM(prep_mnts) AS prep_mnts
-        , SUM(queue_mnts) AS queue_mnts
-        , SUM(run_mnts) AS run_mnts
-        , SUM(client_mnts) AS client_mnts
+        usr, LOWER(usr)         AS lusr
+        , SUM(wait_lock_mnts)   AS wait_lock_mnts
+        , SUM(wait_prep_mnts)   AS wait_prep_mnts
+        , SUM(prep_mnts)        AS prep_mnts
+        , SUM(queue_mnts)       AS queue_mnts
+        , SUM(run_mnts)         AS run_mnts
+        , SUM(io_mnts)          AS io_mnts
+        , SUM(run_plus_io_mnts) AS run_plus_io_mnts
+        , SUM(client_mnts)      AS client_mnts
     FROM
         wl_profiler_sum_log_query
     GROUP BY 1
@@ -243,12 +265,14 @@ s AS (
 , a AS (
     SELECT
         '^all^' AS usr, '^all^' AS lusr
-        , SUM(wait_lock_mnts) AS wait_lock_mnts
-        , SUM(wait_prep_mnts) AS wait_prep_mnts
-        , SUM(prep_mnts) AS prep_mnts
-        , SUM(queue_mnts) AS queue_mnts
-        , SUM(run_mnts) AS run_mnts
-        , SUM(client_mnts) AS client_mnts
+        , SUM(wait_lock_mnts)   AS wait_lock_mnts
+        , SUM(wait_prep_mnts)   AS wait_prep_mnts
+        , SUM(prep_mnts)        AS prep_mnts
+        , SUM(queue_mnts)       AS queue_mnts
+        , SUM(run_mnts)         AS run_mnts
+        , SUM(io_mnts)          AS io_mnts
+        , SUM(run_plus_io_mnts) AS run_plus_io_mnts
+        , SUM(client_mnts)      AS client_mnts
     FROM
         s
     GROUP BY 1
@@ -257,7 +281,7 @@ s AS (
     SELECT * FROM a
     UNION ALL SELECT * FROM s
 )
-SELECT usr, wait_lock_mnts, wait_prep_mnts, prep_mnts, queue_mnts, run_mnts, client_mnts FROM u ORDER BY lusr
+SELECT usr, wait_lock_mnts, wait_prep_mnts, prep_mnts, queue_mnts, run_mnts, io_mnts, run_plus_io_mnts, client_mnts FROM u ORDER BY lusr
 ;
 
 --SELECT * FROM wl_profiler_user_sum_v;
@@ -266,13 +290,15 @@ CREATE VIEW wl_profiler_app_sum_v AS
 WITH
 s AS (
     SELECT
-        app, LOWER(app) AS lapp
-        , SUM(wait_lock_mnts) AS wait_lock_mnts
-        , SUM(wait_prep_mnts) AS wait_prep_mnts
-        , SUM(prep_mnts) AS prep_mnts
-        , SUM(queue_mnts) AS queue_mnts
-        , SUM(run_mnts) AS run_mnts
-        , SUM(client_mnts) AS client_mnts
+        app, LOWER(app)         AS lapp
+        , SUM(wait_lock_mnts)   AS wait_lock_mnts
+        , SUM(wait_prep_mnts)   AS wait_prep_mnts
+        , SUM(prep_mnts)        AS prep_mnts
+        , SUM(queue_mnts)       AS queue_mnts
+        , SUM(run_mnts)         AS run_mnts
+        , SUM(io_mnts)          AS io_mnts
+        , SUM(run_plus_io_mnts) AS run_plus_io_mnts
+        , SUM(client_mnts)      AS client_mnts
     FROM
         wl_profiler_sum_log_query
     GROUP BY 1
@@ -280,12 +306,14 @@ s AS (
 , a AS (
     SELECT
         '^all^' AS app, '^all^' AS lapp
-        , SUM(wait_lock_mnts) AS wait_lock_mnts
-        , SUM(wait_prep_mnts) AS wait_prep_mnts
-        , SUM(prep_mnts) AS prep_mnts
-        , SUM(queue_mnts) AS queue_mnts
-        , SUM(run_mnts) AS run_mnts
-        , SUM(client_mnts) AS client_mnts
+        , SUM(wait_lock_mnts)   AS wait_lock_mnts
+        , SUM(wait_prep_mnts)   AS wait_prep_mnts
+        , SUM(prep_mnts)        AS prep_mnts
+        , SUM(queue_mnts)       AS queue_mnts
+        , SUM(run_mnts)         AS run_mnts
+        , SUM(io_mnts)          AS io_mnts
+        , SUM(run_plus_io_mnts) AS run_plus_io_mnts
+        , SUM(client_mnts)      AS client_mnts
     FROM
         s
     GROUP BY 1
@@ -294,7 +322,7 @@ s AS (
     SELECT * FROM a
     UNION ALL SELECT * FROM s
 )
-SELECT app, wait_lock_mnts, wait_prep_mnts, prep_mnts, queue_mnts, run_mnts, client_mnts FROM u ORDER BY lapp
+SELECT app, wait_lock_mnts, wait_prep_mnts, prep_mnts, queue_mnts, run_mnts, io_mnts, run_plus_io_mnts, client_mnts FROM u ORDER BY lapp
 ;
 
 --SELECT * FROM wl_profiler_app_sum_v;
@@ -303,13 +331,15 @@ CREATE VIEW wl_profiler_pool_sum_v AS
 WITH
 s AS (
     SELECT
-        pool, LOWER(pool) AS lpool
-        , SUM(wait_lock_mnts) AS wait_lock_mnts
-        , SUM(wait_prep_mnts) AS wait_prep_mnts
-        , SUM(prep_mnts) AS prep_mnts
-        , SUM(queue_mnts) AS queue_mnts
-        , SUM(run_mnts) AS run_mnts
-        , SUM(client_mnts) AS client_mnts
+        pool, LOWER(pool)       AS lpool
+        , SUM(wait_lock_mnts)   AS wait_lock_mnts
+        , SUM(wait_prep_mnts)   AS wait_prep_mnts
+        , SUM(prep_mnts)        AS prep_mnts
+        , SUM(queue_mnts)       AS queue_mnts
+        , SUM(run_mnts)         AS run_mnts
+        , SUM(io_mnts)          AS io_mnts
+        , SUM(run_plus_io_mnts) AS run_plus_io_mnts
+        , SUM(client_mnts)      AS client_mnts
     FROM
         wl_profiler_sum_log_query
     GROUP BY 1
@@ -317,12 +347,14 @@ s AS (
 , a AS (
     SELECT
         '^all^' AS pool, '^all^' AS lpool
-        , SUM(wait_lock_mnts) AS wait_lock_mnts
-        , SUM(wait_prep_mnts) AS wait_prep_mnts
-        , SUM(prep_mnts) AS prep_mnts
-        , SUM(queue_mnts) AS queue_mnts
-        , SUM(run_mnts) AS run_mnts
-        , SUM(client_mnts) AS client_mnts
+        , SUM(wait_lock_mnts)    AS wait_lock_mnts
+        , SUM(wait_prep_mnts)    AS wait_prep_mnts
+        , SUM(prep_mnts)         AS prep_mnts
+        , SUM(queue_mnts)        AS queue_mnts
+        , SUM(run_mnts)          AS run_mnts
+        , SUM(io_mnts)           AS io_mnts
+        , SUM(run_plus_io_mnts)  AS run_plus_io_mnts
+        , SUM(client_mnts)       AS client_mnts
     FROM
         s
     GROUP BY 1
@@ -331,7 +363,7 @@ s AS (
     SELECT * FROM a
     UNION ALL SELECT * FROM s
 )
-SELECT pool, wait_lock_mnts, wait_prep_mnts, prep_mnts, queue_mnts, run_mnts, client_mnts FROM u ORDER BY lpool
+SELECT pool, wait_lock_mnts, wait_prep_mnts, prep_mnts, queue_mnts, run_mnts, io_mnts, run_plus_io_mnts, client_mnts FROM u ORDER BY lpool
 ;
 
 --SELECT * FROM wl_profiler_pool_sum_v;
@@ -339,12 +371,14 @@ SELECT pool, wait_lock_mnts, wait_prep_mnts, prep_mnts, queue_mnts, run_mnts, cl
 CREATE VIEW wl_profiler_step_sum_v AS
 WITH
 s AS (
-    SELECT 1 AS ord, SUM(wait_lock_mnts) AS s, 'Wait_Lock' AS n FROM wl_profiler_sum_log_query
-    UNION ALL SELECT 2 AS ord, SUM(wait_prep_mnts) AS s, 'Wait_Prep' AS n FROM wl_profiler_sum_log_query
-    UNION ALL SELECT 3 AS ord, SUM(prep_mnts) AS s, 'Prepare' AS n FROM wl_profiler_sum_log_query
-    UNION ALL SELECT 4 AS ord, SUM(queue_mnts) AS s, 'Queue' AS n FROM wl_profiler_sum_log_query
-    UNION ALL SELECT 6 AS ord, SUM(run_mnts) AS s, 'Run' AS n FROM wl_profiler_sum_log_query
-    UNION ALL SELECT 7 AS ord, SUM(client_mnts) AS s, 'Client' AS n FROM wl_profiler_sum_log_query
+    SELECT 1 AS ord, SUM(wait_lock_mnts)                    AS s, 'Wait_Lock' AS n FROM wl_profiler_sum_log_query
+    UNION ALL SELECT 2 AS ord, SUM(wait_prep_mnts)          AS s, 'Wait_Prep' AS n FROM wl_profiler_sum_log_query
+    UNION ALL SELECT 3 AS ord, SUM(prep_mnts)               AS s, 'Prepare'   AS n FROM wl_profiler_sum_log_query
+    UNION ALL SELECT 4 AS ord, SUM(queue_mnts)              AS s, 'Queue'     AS n FROM wl_profiler_sum_log_query
+    UNION ALL SELECT 6 AS ord, SUM(run_mnts)                AS s, 'Run'       AS n FROM wl_profiler_sum_log_query
+    UNION ALL SELECT 7 AS ord, SUM(io_mnts)                 AS s, 'IO'        AS n FROM wl_profiler_sum_log_query
+    UNION ALL SELECT 7 AS ord, SUM(run_mnts) + SUM(io_mnts) AS s, 'Run+IO'    AS n FROM wl_profiler_sum_log_query
+    UNION ALL SELECT 8 AS ord, SUM(client_mnts)             AS s, 'Client'    AS n FROM wl_profiler_sum_log_query
 )
 SELECT n, s FROM s ORDER BY ord;
 
