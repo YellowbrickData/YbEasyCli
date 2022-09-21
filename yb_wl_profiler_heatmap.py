@@ -51,6 +51,8 @@ class wl_profiler(Util):
 
         wl_profiler_grp = self.args_handler.args_parser.add_argument_group(
             'wl profiler heatmap optional arguments')
+        wl_profiler_grp.add_argument("--source_table", default="sys.log_query"
+            , help="the source table from where the query metrics are collected, defaults to sys.log_query")
         wl_profiler_grp.add_argument("--keep_db_objects", action="store_false"
             , help="do not delete the temporary db object, defaults to FALSE")
         wl_profiler_grp.add_argument("--close_workbook", action="store_true"
@@ -133,7 +135,7 @@ class wl_profiler(Util):
             filename = ('%s/sql/wl_profiler_yb%d/%s' %
                 (Common.util_dir_path, self.wlp_version, script) )
             print('--executing: %s' % filename)
-            sql = open(filename).read()
+            sql = open(filename).read().replace('sys.log_query', self.args_handler.args.source_table)
             result = self.db_conn.ybsql_query(sql
                 , options=('-A -q -t -v ON_ERROR_STOP=1 -X -v owner=%s' % self.args_handler.args.non_su))
             result.on_error_exit()

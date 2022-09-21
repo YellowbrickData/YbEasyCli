@@ -69,7 +69,7 @@ q AS (
         , restart_ms           --overlap timing
         , wlm_runtime_ms       --overlap timing
         , spool_ms             --overlap timing
-        , query_text_1000
+        --, query_text_1000
     FROM
         wl_profiler_sys_log_query_ms
 )
@@ -130,7 +130,7 @@ SELECT
     , restart_ms           --overlap timing
     , wlm_runtime_ms       --overlap timing
     , spool_ms             --overlap timing
-    , query_text_1000
+    --, query_text_1000
 FROM
     q
     JOIN wl_profiler_hrs

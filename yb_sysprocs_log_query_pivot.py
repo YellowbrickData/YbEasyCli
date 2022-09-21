@@ -38,6 +38,8 @@ class report_log_query_pivot(Util):
 
         wl_profiler_grp = self.args_handler.args_parser.add_argument_group(
             'log query pivot Excel spreadsheet optional arguments')
+        wl_profiler_grp.add_argument("--source_table", default="sys.log_query"
+            , help="the source table from where the query metrics are collected, defaults to sys.log_query")
         wl_profiler_grp.add_argument("--close_workbook", action="store_true"
             , help="don't display the Excel spreadsheet, just save the spreadsheet to disk, defaults to FALSE")
 
@@ -82,21 +84,22 @@ class report_log_query_pivot(Util):
 
         (new_table_name, anonymous_pl) = sp.proc_setof_to_anonymous_block(args)
 
-        tmp_sys_log_query = 'tmp_sys_log_query_%s' % str(time.time()).replace('.', '')
-        anonymous_pl = anonymous_pl.replace('sys.log_query', tmp_sys_log_query)
+        tmp_log_query = 'tmp_log_query_%s' % str(time.time()).replace('.', '')
+        anonymous_pl = anonymous_pl.replace('sys.log_query', tmp_log_query)
 
         print('--running %s proc as an anonymous SQL code block' % full_proc_name)
         cmd_result = self.db_conn.ybsql_query("""
 SET SESSION AUTHORIZATION {non_su}; -- test that the non-super user exists before continuing
 SET SESSION AUTHORIZATION DEFAULT;
-CREATE TEMP TABLE {tmp_sys_log_query} AS SELECT * FROM sys.log_query DISTRIBUTE RANDOM SORT ON (submit_time);
-ALTER TABLE {tmp_sys_log_query} OWNER TO {non_su};
+CREATE TEMP TABLE {tmp_log_query} AS SELECT * FROM {log_query} DISTRIBUTE RANDOM SORT ON (submit_time);
+ALTER TABLE {tmp_log_query} OWNER TO {non_su};
 SET SESSION AUTHORIZATION {non_su};
 {anonymous_pl};
 SELECT * FROM {new_table_name} ORDER BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19;
 """.format(
             non_su=self.args_handler.args.non_su
-            , tmp_sys_log_query=tmp_sys_log_query
+            , tmp_log_query=tmp_log_query
+            , log_query=self.args_handler.args.source_table
             , new_table_name=new_table_name
             , anonymous_pl=anonymous_pl ) )
 
