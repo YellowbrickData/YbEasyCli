@@ -45,12 +45,9 @@ class wl_profiler(Util):
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     def additional_args(self):
-        su_connection_grp = self.args_handler.args_parser.add_argument_group(
-            'super user connection arguments')
-        su_connection_grp.add_argument("--su_dbuser"
-            , help="su database user, overrides SU_YBUSER env variable")
-        su_connection_grp.add_argument("--su_W", action="store_true"
-            , help="prompt for password instead of using the SU_YBPASSWORD env variable")
+        non_su_grp = self.args_handler.args_parser.add_argument_group(
+            'non-super database user arguments')
+        non_su_grp.add_argument("--non_su", help="non-super database user")
 
         wl_profiler_grp = self.args_handler.args_parser.add_argument_group(
             'wl profiler heatmap optional arguments')
@@ -82,11 +79,14 @@ class wl_profiler(Util):
             self.csv_zip_file = self.args_handler.args.step2
             self.args_handler.args.skip_db_conn = True
 
+        if (self.step1 and not self.args_handler.args.non_su):
+            Common.error('error: the following arguments are required: --non_su')
+
         if self.step2:
             try:
                 import xlwings
             except Exception as e:
-                if str(e) == "No module named 'xlwings'":
+                if str(e) == "No module named 'xlwings'" or str(e) == "No module named xlwings":
                     Common.error("the python xlwings library is required, please run 'python -m pip install xlwings' or see https://docs.xlwings.org/en/stable/installation.html for installation instructions")
                 else:
                     Common.error(e)
@@ -109,50 +109,33 @@ class wl_profiler(Util):
             shutil.unpack_archive('../%s' % self.csv_zip_file, '.', 'zip')
 
     def complete_db_conn(self):
-        if self.db_conn.ybdb['is_super_user']:
-            self.args_handler.args_parser.error("dbuser '%s' must not ba a db super user..." % self.db_conn.ybdb['user'])
+        if not self.db_conn.ybdb['is_super_user']:
+            self.args_handler.args_parser.error("--dbuser '%s' must be a db super user..." % self.db_conn.ybdb['user'])
 
-        su_env = self.db_conn.env.copy()
-
-        su_env['conn_db'] = self.db_conn.database
-        su_env['dbuser'] = (
-            self.args_handler.args.su_dbuser
-            if self.args_handler.args.su_dbuser
-            else os.getenv('SU_YBUSER') )
-        su_env['pwd'] = (
-            None
-            if self.args_handler.args.su_W
-            else os.getenv('SU_YBPASSWORD') )
-
-        if not su_env['dbuser']:
-            self.args_handler.args_parser.error("the su database user must be set using the SU_YBUSER environment variable or with the argument: --su_dbuser")
-        else:
-            DBConnect.set_env(su_env)
-            self.su_db_conn = DBConnect(env=su_env, conn_type='su')
-            DBConnect.set_env(self.db_conn.env_pre)
-
-            if not self.su_db_conn.ybdb['is_super_user']:
-                self.args_handler.args_parser.error("su_dbuser '%s' is not a db super user..." % su_env['dbuser'])
+        non_su_sql = "SELECT COUNT(*) FROM sys.user WHERE name = '%s' AND NOT superuser;" % self.args_handler.args.non_su
+        result = self.db_conn.ybsql_query(non_su_sql)
+        result.on_error_exit()
+        if result.stdout.strip() != '1':
+            self.args_handler.args_parser.error("--non_su '%s' must be a db non-super user..." % self.args_handler.args.non_su)
 
     def run_sql(self):
         sql_scripts = [
-            {'file': 'step0_wl_profiler_drop_objects.sql', 'conn': self.db_conn, 'options':'-A -q -t -v ON_ERROR_STOP=1 -X'}
-            , {'file': 'step1_wl_profiler_create_objects.sql', 'conn': self.db_conn, 'options':'-A -q -t -v ON_ERROR_STOP=1 -X'}
-            , {'file': 'step2_wl_profiler_su_populate.sql', 'conn': self.su_db_conn, 'options':('-A -q -t -v ON_ERROR_STOP=1 -X -v owner=%s' % self.db_conn.ybdb['user']), 'schema': self.db_conn.schema}
-            , {'file': 'step3_wl_profiler_populate.sql', 'conn': self.db_conn, 'options':'-A -q -t -v ON_ERROR_STOP=1 -X'}
-            , {'file': 'step4_wl_profiler_create_csv_files.sql', 'conn': self.db_conn, 'options':'-A -q -t -v ON_ERROR_STOP=1 -X'} ]
+            'step0_wl_profiler_drop_objects.sql'
+            , 'step1_wl_profiler_create_objects.sql'
+            , 'step2_wl_profiler_su_populate.sql'
+            , 'step3_wl_profiler_populate.sql'
+            , 'step4_wl_profiler_create_csv_files.sql' ]
 
         if self.args_handler.args.keep_db_objects:
-            sql_scripts.append({'file': 'step0_wl_profiler_drop_objects.sql', 'conn': self.db_conn, 'options':'-A -q -t -v ON_ERROR_STOP=1 -X'})
+            sql_scripts.append('step0_wl_profiler_drop_objects.sql')
 
         for script in sql_scripts:
             filename = ('%s/sql/wl_profiler_yb%d/%s' %
-                (Common.util_dir_path, self.wlp_version, script['file']) )
-            print('--db user: %s, executing: %s' % (script['conn'].ybdb['user'], filename))
+                (Common.util_dir_path, self.wlp_version, script) )
+            print('--executing: %s' % filename)
             sql = open(filename).read()
-            if 'schema' in script:
-                sql = "SET SCHEMA '%s';\n%s" % (script['schema'], sql)
-            result = script['conn'].ybsql_query(sql, options=script['options'])
+            result = self.db_conn.ybsql_query(sql
+                , options=('-A -q -t -v ON_ERROR_STOP=1 -X -v owner=%s' % self.args_handler.args.non_su))
             result.on_error_exit()
 
     def build_csv_data(self):

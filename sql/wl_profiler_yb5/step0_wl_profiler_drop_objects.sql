@@ -1,3 +1,5 @@
+SET SESSION AUTHORIZATION :owner;
+
 DROP TABLE IF EXISTS wl_profiler_hrs;
 
 DROP VIEW IF EXISTS wl_profiler_sys_log_query_v;

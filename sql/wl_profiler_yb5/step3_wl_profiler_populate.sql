@@ -1,3 +1,5 @@
+SET SESSION AUTHORIZATION :owner;
+
 CREATE TABLE wl_profiler_sys_log_query AS
 WITH
 q AS (
@@ -14,7 +16,7 @@ q AS (
         , tags
         , error_code
         , error_message
-        , query_text
+        --, query_text
         , pool_id
         , priority
         , slot

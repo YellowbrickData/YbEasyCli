@@ -65,3 +65,5 @@ SELECT
 FROM
     sys.log_query
 ;
+
+ALTER TABLE wl_profiler_sys_log_query OWNER TO :owner;

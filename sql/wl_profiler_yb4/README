@@ -1,6 +1,5 @@
 Workload Profiler for YBOS 4.X and lower
 
-
 Description
 This utility creates 35 day heat maps of Work Loads on a Yellowbrick Cluster in an Excel spreadsheet.
 The spreadsheet will allow you to dynamically create heat maps by User, Application, Pool, and Query Step.
@@ -8,16 +7,14 @@ The spreadsheet will allow you to dynamically create heat maps by User, Applicat
 
 Preparing the Data
 Run the following SQL scripts to create the data used by the spreadsheet.
-The step2 SQL script needs to be run as a super user.
 The step4 SQL script creates 5 CSV files used to populate the spreadsheet.
 
-    ybsql -U <user> -h <host> -d <db> -f step0_wl_profiler_drop_objects.sql
-    ybsql -U <user> -h <host> -d <db> -f step1_wl_profiler_create_objects.sql
-    ybsql -U yellowbrick -h <host> -d <db> -W -f step2_wl_profiler_su_populate.sql
-    ybsql -U <user> -h <host> -d <db> -f step3_wl_profiler_summarization.sql
-    ybsql -U <user> -h <host> -d <db> -f step4_wl_profiler_create_csv_files.sql
-    ybsql -U <user> -h <host> -d <db> -f step0_wl_profiler_drop_objects.sql
-
+    ybsql -A -q -t -v ON_ERROR_STOP=1 -X -v owner=<non-super-user> -U yellowbrick -h <host> -d <db> -f step0_wl_profiler_drop_objects.sql
+    ybsql -A -q -t -v ON_ERROR_STOP=1 -X -v owner=<non-super-user> -U yellowbrick -h <host> -d <db> -f step1_wl_profiler_create_objects.sql
+    ybsql -A -q -t -v ON_ERROR_STOP=1 -X -v owner=<non-super-user> -U yellowbrick -h <host> -d <db> -f step2_wl_profiler_su_populate.sql
+    ybsql -A -q -t -v ON_ERROR_STOP=1 -X -v owner=<non-super-user> -U yellowbrick -h <host> -d <db> -f step3_wl_profiler_summarization.sql
+    ybsql -A -q -t -v ON_ERROR_STOP=1 -X -v owner=<non-super-user> -U yellowbrick -h <host> -d <db> -f step4_wl_profiler_create_csv_files.sql
+    ybsql -A -q -t -v ON_ERROR_STOP=1 -X -v owner=<non-super-user> -U yellowbrick -h <host> -d <db> -f step0_wl_profiler_drop_objects.sql
 
 Populate the Spreadsheet
 Open each CSV file in Excel.  Then copy all the data from each CSV file to the appropriate tab in the
@@ -28,7 +25,6 @@ wl_profiler.xlsm file starting in cell A2.  The following are the mappings of CS
     wl_profiler_app.csv to Totals_App tab
     wl_profiler_pool.csv to Totals_Pool tab
     wl_profiler_step.csv to Totals_Step tab
-
 
 Using the Spreadsheet
 Open the WL_Profile tab in the wl_profiler.xlsm spreadsheet.

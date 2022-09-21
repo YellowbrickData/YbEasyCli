@@ -1,3 +1,5 @@
+SET SESSION AUTHORIZATION :owner;
+
 --This update is to deal with planner timing issues that cause reporting issues
 --   TEMP TABLE DROPs incorrectly report planner time as time when the session ends
 --   ANALYZE reports planner end as the time when the time CTAS completes.

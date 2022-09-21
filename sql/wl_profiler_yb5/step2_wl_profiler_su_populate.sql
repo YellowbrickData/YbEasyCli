@@ -12,7 +12,7 @@ SELECT
     , tags
     , error_code
     , error_message
-    , query_text
+    --, query_text
     , pool_id
     , priority
     , slot

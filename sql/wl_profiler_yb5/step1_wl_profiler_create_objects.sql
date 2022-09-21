@@ -1,3 +1,5 @@
+SET SESSION AUTHORIZATION :owner;
+
 CREATE TABLE wl_profiler_hrs AS
 WITH
 start_end_dates AS (
