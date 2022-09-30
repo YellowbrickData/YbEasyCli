@@ -39,8 +39,8 @@ class get_query(Util):
         if self.db_conn.ybdb['version_major'] >= 5:
             sql_query = """
 WITH q AS (
-    SELECT plan_id, query_id, query_text FROM sys.query WHERE query_id = {query_id}
-    UNION ALL SELECT plan_id, query_id, query_text FROM sys.log_query WHERE query_id = {query_id}
+    SELECT plan_id, query_id, query_text FROM sys.query WHERE num_restart = 0 AND query_id = {query_id}
+    UNION ALL SELECT plan_id, query_id, query_text FROM sys.log_query WHERE num_restart = 0 AND query_id = {query_id}
 )
 , q_filter AS (
     SELECT query_text, 1 AS text_index FROM q
