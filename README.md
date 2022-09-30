@@ -57,6 +57,7 @@ See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/5.2/adminis
 -   **[yb_get_column_name](./yb_get_column_name.py):** List/Verifies that the specified table/view column name if it exists.
 -   **[yb_get_column_names](./yb_get_column_names.py):** List/Verifies that the specified column names exist.
 -   **[yb_get_column_type](./yb_get_column_type.py):** Return the data type of the requested column.
+-   **[yb_get_query](./yb_get_query.py):** Get the SQL of a query by it's query_id, including base64/gzipped SQL.
 -   **[yb_get_sequence_names](./yb_get_sequence_names.py):** List/Verifies that the specified sequence/s exist.
 -   **[yb_get_stored_proc_names](./yb_get_stored_proc_names.py):** List/Verifies that the specified stored procedures/s exist.
 -   **[yb_get_table_distribution_key](./yb_get_table_distribution_key.py):** Identify the distribution column or type (random or replicated) of the requested table.
