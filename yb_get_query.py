@@ -36,9 +36,22 @@ class get_query(Util):
             , help='query id of SQL to be retrieved')
 
     def execute(self):
-        sql_query = """
-SELECT query_text FROM sys.query WHERE query_id = {query_id}
-UNION ALL SELECT query_text FROM sys.log_query WHERE query_id = {query_id}
+        if self.db_conn.ybdb['version_major'] >= 5:
+            sql_query = """
+WITH q AS (
+    SELECT plan_id, query_id, query_text FROM sys.query WHERE query_id = {query_id}
+    UNION ALL SELECT plan_id, query_id, query_text FROM sys.log_query WHERE query_id = {query_id}
+)
+, q_filter AS (
+    SELECT query_text, 1 AS text_index FROM q
+    WHERE plan_id NOT IN (SELECT plan_id FROM sys._log_query_text)
+)
+SELECT query_text FROM q_filter
+UNION ALL (SELECT query_text FROM sys._log_query_text WHERE plan_id = (SELECT plan_id FROM q) ORDER BY text_index)
+""".format(query_id=self.args_handler.args.query_id)
+        else:
+            sql_query = """
+SELECT plan_id, query_id, query_text FROM sys.query WHERE query_id = {query_id}
 """.format(query_id=self.args_handler.args.query_id)
 
         cmd_results = self.db_conn.ybsql_query(sql_query)
