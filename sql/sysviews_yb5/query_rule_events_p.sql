@@ -7,7 +7,7 @@
 ** . This procedure needs to be created by a superuser for privileged users to 
 **   all running queries, not only their own.
 **
-** (c) 2018 Yellowbrick Data Corporation.
+** (c) 2022 Yellowbrick Data Corporation.
 ** . This script is provided free of charge by Yellowbrick Data Corporation as a 
 **   convenience to its customers.
 ** . This script is provided "AS-IS" with no warranty whatsoever.
@@ -57,7 +57,9 @@ DISTRIBUTE ON ( query_id )
 */
 
 CREATE OR REPLACE PROCEDURE public.query_rule_events_p(
-   _query_id BIGINT )  
+   _query_id     BIGINT  
+   , _rule_type  VARCHAR DEFAULT '' 
+   , _event_type VARCHAR DEFAULT '' )
    RETURNS SETOF public.query_rule_events_t
    LANGUAGE 'plpgsql' 
    VOLATILE
@@ -67,7 +69,9 @@ AS
 $proc$
 DECLARE
 
-   _sql         TEXT    := '';
+   _sql               TEXT    := '';
+   _rule_type_clause  TEXT    := 'TRUE';
+   _event_type_clause TEXT    := 'TRUE';
 
    _fn_name     VARCHAR(256) := 'query_rule_events_p';
    _prev_tags   VARCHAR(256) := current_setting('ybd_query_tags');
@@ -79,7 +83,15 @@ BEGIN
    _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
    EXECUTE _sql ;   
 
-   _sql := REPLACE($sql$WITH
+   IF _rule_type <> '' THEN
+      _rule_type_clause := 'row_rule_type IN ('|| _rule_type || ')';
+   END IF;
+
+   IF _event_type <> '' THEN
+      _event_type_clause := $str$event_type IN ('begin', $str$ || _event_type || ')';
+   END IF;
+
+   _sql := REPLACE(REPLACE(REPLACE($sql$WITH
 query AS (
     -- select the query_id of interest
     SELECT {query_id} AS query_id
@@ -130,9 +142,11 @@ FROM
         AND rownum.rownum <= grpnum2.end_rownum
 WHERE
     event_type != 'end'
+    AND {rule_type_clause}
+    AND {event_type_clause}
 ORDER BY
     begin_rule_type_time, rule_type_order, begin_rownum, rownum
-$sql$::VARCHAR(4096), '{query_id}'::VARCHAR, _query_id::VARCHAR);
+$sql$::VARCHAR(4096), '{query_id}'::VARCHAR, _query_id::VARCHAR), '{rule_type_clause}'::VARCHAR, _rule_type_clause::VARCHAR), '{event_type_clause}'::VARCHAR, _event_type_clause::VARCHAR);
     
    --RAISE INFO '_sql is: %', _sql ;
    RETURN QUERY EXECUTE _sql;
@@ -159,5 +173,6 @@ Arguments:
 
 Revision:
 . 2022.03.24 - Yellowbrick Technical Support 
+. 2022.10.01 - added rule and event type filters 
 '
 ;

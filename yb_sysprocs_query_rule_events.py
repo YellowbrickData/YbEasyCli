@@ -31,16 +31,35 @@ class report_query_rule_events(SPReportUtil):
             "--include_rule_names", metavar='RULE_NAME', nargs='*', help=("rule names to include in the report" ) )
         args_log_query_grp.add_argument(
             "--exclude_rule_names", metavar='RULE_NAME', nargs='*', help=("rule names to exclude from the report" ) )
+        args_log_query_grp.add_argument(
+            "--rule_type",  choices=('compile', 'completion', 'prepare', 'runtime', 'submit')
+            , nargs="+", default=None, help="rule types to report, defaults to all rule types")
+        args_log_query_grp.add_argument(
+            "--event_type",  choices=('disabled', 'error', 'ignore', 'info', 'move', 'set', 'timeout', 'warn')
+            , nargs="+", default=None, help="rule event types to report, defaults to all rule event types")
 
     def execute(self):
         where_clause = []
+        rule_type = ''
+        event_type = ''
+
         if self.args_handler.args.include_rule_names:
             where_clause.append('(rule_name IS NULL OR rule_name IN ($$' + ('$$, $$'.join(self.args_handler.args.include_rule_names)) + '$$))')
         if self.args_handler.args.exclude_rule_names:
             where_clause.append('(rule_name IS NULL OR rule_name NOT IN ($$' + ('$$, $$'.join(self.args_handler.args.exclude_rule_names)) + '$$))')
         where_clause = (('(' + (' AND '.join(where_clause)) + ')') if len(where_clause) else None)
 
-        return self.build({'_query_id': self.args_handler.args.query_id}, where_clause)
+        if self.args_handler.args.rule_type:
+            rule_type = "'" + "', '".join(self.args_handler.args.rule_type) + "'"
+        if self.args_handler.args.event_type:
+            event_type = "'" + "', '".join(self.args_handler.args.event_type) + "'"
+
+        return self.build(
+            {
+                '_query_id':     self.args_handler.args.query_id
+                , '_rule_type':  rule_type
+                , '_event_type': event_type }
+            , where_clause )
 
 def main():
     print(report_query_rule_events().execute())
