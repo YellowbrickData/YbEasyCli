@@ -130,7 +130,7 @@ query AS (
 SELECT
     query_id
     , ROW_NUMBER() OVER (ORDER BY begin_rule_type_time, rule_type_order, begin_rownum, rownum) AS event_order
-    , event_time::TIMESTAMP
+    , DECODE(event_type, 'begin', event_time, NULL)::TIMESTAMP AS event_time
     , DECODE(event_type, 'begin', grpnum2.row_rule_type, NULL)::VARCHAR(128) AS rule_type
     , DECODE(event_type, 'begin', NULL, rule_name)::VARCHAR(128) AS rule_name
     , DECODE(event_type, 'begin', NULL, event_type)::VARCHAR(128) AS event_type
