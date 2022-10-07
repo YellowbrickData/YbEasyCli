@@ -38,7 +38,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20221001'
+    version = '20221007'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -1399,8 +1399,8 @@ class StoredProc:
         return os.access(StoredProc.proc_file(proc_name), os.R_OK)
 
     def proc_parse_file(self, proc_name):
-        filepath = StoredProc.proc_file(proc_name)
-        self.proc_sql = Common.read_file(filepath)
+        self.filepath = StoredProc.proc_file(proc_name)
+        self.proc_sql = Common.read_file(self.filepath)
 
         regex = r"CREATE\s*(OR\s*REPLACE)?\s*PROCEDURE\s*([a-z0-9_.]+)\s*\((.*?)\)\s*(RETURNS(\s*SETOF)?\s*([a-zA-Z_.]*).*?)\s+.+?(DECLARE\s*(.+))RETURN\s*(NEXT|QUERY\s*EXECUTE)?\s*([^;]*);(.*)\$proc\$"
         matches = re.search(regex, self.proc_sql, re.IGNORECASE | re.DOTALL)
@@ -1511,9 +1511,12 @@ class StoredProc:
                 if arg['type'] == 'VARCHAR':
                     arg_type = ' %s%s' % (arg['type'], arg['type_size'])
                     arg_value = '$a$%s$a$' % input_args[arg['name']]
-                elif arg['type'] in ('BOOLEAN', 'BIGINT', 'DATE', 'INT', 'INTEGER', 'NUMERIC', 'SMALLINT'):
+                elif arg['type'] in ('BOOLEAN', 'BIGINT', 'INT', 'INTEGER', 'NUMERIC', 'SMALLINT'):
                     arg_type = ' %s' % arg['type']
                     arg_value = input_args[arg['name']]
+                elif arg['type'] == 'DATE':
+                    arg_type = ' %s' % arg['type']
+                    arg_value = "'%s'::DATE" % input_args[arg['name']].strftime('%Y-%m-%d')
                 elif arg['type'] == 'TIMESTAMP':
                     arg_type = ' %s' % arg['type']
                     #arg_value = "TO_TIMESTAMP('%s', 'YYYY-MM-DD HH24:MI:SS.US')" % input_args[arg['name']].strftime('%Y-%m-%d %H:%M:%S.%f')
@@ -1589,7 +1592,8 @@ class StoredProc:
 
         anonymous_block = """
 {pre_sql}
---proc: {proc_name}
+--anonymous block: {proc_name}
+--derived from: {filepath}
 DO $PROC$
 DECLARE
     {declare_clause_args}
@@ -1600,6 +1604,7 @@ DECLARE
 {post_sql}""".format(
             pre_sql=pre_sql, post_sql=post_sql
             , proc_name=self.proc_name
+            , filepath=self.filepath
             , declare_clause_args=declare_clause_args
             , proc_before_return=self.proc_before_return
             , return_marker=return_marker, proc_return=self.proc_return
@@ -1644,7 +1649,8 @@ DECLARE
         anonymous_block = """
 {pre_sql}
 {create_tmp_table};
---proc: {proc_name}
+--anonymous block: {proc_name}
+--derived from: {filepath}
 DO $PROC$
 DECLARE
     {declare_clause_args}
@@ -1656,6 +1662,7 @@ DECLARE
             pre_sql=pre_sql, post_sql=post_sql
             , create_tmp_table=self.create_new_table_sql
             , proc_name=self.proc_name
+            , filepath=self.filepath
             , declare_clause_args=declare_clause_args
             , var_ret_rec=var_ret_rec
             , proc_before_return=self.proc_before_return

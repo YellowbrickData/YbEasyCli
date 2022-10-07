@@ -76,6 +76,7 @@ See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/5.2/adminis
 -   **[yb_sysprocs_log_bulk_xfer](./yb_sysprocs_log_bulk_xfer.py):** Transformed subset active bulk transfers (ybload & ybunload) from sys.load and sys.unload.
 -   **[yb_sysprocs_log_query](./yb_sysprocs_log_query.py):** Details on completed backend statements.
 -   **[yb_sysprocs_log_query_pivot](./yb_sysprocs_log_query_pivot.py):** Queries for the last week aggregated by hour for use in WLM pivot table analysis.
+-   **[yb_sysprocs_log_query_slot_usage](./yb_sysprocs_log_query_slot_usage.py):** Create a WLM slot usage report by analyzing sys.log_query data.
 -   **[yb_sysprocs_log_query_smry](./yb_sysprocs_log_query_smry.py):** Aggregated subset of the sys.log_query data.
 -   **[yb_sysprocs_log_query_steps](./yb_sysprocs_log_query_steps.py):** Completed statements actual vs plan metrics by plan node.
 -   **[yb_sysprocs_log_query_timing](./yb_sysprocs_log_query_timing.py):** Details on completed backend statements.

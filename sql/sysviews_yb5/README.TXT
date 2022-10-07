@@ -81,42 +81,44 @@ Using the procedures
   sysviews database by running the procedure:
     SELECT procedure, description FROM sysviews_p();
 
-      procedure       |                                              description
-----------------------+-------------------------------------------------------------------------------------------------------
- all_user_objs_p      | All user objects in all databases with owner and ACL detail.
- analyze_immed_sess_p | SETs ybd_analyze_after_writes TO [OFF|ON]` for session as a superuser.
- analyze_immed_user_p | Run ALTER USER session_user SET ybd_analyze_after_writes as a superuser.
- bulk_xfer_p          | Transformed subset active bulk transfers (ybload & ybunload) from sys.load and sys.unload.
- column_dstr_p        | Distribution of rows per distinct values for column grouped on a logarithmic scale
- column_stats_p       | Table column metadata including cardinality estimates from the db statistics.
- help_p               | Returns usage information on sys *_p procedures.
- load_p               | Transformed subset of sys.load columns for currently active bulk loads.
- log_bulk_xfer_p      | Transformed subset completed bulk transfers (ybload & ybunload) from sys.log_load and sys.log_unload.
- log_query_p          | Details on completed backend statements.
- log_query_pivot_p    | Queries for the last week aggregated by hour for use in WLM pivot table analysis.
- log_query_smry_p     | Aggregated subset of the sys.log_query data.
- log_query_steps_p    | Completed statements actual vs plan metrics by plan node.
- log_query_timing_p   | Details on completed backend statements.
- procedure_p          | User created stored procedures.
- query_p              | Transformed subset of sys.query columns for currently running statements.
- query_steps_p        | Currently executing statements actual vs plan metrics by plan node.
- rel_p                | All user "relations" (tables, views, & sequences) in all databases.
- rowstore_by_table_p  | Size of rowstore data in user tables across all databases.\r
- rowstore_p           | Rowstore overal metrics including size of data in user tables.\r
- schema_p             | All user schemas across all databases.
- session_p            | Current session state details.
- session_smry_p       | Current sessions aggregated by db, user, state, app, ip, etc...
- sql_inject_check_p   | Check the input SQL clause for possible SQL injection.
- storage_by_db_p      | Storage space of committed blocks in user tables aggregated by database.
- storage_by_schema_p  | Storage summary by schema across one or more databases.
- storage_by_table_p   | Storage summary for user tables by database, schema, and table.
- storage_p            | Aggregated appliance storage for data, spill, other, and total space.
- sysviews_p           | Names and arguments for all installed sysviews procedures.
- table_constraints_p  | Existing constraints on user tables as per information_schema.table_constraints.
- table_skew_p         | Table skew report.
- wlm_active_profile_p | Returns current active WLM profile configuration details by pool.
- wlm_active_rule_p    | Current active WLM profile rules.
- wlm_state_p          | Returns current active WLM profile state metrics by pool.
+      procedure         |                                              description
+------------------------+-------------------------------------------------------------------------------------------------------
+ all_user_objs_p        | All user objects in all databases with owner and ACL detail.
+ analyze_immed_sess_p   | SETs ybd_analyze_after_writes TO [OFF|ON]` for session as a superuser.
+ analyze_immed_user_p   | Run ALTER USER session_user SET ybd_analyze_after_writes as a superuser.
+ bulk_xfer_p            | Transformed subset active bulk transfers (ybload & ybunload) from sys.load and sys.unload.
+ column_dstr_p          | Distribution of rows per distinct values for column grouped on a logarithmic scale
+ column_stats_p         | Table column metadata including cardinality estimates from the db statistics.
+ help_p                 | Returns usage information on sys *_p procedures.
+ load_p                 | Transformed subset of sys.load columns for currently active bulk loads.
+ log_bulk_xfer_p        | Transformed subset completed bulk transfers (ybload & ybunload) from sys.log_load and sys.log_unload.
+ log_query_p            | Details on completed backend statements.
+ log_query_pivot_p      | Queries for the last week aggregated by hour for use in WLM pivot table analysis.
+ log_query_slot_usage_p | Create a WLM slot usage report by analyzing sys.log_query data.
+ log_query_smry_p       | Aggregated subset of the sys.log_query data.
+ log_query_steps_p      | Completed statements actual vs plan metrics by plan node.
+ log_query_timing_p     | Details on completed backend statements.
+ procedure_p            | User created stored procedures.
+ query_p                | Transformed subset of sys.query columns for currently running statements.
+ query_rule_events_p    | Return the WLM rule events for a query.
+ query_steps_p          | Currently executing statements actual vs plan metrics by plan node.
+ rel_p                  | All user "relations" (tables, views, & sequences) in all databases.
+ rowstore_by_table_p    | Size of rowstore data in user tables across all databases.
+ rowstore_p             | Rowstore overall metrics including size of data in user tables.
+ schema_p               | All user schemas across all databases.
+ session_p              | Current session state details.
+ session_smry_p         | Current sessions aggregated by db, user, state, app, ip, etc...
+ sql_inject_check_p     | Check the input SQL clause for possible SQL injection.
+ storage_by_db_p        | Storage space of committed blocks in user tables aggregated by database.
+ storage_by_schema_p    | Storage summary by schema across one or more databases.
+ storage_by_table_p     | Storage summary for user tables by database, schema, and table.
+ storage_p              | Aggregated appliance storage for data, spill, other, and total space.
+ sysviews_p             | Names and arguments for all installed sysviews procedures.
+ table_constraints_p    | Existing constraints on user tables as per information_schema.table_constraints.
+ table_skew_p           | Table skew report.
+ wlm_active_profile_p   | Returns current active WLM profile configuration details by pool.
+ wlm_active_rule_p      | Current active WLM profile rules.
+ wlm_state_p            | Returns current active WLM profile state metrics by pool.
 (34 rows)
 
 
