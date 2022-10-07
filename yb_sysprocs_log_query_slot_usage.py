@@ -19,7 +19,12 @@ from yb_sp_report_util import SPReportUtil
 class report_log_query_slot_usage(SPReportUtil):
     """Issue the ybsql commands used to completed backend statements report."""
     config = {
-        'description': 'Create a WLM slot usage report by analyzing sys.log_query data.'
+        'description': (
+            'Create a WLM slot usage report by analyzing sys.log_query data.'
+            '\n'
+            '\nnote:'
+            '\n  This Utility must be run as a super user and requires a second '
+            '\n  non-super DB user(--non_su) to perform analytic SQL queries.')
         , 'report_sp_location': 'sysviews'
         , 'report_default_order': 'pool_id|slots'
         , 'usage_example_extra': {'cmd_line_args': "--non_su dze" } }
