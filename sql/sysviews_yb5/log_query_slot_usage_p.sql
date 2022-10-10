@@ -69,16 +69,17 @@ CREATE TABLE log_query_slot_usage_t (
 ** Create the procedure.
 */
 CREATE OR REPLACE PROCEDURE log_query_slot_usage_p(
-    _non_su      VARCHAR
-    , _days      INT DEFAULT 30 
-    , _from_date DATE DEFAULT (CURRENT_DATE - _days + 1))
+    _non_su      VARCHAR 
+    , _from_date DATE DEFAULT NULL
+    , _days      INT DEFAULT 30)
     RETURNS SETOF log_query_slot_usage_t
     LANGUAGE 'plpgsql' 
     VOLATILE
 AS
 $proc$
 DECLARE
-    _end_date DATE := _from_date + _days;
+    _start_date DATE := NVL(_from_date, (CURRENT_DATE - _days + 1));
+    _end_date DATE := _start_date + _days;
     _total_secs INT := 60 * 60 * 24 * _days;
     _rec RECORD;
     --
@@ -87,7 +88,7 @@ DECLARE
     _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
     _tags VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;      
 BEGIN
-    --RAISE INFO '_from_date: %' , _from_date;
+    --RAISE INFO '_start_date: %' , _start_date;
     --RAISE INFO '_end_date: %' , _end_date;
     --RAISE INFO '_total_secs: %' , _total_secs;
     _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
@@ -123,9 +124,9 @@ BEGIN
     start_end_dates AS (
         SELECT
             -- I don't know why but if I change the following 2 lines to
-            -- _end_date AS end_date, _from_date AS start_date
+            -- _end_date AS end_date, _start_date AS start_date
             -- performance in the fallowing FOR LOOP gets very bad
-            DATE_TRUNC('SECONDS', _from_date) AS start_date
+            DATE_TRUNC('SECONDS', _start_date) AS start_date
             , DATE_TRUNC('SECONDS', _end_date) AS end_date
     )
     , secs AS (

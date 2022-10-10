@@ -161,7 +161,7 @@ $proc$
 ;
 
 
-COMMENT ON FUNCTION query_rule_events_p( BIGINT ) IS 
+COMMENT ON FUNCTION query_rule_events_p( BIGINT, VARCHAR, VARCHAR ) IS 
 'Description:
 Return the WLM rule events for a query. 
 
