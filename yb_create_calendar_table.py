@@ -44,9 +44,9 @@ class create_calendar_table(Util):
         cmd_results = StoredProc('yb_create_calendar_table_p', self.db_conn).call_proc_as_anonymous_block(
             args = {
                 'a_table' : table
-                , 'a_start_date'          : "TO_DATE('%s', 'YYYY-MM-DD')" % self.args_handler.args.start_date.strftime("%Y-%m-%d")
-                , 'a_end_date'            : "TO_DATE('%s', 'YYYY-MM-DD')" % self.args_handler.args.end_date.strftime("%Y-%m-%d")
-                , 'a_absolute_start_date' : "TO_DATE('%s', 'YYYY-MM-DD')" % self.args_handler.args.absolute_start_date.strftime("%Y-%m-%d") } )
+                , 'a_start_date'          : self.args_handler.args.start_date
+                , 'a_end_date'            : self.args_handler.args.end_date
+                , 'a_absolute_start_date' : self.args_handler.args.absolute_start_date } )
 
         cmd_results.on_error_exit()
 
