@@ -13,6 +13,8 @@ OPTIONS:
 Output:
       The report as a formatted table, pipe seperated value rows, or inserted into a database table.
 """
+
+from datetime import date, timedelta
 from yb_common import ArgDate, ArgIntRange
 from yb_sp_report_util import SPReportUtil
 
@@ -41,18 +43,24 @@ class report_log_query_slot_usage(SPReportUtil):
         args_report_grp.add_argument("--from_date", type=ArgDate(), help=("starting DATE(YYYY-MM-DD) "
             "of sys.log_query to analyze, defaults to DAYS argument days before today.") )
 
+    def additional_args_process(self):
+        if not self.args_handler.args.from_date:
+            self.args_handler.args.from_date = date.today() - (timedelta(self.args_handler.args.days - 1))
+            #self.args_handler.args.from_date = date.today()
+
     def execute(self):
         args = {
             '_non_su': self.args_handler.args.non_su
-            , '_days': self.args_handler.args.days}
-        if self.args_handler.args.from_date:
-            args['_from_date'] = self.args_handler.args.from_date
-        return self.build(args)
+            , '_days': self.args_handler.args.days
+            , '_from_date': self.args_handler.args.from_date}
+        print('--report from: %s, to: %s' % (
+            self.args_handler.args.from_date.strftime("%Y-%m-%d")
+            , (self.args_handler.args.from_date + timedelta(self.args_handler.args.days - 1)).strftime("%Y-%m-%d") ) )
+        print(self.build(args))
 
 def main():
-    print(report_log_query_slot_usage().execute())
+    report_log_query_slot_usage().execute()
     exit(0)
 
 if __name__ == "__main__":
     main()
-
