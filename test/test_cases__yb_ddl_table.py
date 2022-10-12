@@ -86,5 +86,5 @@ CREATE TABLE {db1}.dev.data_types_t (
 )
 DISTRIBUTE ON (col1);"""
         , stderr=''
-        , map_out={r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[^\s]*' : 'YYYY-MM-DD HH:MM:SS'})
+        , map_out=[ {r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[^\s]*' : 'YYYY-MM-DD HH:MM:SS' } ] )
 ]

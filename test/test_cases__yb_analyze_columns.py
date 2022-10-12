@@ -15,7 +15,7 @@ Max Value              : 10001
 Is Unique              : FALSE
 -- Completed column analysis."""
         , stderr=''
-        , map_out={r'-{10,300}' : ''})
+        , map_out=[ {r'-{10,300}' : ''} ] )
  
     , test_case(cmd="yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_like 'col1%' --output_format 1 --level 1"
         , exit_code=0
@@ -58,7 +58,7 @@ database|column|table_order|data_type|is_1null_2dist_3sort_4clust_5part|bytes_ma
 {db1}|dev.data_types_t.col19|19|INTEGER|X----|4|1000000|0|2410|||||||-
 -- Completed column analysis.""")
         , stderr=''
-        , map_out={r'10934(2|3)': 'XXXXXX'})
+        , map_out=[ {r'10934(2|3)': 'XXXXXX'} ] )
  
     , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col3 --output_format 3 --level 3'
         , exit_code=0
@@ -97,7 +97,7 @@ Group: 10000, Row Count: 99,  % of Total Rows:   0.0099, Value: 1
 Group: 10001, Row Count: 1,   % of Total Rows:   0.0001, Value: 10001
 -- Completed column analysis."""
         , stderr=''
-        , map_out={r'-{10,300}' : ''})
+        , map_out=[ {r'-{10,300}' : ''} ] )
  
     , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col8 --output_format 3 --level 3'
         , exit_code=0
@@ -140,7 +140,7 @@ Group: 462573, Row Count: 2,   % of Total Rows:   0.0002, Value: !!!=
 Group: 462574, Row Count: 2,   % of Total Rows:   0.0002, Value: !!!A
 -- Completed column analysis."""
 		, stderr=''
-		, map_out={r'-{10,300}' : ''})
+		, map_out=[ {r'-{10,300}' : ''} ] )
 
     , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_in col13  --output_format 3 --level 3'
         , exit_code=0
@@ -179,10 +179,10 @@ Group: 109341, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 0
 Group: 109342, Row Count: 2,      % of Total Rows:   0.0002, Value: 2020-01-01 03:02:31-08
 -- Completed column analysis."""
 		, stderr=''
-		, map_out={
-            r'-{10,300}' : ''
-            , r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\-|\+)\d{2}' : 'YYYY-MM-DD HH:MI:SS-TZ'
-            , r': 1093\d{2}' : ': 1093XX'})
+		, map_out=[
+            { r'-{10,300}' : '' }
+            , { r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\-|\+)\d{2}' : 'YYYY-MM-DD HH:MI:SS-TZ' }
+            , { r': 1093\d{2}' : ': 1093XX' } ] )
 
     , test_case(cmd='yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --level 3'
         , exit_code=0
@@ -754,9 +754,9 @@ Group: 2409, Row Count: 22,     % of Total Rows:   0.0022, Value: 20200604
 Group: 2410, Row Count: 22,     % of Total Rows:   0.0022, Value: 20200722
 -- Completed column analysis."""
 		, stderr=''
-		, map_out={
-            r'-{10,300}' : ''
-            , r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\-|\+)\d{2}' : 'YYYY-MM-DD HH:MI:SS-TZ'
-            , r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}' : 'YYYY-MM-DD HH:MI:SS'
-            , r': 1093\d{2}' : ': 1093XX'})
+		, map_out=[
+            { r'-{10,300}' : '' }
+            , { r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\-|\+)\d{2}' : 'YYYY-MM-DD HH:MI:SS-TZ' }
+            , { r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}' : 'YYYY-MM-DD HH:MI:SS' }
+            , { r': 1093\d{2}' : ': 1093XX'} ] )
 ]

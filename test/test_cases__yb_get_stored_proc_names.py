@@ -32,7 +32,7 @@ database: {db1}, schema: "Prod", proc: "test_Raise_p" """
         , exit_code=(0 if Common.is_windows else 2)
         , stdout=''
         , stderr="""yb_get_stored_proc_names.py: ybsql: could not translate host name "no_host" to address:..."""
-        , map_out={r'to address:.*': 'to address:...'})
+        , map_out=[ { r'to address:.*': 'to address:...' } ] )
 
     , test_case(cmd='yb_get_stored_proc_names.py --help'
         , exit_code=0

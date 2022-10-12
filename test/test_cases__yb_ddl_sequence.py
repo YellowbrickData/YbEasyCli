@@ -1,4 +1,4 @@
-map_out = {r'\"[a-z_]*\":\s*"""[^:}]*"""' : '"<key>": "<value>"'}
+map_out = [ {r'\"[a-z_]*\":\s*"""[^:}]*"""' : '"<key>": "<value>"'} ]
 
 test_cases = [
     test_case(

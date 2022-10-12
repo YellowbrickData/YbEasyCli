@@ -28,7 +28,7 @@ class SafeDict(dict):
 
 class test_case:
     """Contains structures for running tests and checking results."""
-    def __init__(self, cmd, exit_code, stdout, stderr, comment='', map_out={}):
+    def __init__(self, cmd, exit_code, stdout, stderr, comment='', map_out=[ {} ]):
         self.cmd = cmd.format(**get.format)
         # fix output_template args in test cases where they are double brackets 
         # TODO fix this so that double brackets aren't required
@@ -97,15 +97,17 @@ class test_case:
         expected results, False otherwise.
         """
         #start by mapping out all text colors/styles
-        map_out = {r'\x1b[^m]*m' : ''}
+        map_out = [ {r'\x1b[^m]*m' : ''} ]
 
-        map_out.update(self.map_out)
-        for regex in map_out.keys():
+        map_out.extend(self.map_out)
+        for d in map_out:
+            for regex, sub in d.items():
+                None
             rec = re.compile(regex)
-            self.cmd_results.stdout = rec.sub(map_out[regex], self.cmd_results.stdout)
-            self.cmd_results.stderr = rec.sub(map_out[regex], self.cmd_results.stderr)
-            self.stdout = rec.sub(map_out[regex], self.stdout)
-            self.stderr = rec.sub(map_out[regex], self.stderr)
+            self.cmd_results.stdout = rec.sub(sub, self.cmd_results.stdout)
+            self.cmd_results.stderr = rec.sub(sub, self.cmd_results.stderr)
+            self.stdout = rec.sub(sub, self.stdout)
+            self.stderr = rec.sub(sub, self.stderr)
 
         self.stdout = self.stdout.strip()
         self.stderr = self.stderr.strip()
@@ -125,8 +127,10 @@ class test_case:
         if std1 != std2:
             d = difflib.Differ()
 
-            good_stdout = std1.splitlines(keepends=True)
-            bad_stdout = std2.splitlines(keepends=True)
+            #good_stdout = std1.splitlines(keepends=True)
+            #bad_stdout = std2.splitlines(keepends=True)
+            good_stdout = std1.splitlines(True)
+            bad_stdout = std2.splitlines(True)
             diff = list(d.compare(bad_stdout, good_stdout))
             for i in range(0,len(diff)):
                 if diff[i][0] in ('-', '+', '?'):
@@ -244,7 +248,8 @@ class execute_test_action:
             or len(dd_ts) == 0
             or max(sd_ts) > min(dd_ts)):
             shutil.rmtree(path=dd, ignore_errors=True)
-            os.mkdir(path=dd)
+            #os.mkdir(path=dd)
+            os.mkdir(dd)
             for filename in sd_files:
                 with open('%s/%s' % (sd, filename), 'r') as file:
                     data = file.read().format(**get.format)
