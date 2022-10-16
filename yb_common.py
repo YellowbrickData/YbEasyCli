@@ -38,7 +38,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20221011'
+    version = '20221015'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -1378,8 +1378,10 @@ eof""".format(ybsql_cmd=ybsql_cmd)
     def ybtool_cmd(self, cmd, stack_level=3, stdin=None, strip_warnings=[]):
         # if the first argument in the cmd is a python YbEasyCli tool then prepend the
         #    python executable path(sys.executable) to the cmd. Required for Windows support.
-        if shlex.split(cmd)[0][-3:] == '.py':
-            cmd = '%s %s' % (sys.executable, cmd)
+        if re.search(r"^(.*?\.py)", cmd):
+            cmd = '"%s" %s' % (sys.executable, cmd)
+            if Common.is_windows:
+                cmd = '&%s' % cmd
 
         self.set_env(self.env)
         cmd = Cmd(cmd, stack_level=stack_level, stdin=stdin)
