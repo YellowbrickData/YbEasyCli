@@ -1,5 +1,5 @@
 test_cases = [
-    test_case(cmd='yb_get_stored_proc_names.py @{argsdir}/db1'
+    test_case(cmd='yb_get_stored_proc_names.py @{argsdir}/db1 --schema_in dev Prod'
         , exit_code=0
         , stdout="""{db1}.dev.get_data_types_p
 {db1}.dev.query_definer_p
@@ -16,7 +16,7 @@ test_cases = [
         , stdout="""{db1}."Prod"."test_Raise_p" """
         , stderr='')
 
-    , test_case(cmd="yb_get_stored_proc_names.py @{argsdir}/db1 --output_template 'database: {{database}}, schema: {{schema}}, proc: {{stored_proc}}'"
+    , test_case(cmd="yb_get_stored_proc_names.py @{argsdir}/db1 --schema_in dev Prod --output_template 'database: {{database}}, schema: {{schema}}, proc: {{stored_proc}}'"
         , exit_code=0
         , stdout="""database: {db1}, schema: dev, proc: get_data_types_p
 database: {db1}, schema: dev, proc: query_definer_p
@@ -27,12 +27,6 @@ database: {db1}, schema: "Prod", proc: query_definer_p
 database: {db1}, schema: "Prod", proc: test_error_p
 database: {db1}, schema: "Prod", proc: "test_Raise_p" """
         , stderr='')
-
-    , test_case(cmd='yb_get_stored_proc_names.py @{argsdir}/db1 --host no_host'
-        , exit_code=(0 if Common.is_windows else 2)
-        , stdout=''
-        , stderr="""yb_get_stored_proc_names.py: ybsql: could not translate host name "no_host" to address:..."""
-        , map_out=[ { r'to address:.*': 'to address:...' } ] )
 
     , test_case(cmd='yb_get_stored_proc_names.py --help'
         , exit_code=0
@@ -110,5 +104,6 @@ else """  yb_get_stored_proc_names.py @$HOME/conn.args --schema_in dev Prod --st
     --host yb89
     --dbuser dze
     --conn_db stores""")
-    , stderr='')
+    , stderr=''
+    , map_out=[ {r'optional arguments\:' : 'options:'} ] )
 ]
