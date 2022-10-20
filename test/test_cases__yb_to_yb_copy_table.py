@@ -1,6 +1,7 @@
-map_out=[ { r'\d{4}-[^S]*' : '' }
-    , { r'\s*\d{1,2}:\d{2}:\d{2}\s*\(.*' : '' }
-    , { r'\d\.\d\.\d-\d{1,5}' : 'X.X.X-XXXXX' } ]
+map_out=[ { 'regex' : re.compile(r'\d{4}-[^S]*'), 'sub' : '' }
+    , { 'regex' : re.compile(r'\s*\d{1,2}:\d{2}:\d{2}\s*\(.*'), 'sub' : '' }
+    , { 'regex' : re.compile(r'\d\.\d\.\d-\d{1,5}'), 'sub' : 'X.X.X-XXXXX' } ]
+
 test_cases = [
     test_case(
         cmd="""yb_to_yb_copy_table.py @{argsdir}/src_db1_dst_db2 --unload_where_clause "col1 <= 2560" """

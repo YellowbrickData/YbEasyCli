@@ -105,5 +105,5 @@ else """  yb_get_stored_proc_names.py @$HOME/conn.args --schema_in dev Prod --st
     --dbuser dze
     --conn_db stores""")
     , stderr=''
-    , map_out=[ {r'optional arguments\:' : 'options:'} ] )
+    , map_out=[ { 'regex' : re.compile(r'optional arguments\:'), 'sub' : 'options:'} ] )
 ]

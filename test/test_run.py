@@ -28,7 +28,7 @@ class SafeDict(dict):
 
 class test_case:
     """Contains structures for running tests and checking results."""
-    def __init__(self, cmd, exit_code, stdout, stderr, comment='', map_out=[ {} ]):
+    def __init__(self, cmd, exit_code, stdout, stderr, comment='', map_out=[]):
         self.cmd = cmd.format(**get.format)
         # fix output_template args in test cases where they are double brackets 
         # TODO fix this so that double brackets aren't required
@@ -98,17 +98,15 @@ class test_case:
         expected results, False otherwise.
         """
         #start by mapping out all text colors/styles
-        map_out = [ {r'\x1b[^m]*m' : ''} ]
+        map_out = [ { 'regex' : re.compile(r'\x1b[^m]*m'), 'sub' : ''} ]
 
         map_out.extend(self.map_out)
-        for d in map_out:
-            for regex, sub in d.items():
-                None
-            rec = re.compile(regex)
-            self.cmd_results.stdout = rec.sub(sub, self.cmd_results.stdout)
-            self.cmd_results.stderr = rec.sub(sub, self.cmd_results.stderr)
-            self.stdout = rec.sub(sub, self.stdout)
-            self.stderr = rec.sub(sub, self.stderr)
+        for mo in map_out:
+            regex = mo['regex']
+            self.cmd_results.stdout = regex.sub(mo['sub'], self.cmd_results.stdout)
+            self.cmd_results.stderr = regex.sub(mo['sub'], self.cmd_results.stderr)
+            self.stdout = regex.sub(mo['sub'], self.stdout)
+            self.stderr = regex.sub(mo['sub'], self.stderr)
 
         self.stdout = self.stdout.strip()
         self.stderr = self.stderr.strip()

@@ -1,4 +1,4 @@
-map_out = [ {r'\"[a-z_]*\":\s*"""[^:}]*"""' : '"<key>": "<value>"'} ]
+map_out = [ { 'regex' : re.compile(r'\"[a-z_]*\":\s*"""[^:}]*"""'), 'sub' : '"<key>": "<value>"'} ]
 
 test_cases = [
     test_case(

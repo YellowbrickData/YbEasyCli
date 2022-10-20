@@ -15,5 +15,5 @@ DROP TABLE"""
         , exit_code=(0 if Common.is_windows else 1)
         , stdout=''
         , stderr=''
-        , map_out = [ {r'.*' : ''} ] )
+        , map_out = [ { 'regex' : re.compile(r'.*'), 'sub' : ''} ] )
 ]
