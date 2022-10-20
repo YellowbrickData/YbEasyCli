@@ -99,6 +99,7 @@ See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/5.2/adminis
 -   **[yb_sysprocs_table_skew](./yb_sysprocs_table_skew.py):** Table skew report.
 -   **[yb_sysprocs_wlm_active_profile](./yb_sysprocs_wlm_active_profile.py):** Returns current active WLM profile configuration details by pool.
 -   **[yb_sysprocs_wlm_active_rule](./yb_sysprocs_wlm_active_rule.py):** Current active WLM profile rules.
+-   **[yb_sysprocs_wlm_profile_rule](./yb_sysprocs_wlm_profile_rule.py):** Current active or named WLM detailed profile rules.
 -   **[yb_sysprocs_wlm_state](./yb_sysprocs_wlm_state.py):** Returns current active WLM profile state metrics by pool.
 -   **[yb_to_yb_copy_table](./yb_to_yb_copy_table.py):** Copy a table from a source cluster to a destination cluster.
 -   **[yb_wl_profiler_heatmap](./yb_wl_profiler_heatmap.py):** Creates a 35 day Excel heatmap of Work Loads on a Yellowbrick Cluster.
