@@ -27,11 +27,11 @@ class create_objects:
     def __init__(self):
         args_handler = self.init_args()
         args_handler.args.conn_db = 'yellowbrick'
-        DBConn = DBConnect(args_handler)
+        self.su_conn = DBConnect(args_handler)
 
-        if (not(DBConn.ybdb['is_super_user'])
-           and not(DBConn.ybdb['has_create_user']
-                and DBConn.ybdb['has_create_db'])):
+        if (not(self.su_conn.ybdb['is_super_user'])
+           and not(self.su_conn.ybdb['has_create_user']
+                and self.su_conn.ybdb['has_create_db'])):
             Common.error('You must login as a user with create database/'
                 'user permission to create all the required test database objects...')
 
@@ -39,11 +39,11 @@ class create_objects:
         config = configparser.ConfigParser()
         config.read(configFilePath)
 
-        section = '%s_%s' % ('test', DBConn.env['host'])
+        section = '%s_%s' % ('test', self.su_conn.env['host'])
         if config.has_section(section):
             Common.error("A test environment has already been set up for '%s',"
                 " first run test_drop_host_objects.py to clean up the old host objects or cleanup '%s'..."
-                    % (DBConn.env['host'], configFilePath), color='yellow')
+                    % (self.su_conn.env['host'], configFilePath), color='yellow')
 
         print('\nThe util testing framework requires a test user and 2 test databases.\n'
             "The test user may be an existing user, if the user doesn't exist it will be created.\n"
@@ -65,20 +65,20 @@ class create_objects:
                 config.set(section, 'password', test_pwd)
                 break
 
-        cmd_results = DBConn.ybsql_query("""SELECT TRUE FROM sys.user WHERE name = '%s'""" % (test_user))
+        cmd_results = self.su_conn.ybsql_query("""SELECT TRUE FROM sys.user WHERE name = '%s'""" % (test_user))
         if cmd_results.stdout.strip() == 't':
             # exits on failed connection
-            self.get_db_conn(test_user, test_pwd, DBConn.env['conn_db'], DBConn.env['host'])
-            #test_user_DBConn = self.get_DBConn(test_user, test_pwd
-            #    , DBConn.env['conn_db'], DBConn.env['host'], on_fail_exit=False)
+            self.get_db_conn(test_user, test_pwd, self.su_conn.env['conn_db'], self.su_conn.env['host'])
+            #test_user_self.su_conn = self.get_DBConn(test_user, test_pwd
+            #    , self.su_conn.env['conn_db'], self.su_conn.env['host'], on_fail_exit=False)
         else:
-            cmd_results = DBConn.ybsql_query("""CREATE USER %s PASSWORD '%s'"""
+            cmd_results = self.su_conn.ybsql_query("""CREATE USER %s PASSWORD '%s'"""
                 % (test_user, test_pwd))
             cmd_results.on_error_exit()
             print("\nCreated database user '%s'..." % Text.color(test_user, 'cyan'))
 
             self.test_user_login(test_user, test_pwd
-                , DBConn.env['conn_db'], DBConn.env['host'])
+                , self.su_conn.env['conn_db'], self.su_conn.env['host'])
 
         while True:
             test_db_prefix = input("\n    Supply the database prefix for the 2 test dbs: ")
@@ -90,8 +90,8 @@ class create_objects:
                 break
 
         yb6_acls = ''
-        if DBConn.ybdb['version_major'] >= 6:
-            cmd_results = DBConn.ybsql_query(
+        if self.su_conn.ybdb['version_major'] >= 6:
+            cmd_results = self.su_conn.ybsql_query(
                 """SELECT 'GRANT USAGE ON CLUSTER "' || cluster_name || '" TO "{user}";'::VARCHAR(256) FROM sys.cluster
 UNION ALL
 SELECT 'ALTER USER "{user}" SET DEFAULT_CLUSTER "' || cluster_name || '";' FROM sys.cluster WHERE is_default_cluster
@@ -99,7 +99,7 @@ ORDER BY 1 DESC""".format(user = test_user))
             cmd_results.on_error_exit()
             yb6_acls = cmd_results.stdout
 
-        cmd_results = DBConn.ybsql_query(
+        cmd_results = self.su_conn.ybsql_query(
             "CREATE DATABASE {db1} ENCODING=LATIN9; CREATE DATABASE {db2} ENCODING=UTF8;"
             " ALTER DATABASE {db1} OWNER TO {user};"
             " ALTER DATABASE {db2} OWNER TO {user};"
@@ -117,7 +117,7 @@ ORDER BY 1 DESC""".format(user = test_user))
         os.chmod(configFilePath, stat.S_IREAD | stat.S_IWRITE)
 
         self.config = config
-        self.host = DBConn.env['host']
+        self.host = self.su_conn.env['host']
         self.section = section
 
         self.create_db_objects()
@@ -455,6 +455,7 @@ END;$CODE$
         for query in queries_create_objects_db1:
             print(query)
             cmd_results = db1_conn.ybsql_query(query)
+            cmd_results.on_error_exit()
 
         print("\nCreating '%s' database objects..." % Text.color(self.config.get(self.section, 'db2'), 'cyan'))
         for query in queries_create_objects_db2:
@@ -465,6 +466,13 @@ END;$CODE$
         for query in queries_upfront_db1_drops:
             print(query)
             cmd_results = db1_conn.ybsql_query(query)
+            cmd_results.on_error_exit()
 
+        print("\nCreating '%s' database objects..." % Text.color('sysviews', 'cyan'))
+        os.chdir('../sql/sysviews_yb%d' % (5 if db1_conn.ybdb['version_major'] >= 5 else 4) )
+        sql = ('DROP DATABASE IF EXISTS sysviews;\n%s\n%s'
+            % (Common.read_file('sysviews_create.sql'), (Common.read_file('sysviews_grant.sql')) ) ).replace('\\q', '')
+        cmd_results = self.su_conn.ybsql_query(sql)
+        cmd_results.on_error_exit()
 
 create_objects()

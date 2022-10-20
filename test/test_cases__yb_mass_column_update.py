@@ -1,7 +1,7 @@
 test_cases = [
     test_case(
         cmd=(
-            """yb_mass_column_update.py @{argsdir}/db1 --datatype_like 'CHAR%%' """
+            """yb_mass_column_update.py @{argsdir}/db1 --schema_in dev Prod --datatype_like 'CHAR%%' """
             """--update_where_clause "INSTR(<column>, 'a') > 0" """
             """--set_clause "REPLACE(<column>, 'a', '')" """)
         , exit_code=0
@@ -15,7 +15,7 @@ test_cases = [
 
     , test_case(
         cmd=(
-            """yb_mass_column_update.py @{argsdir}/db1 --datatype_like 'CHAR%%' """
+            """yb_mass_column_update.py @{argsdir}/db1 --schema_in dev Prod --datatype_like 'CHAR%%' """
             """--update_where_clause "INSTR(<column>, 'a') > 0" """
             """--set_clause "REPLACE(<column>, 'a', '')" """
             """--pre_sql 'BEGIN WORK;' --post_sql 'ROLLBACK WORK;' --exec_updates""")

@@ -51,7 +51,8 @@ class test_case:
             cmd = '%s %s' % (args.python_exe, cmd)
 
         section = 'test_%s' % args.host
-        os.environ['YBPASSWORD'] = config.get(section, 'password')
+
+        os.environ.pop('YBPASSWORD', None)
 
         if Common.is_windows:
             # in Windows the file argument @file_name needs to be placed in single quotes

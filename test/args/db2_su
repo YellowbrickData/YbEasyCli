@@ -1,0 +1,3 @@
+-h {host}
+-U yellowbrick
+-d {db2}
