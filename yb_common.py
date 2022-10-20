@@ -38,7 +38,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20221015'
+    version = '20221020'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -1184,9 +1184,11 @@ class DBConnect:
             ybpassfile = os.environ.get("YBPASSFILE")
             if not ybpassfile:
                 if Common.is_windows:
-                    ybpassfile = os.path.expandvars('%APPDATA%\postgresql\pgpass.conf')
+                    ybpassfile = os.path.expandvars('%APPDATA%\yellowbrick\ybpass.conf')
+                    #ybpassfile = os.path.expandvars('%APPDATA%\postgres\pgpass.conf')
                 else:
                     ybpassfile = '%s/.ybpass' % os.path.expanduser('~')
+                    #ybpassfile = '%s/.pgpass' % os.path.expanduser('~')
 
             test_ybpassfile = os.access(ybpassfile, os.R_OK)
 
@@ -1679,12 +1681,13 @@ DECLARE
         return(self.new_table_name, anonymous_block)
 
 class Report:
-    def __init__(self, args_handler, db_conn, columns, query, pre_sql='', strip_warnings=[]):
-        self.args_handler = args_handler
-        self.db_conn = db_conn
-        self.columns = columns
-        self.query = query
-        self.pre_sql = pre_sql
+    def __init__(self, args_handler, db_conn, columns, query, order_by='', pre_sql='', strip_warnings=[]):
+        self.args_handler   = args_handler
+        self.db_conn        = db_conn
+        self.columns        = columns
+        self.query          = query
+        self.order_by       = order_by
+        self.pre_sql        = pre_sql
         self.strip_warnings = strip_warnings
 
     @staticmethod
@@ -1770,8 +1773,9 @@ report_data AS (
 )
 SELECT
     {at}{columns}
-FROM report_data""".format(
+FROM report_data {order_by}""".format(
             query=self.query
+            , order_by=(('\nORDER BY %s' % self.order_by) if self.order_by != '' else '')
             , at=('LOCALTIMESTAMP AS "at", ' if args.report_add_ts_column else '')
             , columns=('\n    , '.join(map(Common.qa, self.columns))) )
 
