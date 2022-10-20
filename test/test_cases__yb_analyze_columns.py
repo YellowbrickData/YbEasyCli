@@ -17,7 +17,7 @@ Is Unique              : FALSE
         , stderr=''
         , map_out=[ {r'-{10,300}' : ''} ] )
  
-    , test_case(cmd="yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_like 'col1%' --output_format 1 --level 1"
+    , test_case(cmd="yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_like 'col1%s' --output_format 1 --level 1" % ('%%' if Common.is_windows else '%')
         , exit_code=0
         , stdout="""-- Running column analysis.
 database    column                    table  data                         is          bytes
@@ -41,7 +41,7 @@ database    column                    table  data                         is    
 -- Completed column analysis."""
         , stderr='')
   
-    , test_case(cmd="yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_like 'col1%' --output_format 2 --level 2"
+    , test_case(cmd="yb_analyze_columns.py @{argsdir}/db1 --table data_types_t --schema_in dev --column_like 'col1%s' --output_format 2 --level 2" % ('%%' if Common.is_windows else '%')
         , exit_code=0
         , stdout=("""-- Running column analysis.
 database|column|table_order|data_type|is_1null_2dist_3sort_4clust_5part|bytes_max|count_rows|count_nulls|count_distinct|char_bytes_min|char_bytes_max|char_bytes_avg|char_bytes_total|max_len_int|max_len_frac|is_uniq
