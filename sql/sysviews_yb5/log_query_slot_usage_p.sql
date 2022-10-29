@@ -68,10 +68,12 @@ CREATE TABLE log_query_slot_usage_t (
 /* ****************************************************************************
 ** Create the procedure.
 */
-CREATE OR REPLACE PROCEDURE log_query_slot_usage_p(
-    _non_su      VARCHAR 
-    , _from_date DATE DEFAULT NULL
-    , _days      INT DEFAULT 30)
+CREATE OR REPLACE PROCEDURE log_query_slot_usage2_p(
+    _non_su         VARCHAR 
+    , _from_date    DATE DEFAULT NULL
+    , _days         INT DEFAULT 30
+    , _days_of_week VARCHAR DEFAULT NULL
+    , _hours_of_day VARCHAR DEFAULT NULL)
     RETURNS SETOF log_query_slot_usage_t
     LANGUAGE 'plpgsql' 
     VOLATILE
@@ -82,23 +84,24 @@ DECLARE
     _end_date DATE := _start_date + _days;
     _total_secs INT := 60 * 60 * 24 * _days;
     _rec RECORD;
+    _ts VARCHAR(15);
     --
     _sql TEXT;
     _fn_name   VARCHAR(256) := 'column_stats_p';
-    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
+    _prev_tags VARCHAR(256) := CURRENT_SETTING('ybd_query_tags');
     _tags VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;      
 BEGIN
     --RAISE INFO '_start_date: %' , _start_date;
     --RAISE INFO '_end_date: %' , _end_date;
     --RAISE INFO '_total_secs: %' , _total_secs;
     _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-    EXECUTE _sql ;    
+    EXECUTE _sql ;
+    --
+    SELECT TO_CHAR(CURRENT_TIMESTAMP, 'YYYYMMDD_HH24MISS') INTO _ts;
     --
     EXECUTE 'SET SESSION AUTHORIZATION ' || _non_su;
     --
-    DROP TABLE IF EXISTS cnt;
-    --
-    CREATE TEMP TABLE cnt AS
+    _sql := REPLACE($$CREATE TEMP TABLE cnt_{ts} AS
     WITH
     min_worker_lid AS (
         SELECT
@@ -111,61 +114,72 @@ BEGIN
     FROM
         sys.rowgenerator AS r
     WHERE
-        range BETWEEN 1 AND _total_secs
+        range BETWEEN 1 AND $1
         AND worker_lid = (SELECT min_worker_lid FROM min_worker_lid)
     ORDER BY 1
     DISTRIBUTE REPLICATE
-    SORT ON (cnt);
+    SORT ON (cnt)$$, '{ts}', _ts);
+    EXECUTE _sql USING _total_secs;
     --
-    DROP TABLE IF EXISTS secs;
+    _sql := '';
+    IF _days_of_week IS NOT NULL AND _days_of_week != ''THEN
+        _sql := _sql || $$ AND EXTRACT('DOW' FROM sec_ts) IN ($$ || _days_of_week || ')';
+    END IF;
+    IF _hours_of_day IS NOT NULL AND _hours_of_day != '' THEN
+        _sql := _sql || $$ AND EXTRACT('HOUR' FROM sec_ts) IN ($$ || _hours_of_day || ')';
+    END IF;
     --
-    CREATE TEMP TABLE secs AS
+    _sql := REPLACE(REPLACE($$CREATE TEMP TABLE secs_{ts} AS
     WITH
-    start_end_dates AS (
+    secs AS (
         SELECT
-            -- I don't know why but if I change the following 2 lines to
-            -- _end_date AS end_date, _start_date AS start_date
-            -- performance in the fallowing FOR LOOP gets very bad
-            DATE_TRUNC('SECONDS', _start_date) AS start_date
-            , DATE_TRUNC('SECONDS', _end_date) AS end_date
-    )
-    , secs AS (
-        SELECT
-            start_date + (INTERVAL '1' SECOND * (cnt -1)) AS sec_ts
+            $1 + (INTERVAL '1' SECOND * (cnt -1)) AS sec_ts
+            , EXTRACT('EPOCH' FROM sec_ts)*1000000::BIGINT AS sec_epoch
             , sec_ts::DATE AS sec_date
             , EXTRACT('HOUR' FROM sec_ts) AS sec_hr
             , EXTRACT('MINUTE' FROM sec_ts) AS sec_mi
         FROM
-            cnt
-            CROSS JOIN start_end_dates
-        WHERE
-            start_date <= sec_ts AND sec_ts <= end_date
+            cnt_{ts}
     )
-    SELECT sec_ts, sec_date, sec_hr, sec_mi FROM secs
+    SELECT sec_ts, sec_epoch, sec_date, sec_hr, sec_mi
+    FROM secs
+    WHERE TRUE{where_clause}
     ORDER BY 1
     DISTRIBUTE REPLICATE
-    SORT ON (sec_ts);
+    SORT ON (sec_ts)$$, '{ts}', _ts), '{where_clause}', _sql);
+    EXECUTE _sql USING _start_date;
+    --RAISE INFO '_start_date: %' , _sql;
     --
-    DROP TABLE IF EXISTS pool_per_sec;
+    EXECUTE REPLACE('SELECT COUNT(*) FROM secs_{ts}', '{ts}', _ts) INTO _total_secs;
     --
-    CREATE TEMP TABLE pool_per_sec AS
+    _sql := REPLACE($$CREATE TEMP TABLE pool_per_sec_{ts} AS
     SELECT
         pool_id
         , NULL::TIMESTAMP AS sec_ts
         , NULL::BIGINT AS slots
     FROM sys.log_query
     WHERE FALSE
-    DISTRIBUTE RANDOM;
+    DISTRIBUTE RANDOM$$, '{ts}', _ts);
+    EXECUTE _sql;
     --
-    FOR _rec IN SELECT sec_ts::DATE AS dt FROM secs GROUP BY 1 ORDER BY 1
+    _sql := REPLACE($$CREATE TEMP TABLE q_{ts} AS
+        SELECT
+            pool_id, query_id, submit_time, done_time
+            , done_time AS adj_done_time, submit_time AS adj_submit_time
+            , NULL::BIGINT AS adj_done_epoch
+            , NULL::BIGINT AS adj_submit_epoch
+        FROM sys.log_query WHERE FALSE$$, '{ts}', _ts);
+    EXECUTE _sql;
+    --
+    EXECUTE 'ALTER TABLE q_' || _ts || ' OWNER TO ' || _non_su; 
+    --
+    FOR _rec IN EXECUTE REPLACE('SELECT sec_ts::DATE AS dt FROM secs_{ts} GROUP BY 1 ORDER BY 1', '{ts}', _ts)
     LOOP
         --RAISE INFO 'dt ====> %', _rec.dt;
         --
-        DROP TABLE IF EXISTS q;
-        --
         RESET SESSION AUTHORIZATION;
         --
-        CREATE TEMP TABLE q AS
+        _sql := REPLACE($$INSERT INTO q_{ts}
         SELECT
             pool_id, query_id
             , submit_time, done_time
@@ -179,34 +193,36 @@ BEGIN
             , (adj_done_time - ((INTERVAL '1 USECONDS')
                * (NVL(run_ms, 0.0) * 1000)
                ) ) AS adj_submit_time
+            , EXTRACT('EPOCH' FROM adj_done_time)*1000000 AS adj_done_epoch
+            , EXTRACT('EPOCH' FROM adj_submit_time)*1000000 AS adj_submit_epoch
         FROM
             sys.log_query
         WHERE
             pool_id IS NOT NULL
-            AND adj_submit_time < _rec.dt + 1 AND adj_done_time >= _rec.dt
-        DISTRIBUTE RANDOM;
-        --
-        EXECUTE 'ALTER TABLE q OWNER TO ' || _non_su; 
+            AND adj_submit_time < $1 + 1 AND adj_done_time >= $1 $$, '{ts}', _ts);
+        EXECUTE _sql USING _rec.dt;
         --
         EXECUTE 'SET SESSION AUTHORIZATION ' || _non_su;
         --
-        INSERT INTO pool_per_sec
-        WITH
-        s AS (
-            SELECT * FROM secs
-            WHERE sec_ts BETWEEN _rec.dt AND _rec.dt + 1
-        )
+        _sql := REPLACE($$INSERT INTO pool_per_sec_{ts}
         SELECT
             pool_id, sec_ts, COUNT(*) AS slots 
         FROM
-            s
-            JOIN q
-                ON adj_submit_time < sec_ts AND adj_done_time >= sec_ts
-        GROUP BY 1, 2;
+            secs_{ts}
+            JOIN q_{ts}
+                ON adj_submit_epoch < sec_epoch AND adj_done_epoch >= sec_epoch
+        WHERE
+            sec_ts BETWEEN $1 AND $1 + 1
+        GROUP BY 1, 2$$, '{ts}', _ts);
+        EXECUTE _sql USING _rec.dt;
+        --
+        EXECUTE 'DELETE FROM q_' || _ts;
         --
     END LOOP;
     --
-    DROP TABLE IF EXISTS wlm_acts;
+    EXECUTE REPLACE($$CREATE TEMP TABLE wlm_acts_{ts}
+    AS SELECT NULL::VARCHAR AS pool_id, NULL::TIMESTAMP AS act_start, NULL::TIMESTAMP AS act_end, NULL::BIGINT AS slots
+    WHERE FALSE DISTRIBUTE REPLICATE$$, '{ts}', _ts);
     --
     FOR _rec IN
         SELECT
@@ -218,35 +234,35 @@ BEGIN
         WHERE activated IS NOT NULL
         ORDER BY 1, activated
     LOOP
-        CREATE TEMP TABLE IF NOT EXISTS wlm_acts AS SELECT _rec.pool_id::VARCHAR, _rec.act_start, _rec.act_end, _rec.slots WHERE FALSE DISTRIBUTE REPLICATE;
-        INSERT INTO wlm_acts VALUES (_rec.pool_id::VARCHAR, _rec.act_start, _rec.act_end, _rec.slots);
+        _sql := REPLACE($$INSERT INTO wlm_acts_{ts}
+        VALUES ($1, $2, $3, $4)$$, '{ts}', _ts);
+        EXECUTE _sql USING _rec.pool_id::VARCHAR, _rec.act_start, _rec.act_end, _rec.slots;
     END LOOP;
     --
-    DELETE 
-    FROM pool_per_sec AS ps
-    USING wlm_acts AS act
+    _sql := REPLACE($$DELETE
+    FROM pool_per_sec_{ts} AS ps
+    USING wlm_acts_{ts} AS act
     WHERE ps.pool_id = act.pool_id
         AND ps.sec_ts BETWEEN act.act_start AND act.act_end
-        AND ps.slots > act.slots;
+        AND ps.slots > act.slots$$, '{ts}', _ts);
+    EXECUTE _sql;
     --
-    DROP TABLE IF EXISTS log_query_slot_usage;
-    --
-    CREATE TEMP TABLE log_query_slot_usage AS
+    _sql := REPLACE($$CREATE TEMP TABLE log_query_slot_usage_{ts} AS
     WITH
     sm AS (
         SELECT
             pool_id, slots
             , COUNT(*) AS secs
-            , ROUND((COUNT(*) / (_total_secs * 1.0)) * 100.0, 2) AS secs_pct
+            , ROUND((COUNT(*) / ($1 * 1.0)) * 100.0, 2) AS secs_pct
             , MIN(sec_ts) AS min_sec_ts
             , MAX(sec_ts) AS max_sec_ts
-        FROM pool_per_sec
+        FROM pool_per_sec_{ts}
         GROUP BY 1, 2
     )
         SELECT
             pool_id
             , 0 AS slots
-            , _total_secs - SUM(secs) AS secs
+            , $1 - SUM(secs) AS secs
             , ROUND(100.0 - SUM(secs_pct), 2) AS secs_pct
             , MIN(min_sec_ts) AS min_sec_ts
             , MAX(max_sec_ts) AS max_sec_ts
@@ -254,11 +270,12 @@ BEGIN
             sm
         GROUP BY pool_id
     UNION all
-        SELECT * FROM sm;
+        SELECT * FROM sm$$, '{ts}', _ts);
+    EXECUTE _sql USING _total_secs;
     --
     RESET SESSION AUTHORIZATION;
-    --    
-    RETURN QUERY EXECUTE 'SELECT * FROM log_query_slot_usage ORDER BY 1, 2';
+    --
+    RETURN QUERY EXECUTE 'SELECT * FROM log_query_slot_usage_' || _ts || ' ORDER BY 1, 2';
     --
     /* Reset ybd_query_tags back to its previous value
     */
@@ -274,11 +291,20 @@ Examples:
   SELECT * FROM log_query_slot_usage_p('dze');
 
 Arguments:
-. _non_su    - the utility must be run by a super user and requires a non-super user to execute
-                    without running into out of memory or spill issues
-. _from_date - the date to start analyzing data on, defaults to 30 days before NOW
-. _days      - the number of days of data to analyze, defaults to 30 days
-
+. _non_su       - the utility must be run by a super user and requires a non-super user to execute
+                   without running into out of memory or spill issues
+. _from_date    - the date to start analyzing data on, defaults to 30 days before NOW
+. _days         - the number of days of data to analyze, defaults to 30 days
+. _days_of_week - days of the week to report on as a string of 0 to 6 numbers comma seperated, like
+                  '1,2,3,4,5', where 0 is Sunday, 1 is Monday, ..., 6 is Sunday, defaults to all days
+. _hours_of_day - hours of the day to report on as a string of 0 to 23 numbers comma seperated, like
+                  '9,10,11', defaults to all hours
 Revision:
 $$
 ;
+
+    _non_su         VARCHAR 
+    , _from_date    DATE DEFAULT NULL
+    , _days         INT DEFAULT 30
+    , _days_of_week VARCHAR DEFAULT NULL
+    , _hours_of_day VARCHAR DEFAULT NULL)
