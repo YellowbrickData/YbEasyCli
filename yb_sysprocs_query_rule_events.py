@@ -49,7 +49,7 @@ class report_query_rule_events(SPReportUtil):
             "--rule_type",  choices=('compile', 'completion', 'prepare', 'runtime', 'submit')
             , nargs="+", default=None, help="rule types to report, defaults to all rule types")
         args_log_query_grp.add_argument(
-            "--event_type",  choices=('disabled', 'error', 'ignore', 'info', 'move', 'set', 'timeout', 'warn')
+            "--event_type",  choices=('debug', 'disabled', 'error', 'ignore', 'info', 'move', 'restart', 'set', 'throttle', 'timeout', 'warn')
             , nargs="+", default=None, help="rule event types to report, defaults to all rule event types")
         args_log_query_grp.add_argument(
             "--print_query", action="store_true", help="print the SQL for the query, defaults to False")
