@@ -26,7 +26,7 @@ class SPReportUtil(Util):
 
         self.select_columns = ', '.join(Common.qa(self.config['report_columns']))
         self.db_filter_args.schema_set_all_if_none()
-        self.order_by_clause = (' ORDER BY %s' % self.args_handler.args.report_order_by
+        self.order_by_clause = (self.args_handler.args.report_order_by
             if self.args_handler.args.report_order_by != ''
             else '')
 
@@ -35,13 +35,15 @@ class SPReportUtil(Util):
 
         where_clause = ((' WHERE %s' % where_clause) if where_clause else '')
 
-        report_query = ('SELECT %s FROM %s%s%s'
-            % (self.select_columns, new_table_name, where_clause, self.order_by_clause) )
+        report_query = ('SELECT %s FROM %s%s'
+            % (self.select_columns, new_table_name, where_clause) )
 
         return Report(
             self.args_handler, self.db_conn
             , self.config['report_columns']
-            , report_query, pre_sql = anonymous_pl
+            , report_query
+            , pre_sql=anonymous_pl
+            , order_by=self.order_by_clause
             , strip_warnings=self.strip_warnings).build(is_source_cstore=True)
 
     def get_create_table(self):
@@ -76,13 +78,12 @@ class SPReportUtil(Util):
         args_clause = self.sp.input_args_to_args_clause(args, is_declare=False)
         where_clause = ((' WHERE %s' % where_clause) if where_clause else '')
 
-        report_query = ('SELECT {at}{columns} FROM {proc}({args}){where}{order_by}'.format(
+        report_query = ('SELECT {at}{columns} FROM {proc}({args}){where}'.format(
             at=('LOCALTIMESTAMP AS "at", ' if self.args_handler.args.report_add_ts_column else '')
             , columns=self.select_columns
             , proc=self.sp.proc_name
             , args=args_clause
-            , where=where_clause
-            , order_by=self.order_by_clause) )
+            , where=where_clause) )
 
         report_type = self.args_handler.args.report_type
         if report_type in ('ctas', 'insert'):
@@ -92,6 +93,7 @@ class SPReportUtil(Util):
             self.args_handler, self.db_conn
             , self.config['report_columns']
             , report_query
+            , order_by=self.order_by_clause
             , strip_warnings=self.strip_warnings).build()
         self.db_conn.env['conn_db'] = pre_conn_db
 
