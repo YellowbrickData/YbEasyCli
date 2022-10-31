@@ -38,7 +38,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20221029'
+    version = '20221030'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -1114,6 +1114,7 @@ class DBConnect:
         self.env = {'pwd':None}
         self.env_set_by = {}
         self.env_args = {}
+        self.on_manager_node = (os.environ.get("USER") == 'ybdadmin')
 
         if args_handler:
             for conn_arg in self.conn_args.keys():
@@ -1147,7 +1148,7 @@ class DBConnect:
             #TODO either args or env should be defined otherwise throw an error
             None
 
-        if not self.env['host']:
+        if not self.env['host'] and not self.on_manager_node:
             args_handler.args_parser.error("the host database server must "
                 "be set using the YBHOST environment variable or with "
                 "the argument: --%shost" % arg_conn_prefix)
@@ -1157,7 +1158,7 @@ class DBConnect:
                 or os.environ.get("USER") #Linux
                 or os.environ.get("USERNAME") ) #Windows
 
-            if user:
+            if user and user != 'ybdadmin':
                 ybpass_pwd = self.get_ybpass(self.env, user)
 
                 if pwd_required or (self.env_pre['pwd'] is None and ybpass_pwd is None):
@@ -1357,9 +1358,9 @@ WHERE rolname = CURRENT_USER""")
         # default timeout is 75 seconds changing it to self.connect_timeout
         #   'host=<host>' string is required first to set command line connect_timeout
         #   see https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING
-        ybsql_cmd = "ybsql %s 'host=%s connect_timeout=%d'" % (
+        ybsql_cmd = "ybsql %s '%sconnect_timeout=%d'" % (
             options
-            , self.env['host']
+            , ('' if self.on_manager_node else ('host=%s ' % self.env['host']))
             , self.connect_timeout)
 
         if Common.is_windows:
