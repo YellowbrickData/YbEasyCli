@@ -29,7 +29,7 @@ class report_log_query_slot_usage(SPReportUtil):
             '\n  non-super DB user(--non_su) to perform analytic SQL queries.')
         , 'report_sp_location': 'sysviews'
         , 'report_default_order': 'pool_id|slots'
-        , 'usage_example_extra': {'cmd_line_args': "--non_su dze" } }
+        , 'usage_example_extra': {'cmd_line_args': "--non_su dze --days_of_week MO TU WE TH FR --hours_of_day 9 10 11 12 13 14 15 16" } }
 
     def additional_args(self):
         non_su_grp = self.args_handler.args_parser.add_argument_group(
