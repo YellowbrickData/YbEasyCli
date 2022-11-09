@@ -57,7 +57,7 @@ gbytes_minus_parity gbytes_total_uncmprs
     def execute(self):
         yb_util_filter = self.db_filter_sql()
         if self.args_handler.args.skew_pct_column:
-            yb_util_filter += '%s >= %f' % (
+            yb_util_filter += ' AND %s >= %f' % (
                 self.args_handler.args.skew_pct_column
                 , self.args_handler.args.skew_pct_min)
 

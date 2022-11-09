@@ -21,6 +21,7 @@ import sys
 import tempfile
 import time
 import traceback
+from distutils.spawn import find_executable
 from datetime import datetime, date
 from glob import glob
 from tabulate import tabulate
@@ -38,7 +39,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20221030'
+    version = '20221108'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -1114,7 +1115,7 @@ class DBConnect:
         self.env = {'pwd':None}
         self.env_set_by = {}
         self.env_args = {}
-        self.on_manager_node = (os.environ.get("USER") == 'ybdadmin')
+        self.on_manager_node = (find_executable('ybcli') is not None)
 
         if args_handler:
             for conn_arg in self.conn_args.keys():

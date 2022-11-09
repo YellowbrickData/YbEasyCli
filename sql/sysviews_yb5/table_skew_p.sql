@@ -219,7 +219,7 @@ clstr AS (
     SELECT
         trim( u.usename::varchar( 128 ) )                         AS owner
         , d.name                                                  AS database
-        , s.name                                                  AS schema
+        , NVL(s.name, '<temp table>')                             AS schema
         , t.table_id                                              AS table_id
         , t.name                                                  AS tablename
         , CASE
@@ -240,14 +240,14 @@ clstr AS (
         sys.table                     AS t
         INNER JOIN sys.database       AS d
             ON t.database_id = d.database_id
-        INNER JOIN schema             AS s
+        LEFT OUTER JOIN schema        AS s
             ON t.schema_id = s.schema_id
             AND d.name = s.database
         INNER JOIN pg_catalog.pg_user AS u
             ON t.owner_id = u.usesysid
     WHERE
        t.distribution != 'replicated'
-       AND schema NOT IN ('information_schema', 'pg_catalog', 'sys')
+       AND (schema NOT IN ('information_schema', 'pg_catalog', 'sys') OR schema IS NULL)
 )
 SELECT
     ti.*
