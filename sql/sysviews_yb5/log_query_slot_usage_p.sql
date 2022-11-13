@@ -91,34 +91,58 @@ DECLARE
     _prev_tags VARCHAR(256) := CURRENT_SETTING('ybd_query_tags');
     _tags VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;      
 BEGIN
-    --RAISE INFO '_start_date: %' , _start_date;
-    --RAISE INFO '_end_date: %' , _end_date;
-    --RAISE INFO '_total_secs: %' , _total_secs;
+    --RAISE INFO '_start_date: %' , _start_date; --DEBUG
+    --RAISE INFO '_end_date: %' , _end_date; --DEBUG
+    --RAISE INFO '_total_secs: %' , _total_secs; --DEBUG
     _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
     EXECUTE _sql ;
     --
     SELECT TO_CHAR(CURRENT_TIMESTAMP, 'YYYYMMDD_HH24MISS') INTO _ts;
+    --RAISE INFO '_ts: %' , _ts; --DEBUG
+    --
+    _sql := REPLACE($$CREATE TEMP TABLE sys_log_query_{ts} AS
+        SELECT
+            pool_id, query_id
+            , submit_time, done_time
+            , client_ms, run_ms
+            , (done_time - ((INTERVAL '1 USECONDS')
+               * ((NVL(client_ms, 0.0) /* + wait_client_ms*/) * 1000)
+               ) ) AS adj_done_time
+            , (adj_done_time - ((INTERVAL '1 USECONDS')
+               * (NVL(run_ms, 0.0) * 1000)
+               ) ) AS adj_submit_time
+            , (EXTRACT('EPOCH' FROM adj_done_time)*1000000)::BIGINT AS adj_done_epoch
+            , (EXTRACT('EPOCH' FROM adj_submit_time)*1000000)::BIGINT AS adj_submit_epoch
+        FROM
+            sys.log_query
+        WHERE
+            pool_id IS NOT NULL AND TRIM(pool_id) <> ''
+        DISTRIBUTE RANDOM
+        SORT ON (submit_time) $$, '{ts}', _ts);
+    EXECUTE _sql;
+    --
+    EXECUTE 'ALTER TABLE sys_log_query_' || _ts || ' OWNER TO ' || _non_su;
     --
     EXECUTE 'SET SESSION AUTHORIZATION ' || _non_su;
     --
     _sql := REPLACE($$CREATE TEMP TABLE cnt_{ts} AS
-    WITH
-    min_worker_lid AS (
+        WITH
+        min_worker_lid AS (
+            SELECT
+                MIN(worker_lid) AS min_worker_lid
+            FROM sys.rowgenerator
+            WHERE range BETWEEN 0 and 0
+        )
         SELECT
-            MIN(worker_lid) AS min_worker_lid
-        FROM sys.rowgenerator
-        WHERE range BETWEEN 0 and 0
-    )
-    SELECT
-        r.row_number + 1 AS cnt
-    FROM
-        sys.rowgenerator AS r
-    WHERE
-        range BETWEEN 1 AND $1
-        AND worker_lid = (SELECT min_worker_lid FROM min_worker_lid)
-    ORDER BY 1
-    DISTRIBUTE REPLICATE
-    SORT ON (cnt)$$, '{ts}', _ts);
+            r.row_number + 1 AS cnt
+        FROM
+            sys.rowgenerator AS r
+        WHERE
+            range BETWEEN 1 AND $1
+            AND worker_lid = (SELECT min_worker_lid FROM min_worker_lid)
+        ORDER BY 1
+        DISTRIBUTE REPLICATE
+        SORT ON (cnt)$$, '{ts}', _ts);
     EXECUTE _sql USING _total_secs;
     --
     _sql := '';
@@ -130,95 +154,75 @@ BEGIN
     END IF;
     --
     _sql := REPLACE(REPLACE($$CREATE TEMP TABLE secs_{ts} AS
-    WITH
-    secs AS (
-        SELECT
-            $1 + (INTERVAL '1' SECOND * (cnt -1)) AS sec_ts
-            , EXTRACT('EPOCH' FROM sec_ts)*1000000::BIGINT AS sec_epoch
-            , sec_ts::DATE AS sec_date
-            , EXTRACT('HOUR' FROM sec_ts) AS sec_hr
-            , EXTRACT('MINUTE' FROM sec_ts) AS sec_mi
-        FROM
-            cnt_{ts}
-    )
-    SELECT sec_ts, sec_epoch, sec_date, sec_hr, sec_mi
-    FROM secs
-    WHERE TRUE{where_clause}
-    ORDER BY 1
-    DISTRIBUTE REPLICATE
-    SORT ON (sec_ts)$$, '{ts}', _ts), '{where_clause}', _sql);
+        WITH
+        secs AS (
+            SELECT
+                $1 + (INTERVAL '1' SECOND * (cnt -1)) AS sec_ts
+                , (EXTRACT('EPOCH' FROM sec_ts)*1000000)::BIGINT AS sec_epoch
+                , sec_ts::DATE AS sec_date
+                , (EXTRACT('EPOCH' FROM sec_date)*1000000)::BIGINT AS sec_epoch_date
+                , (EXTRACT('EPOCH' FROM DATE_TRUNC('HOUR', sec_ts))*1000000)::BIGINT AS sec_epoch_hr
+                --, sec_ts::DATE AS sec_epoch_hr
+                --, sec_ts::DATE AS sec_date
+                , EXTRACT('HOUR' FROM sec_ts) AS sec_hr
+                , EXTRACT('MINUTE' FROM sec_ts) AS sec_mi
+            FROM
+                cnt_{ts}
+        )
+        SELECT sec_ts, sec_epoch, sec_epoch_date, sec_epoch_hr, sec_date, sec_hr, sec_mi
+        FROM secs
+        WHERE TRUE{where_clause}
+        ORDER BY 1
+        DISTRIBUTE ON (sec_epoch_hr)
+        SORT ON (sec_ts)$$, '{ts}', _ts), '{where_clause}', _sql);
     EXECUTE _sql USING _start_date;
-    --RAISE INFO '_start_date: %' , _sql;
     --
     EXECUTE REPLACE('SELECT COUNT(*) FROM secs_{ts}', '{ts}', _ts) INTO _total_secs;
+    --
+    _sql := REPLACE($$CREATE TEMP TABLE q_hr_{ts} AS 
+        WITH
+        epoch_hr AS (
+            SELECT
+                sec_epoch_hr AS epoch_hr_start
+                , (epoch_hr_start + 3599999999)::BIGINT AS epoch_hr_end
+            FROM secs_{ts} GROUP BY 1,2 ORDER BY 1
+        )
+        , q AS (
+        SELECT
+            q.*
+            , epoch_hr.epoch_hr_start AS epoch_hr
+        FROM
+            sys_log_query_{ts} AS q
+            JOIN epoch_hr
+                ON adj_submit_epoch <= epoch_hr_end AND adj_done_epoch >= epoch_hr_start
+        )
+        SELECT * FROM q
+        DISTRIBUTE ON (epoch_hr)
+        SORT ON (adj_submit_time)$$, '{ts}', _ts);
+    EXECUTE _sql;
+    --
+    _sql := REPLACE($$CREATE TEMP TABLE q_sec_{ts} AS
+        SELECT
+            pool_id, query_id, sec_ts, adj_submit_time, adj_done_time, epoch_hr
+        FROM
+            q_hr_{ts} AS q_hr
+            JOIN secs_{ts} AS s
+                ON s.sec_epoch_hr = q_hr.epoch_hr
+                AND s.sec_epoch BETWEEN q_hr.adj_submit_epoch AND q_hr.adj_done_epoch 
+        DISTRIBUTE ON (epoch_hr)
+        SORT ON (sec_ts)$$, '{ts}', _ts);
+    EXECUTE _sql;
     --
     _sql := REPLACE($$CREATE TEMP TABLE pool_per_sec_{ts} AS
     SELECT
         pool_id
-        , NULL::TIMESTAMP AS sec_ts
-        , NULL::BIGINT AS slots
-    FROM sys.log_query
-    WHERE FALSE
-    DISTRIBUTE RANDOM$$, '{ts}', _ts);
+        , sec_ts
+        , COUNT(*) AS slots
+    FROM q_sec_{ts}
+    GROUP BY 1, 2
+    DISTRIBUTE REPLICATE
+    SORT ON (sec_ts) $$, '{ts}', _ts);
     EXECUTE _sql;
-    --
-    _sql := REPLACE($$CREATE TEMP TABLE q_{ts} AS
-        SELECT
-            pool_id, query_id, submit_time, done_time
-            , done_time AS adj_done_time, submit_time AS adj_submit_time
-            , NULL::BIGINT AS adj_done_epoch
-            , NULL::BIGINT AS adj_submit_epoch
-        FROM sys.log_query WHERE FALSE$$, '{ts}', _ts);
-    EXECUTE _sql;
-    --
-    EXECUTE 'ALTER TABLE q_' || _ts || ' OWNER TO ' || _non_su; 
-    --
-    FOR _rec IN EXECUTE REPLACE('SELECT sec_ts::DATE AS dt FROM secs_{ts} GROUP BY 1 ORDER BY 1', '{ts}', _ts)
-    LOOP
-        --RAISE INFO 'dt ====> %', _rec.dt;
-        --
-        RESET SESSION AUTHORIZATION;
-        --
-        _sql := REPLACE($$INSERT INTO q_{ts}
-        SELECT
-            pool_id, query_id
-            , submit_time, done_time
-            --, DECODE(TRUE, num_restart > 0, restart_time
-            --   , (submit_time + ((INTERVAL '1 USECONDS')
-            --   * ((NVL(parse_ms, 0.0) /*+ wait_parse_ms + wait_lock_ms*/ + NVL(plan_ms, 0.0) + /*wait_plan_ms +*/ NVL(assemble_ms, 0.0) + /*wait_assemble_ms +*/ NVL(compile_ms, 0.0) + /*wait_compile_ms +*/ NVL(acquire_resources_ms, 0.0)) * 1000)
-            --   ) ) ) AS adj_submit_time
-            , (done_time - ((INTERVAL '1 USECONDS')
-               * ((NVL(client_ms, 0.0) /* + wait_client_ms*/) * 1000)
-               ) ) AS adj_done_time
-            , (adj_done_time - ((INTERVAL '1 USECONDS')
-               * (NVL(run_ms, 0.0) * 1000)
-               ) ) AS adj_submit_time
-            , EXTRACT('EPOCH' FROM adj_done_time)*1000000 AS adj_done_epoch
-            , EXTRACT('EPOCH' FROM adj_submit_time)*1000000 AS adj_submit_epoch
-        FROM
-            sys.log_query
-        WHERE
-            pool_id IS NOT NULL
-            AND adj_submit_time < $1 + 1 AND adj_done_time >= $1 $$, '{ts}', _ts);
-        EXECUTE _sql USING _rec.dt;
-        --
-        EXECUTE 'SET SESSION AUTHORIZATION ' || _non_su;
-        --
-        _sql := REPLACE($$INSERT INTO pool_per_sec_{ts}
-        SELECT
-            pool_id, sec_ts, COUNT(*) AS slots 
-        FROM
-            secs_{ts}
-            JOIN q_{ts}
-                ON adj_submit_epoch < sec_epoch AND adj_done_epoch >= sec_epoch
-        WHERE
-            sec_ts BETWEEN $1 AND $1 + 1
-        GROUP BY 1, 2$$, '{ts}', _ts);
-        EXECUTE _sql USING _rec.dt;
-        --
-        EXECUTE 'DELETE FROM q_' || _ts;
-        --
-    END LOOP;
     --
     EXECUTE REPLACE($$CREATE TEMP TABLE wlm_acts_{ts}
     AS SELECT NULL::VARCHAR AS pool_id, NULL::TIMESTAMP AS act_start, NULL::TIMESTAMP AS act_end, NULL::BIGINT AS slots
@@ -229,7 +233,7 @@ BEGIN
             name AS pool_id
             , activated AS act_start
             , NVL(deactivated, (CURRENT_DATE + 10)::TIMESTAMP) AS act_end
-            , max_concurrency AS slots  
+            , max_concurrency AS slots
         FROM sys.wlm_resource_pool
         WHERE activated IS NOT NULL
         ORDER BY 1, activated
@@ -264,8 +268,8 @@ BEGIN
             , 0 AS slots
             , $1 - SUM(secs) AS secs
             , ROUND(100.0 - SUM(secs_pct), 2) AS secs_pct
-            , MIN(min_sec_ts) AS min_sec_ts
-            , MAX(max_sec_ts) AS max_sec_ts
+            , NULL::TIMESTAMP AS min_sec_ts
+            , NULL::TIMESTAMP AS max_sec_ts
         FROM
             sm
         GROUP BY pool_id
@@ -302,9 +306,3 @@ Arguments:
 Revision:
 $$
 ;
-
-    _non_su         VARCHAR 
-    , _from_date    DATE DEFAULT NULL
-    , _days         INT DEFAULT 30
-    , _days_of_week VARCHAR DEFAULT NULL
-    , _hours_of_day VARCHAR DEFAULT NULL)
