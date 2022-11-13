@@ -167,9 +167,27 @@ class wl_profiler(Util):
             with open('wl_profiler_%s.csv' % (file_suffix)) as csv_file:
                 rows = []
                 csv_reader = csv.reader(csv_file, delimiter=',')
+  
+                # appending to spreadsheet in 10000 row batches
+                # 1 large append would fail
+                rowCt = 0
+                batchCt = 0
+                batchSize = 10000
+                rows = []
                 for row in csv_reader:
+                    rowCt += 1
                     rows.append(row)
-                sheet.range('A2').value = rows
+                    if rowCt == batchSize:
+                        insertCell = 'A%d' % ((batchCt * batchSize) + 2)
+                        sheet.range(insertCell).value = rows
+                        batchCt += 1
+                        rowCt = 0
+                        rows = []
+
+                if rowCt > 0:
+                    insertCell = 'A%d' % ((batchCt * batchSize) + 2)
+                    sheet.range(insertCell).value = rows
+
             csv_file.close()
         wb.save()
         if self.args_handler.args.close_workbook:

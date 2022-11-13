@@ -135,21 +135,35 @@ SELECT * FROM {new_table_name} ORDER BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,1
         print('--Excel may present dialogues, reply %s to all dialogues to complete log query pivot spreadsheet'
             % Text.color('positively', style='bold'))
 
-        rowCt = 0
-        rows = []
-        for line in self.report.split('\n'):
-            rowCt += 1
-            row = line.split('|')
-            if (len(row) > 1):
-                rows.append(row)
-
         import xlwings
         xl_already_running = len(xlwings.apps) > 0
         wb = xlwings.Book(filename)
         sheet = wb.sheets['WLM_PivotData']
 
         sheet.range('A2:AG10000').delete()
-        sheet.range('A2').value = rows
+
+        # appending to spreadsheet in 10000 row batches
+        # 1 large append would fail
+        rowCt = 0
+        batchCt = 0
+        batchSize = 10000
+        rows = []
+        for line in self.report.split('\n'):
+            row = line.split('|')
+            if (len(row) > 1):
+                rowCt += 1
+                rows.append(row)
+                if rowCt == batchSize:
+                    insertCell = 'A%d' % ((batchCt * batchSize) + 2)
+                    sheet.range(insertCell).value = rows
+                    batchCt += 1
+                    rowCt = 0
+                    rows = []
+
+        if rowCt > 0:
+            insertCell = 'A%d' % ((batchCt * batchSize) + 2)
+            sheet.range(insertCell).value = rows
+
 
         if Common.is_windows:
             wb.api.ActiveSheet.PivotTables('WorkloadPivot').RefreshTable()
