@@ -7,15 +7,10 @@ The spreadsheet will allow you to dynamically create heat maps by User, Applicat
 
 
 Preparing the Data
-Run the following SQL scripts to create the data used by the spreadsheet.
+Run the following SQL script to create the data used by the spreadsheet.
 The step4 SQL script creates 5 CSV files used to populate the spreadsheet.
 
-    ybsql -A -q -t -v ON_ERROR_STOP=1 -X -v owner=<non-super-user> -U yellowbrick -h <host> -d <db> -f step0_wl_profiler_drop_objects.sql
-    ybsql -A -q -t -v ON_ERROR_STOP=1 -X -v owner=<non-super-user> -U yellowbrick -h <host> -d <db> -f step1_wl_profiler_create_objects.sql
-    ybsql -A -q -t -v ON_ERROR_STOP=1 -X -v owner=<non-super-user> -U yellowbrick -h <host> -d <db> -f step2_wl_profiler_su_populate.sql
-    ybsql -A -q -t -v ON_ERROR_STOP=1 -X -v owner=<non-super-user> -U yellowbrick -h <host> -d <db> -f step3_wl_profiler_summarization.sql
-    ybsql -A -q -t -v ON_ERROR_STOP=1 -X -v owner=<non-super-user> -U yellowbrick -h <host> -d <db> -f step4_wl_profiler_create_csv_files.sql
-    ybsql -A -q -t -v ON_ERROR_STOP=1 -X -v owner=<non-super-user> -U yellowbrick -h <host> -d <db> -f step0_wl_profiler_drop_objects.sql
+    ybsql -A -q -t -v ON_ERROR_STOP=1 -X -v owner=<non-super-user> -U yellowbrick -h <host> -d <db> -f wl_profiler.sql
 
 
 Populate the Spreadsheet

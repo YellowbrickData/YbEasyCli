@@ -121,14 +121,16 @@ class wl_profiler(Util):
             self.args_handler.args_parser.error("--non_su '%s' must be a db non-super user..." % self.args_handler.args.non_su)
 
     def run_sql(self):
-        sql_scripts = [
+        sql_scripts = ([
             'step0_wl_profiler_drop_objects.sql'
             , 'step1_wl_profiler_create_objects.sql'
             , 'step2_wl_profiler_su_populate.sql'
             , 'step3_wl_profiler_populate.sql'
             , 'step4_wl_profiler_create_csv_files.sql' ]
+            if (self.wlp_version == 4)
+            else ['wl_profiler.sql'])
 
-        if self.args_handler.args.keep_db_objects:
+        if self.args_handler.args.keep_db_objects and self.wlp_version == 4:
             sql_scripts.append('step0_wl_profiler_drop_objects.sql')
 
         for script in sql_scripts:
