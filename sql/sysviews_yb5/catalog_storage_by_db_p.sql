@@ -168,7 +168,7 @@ Arguments:
 Notes:
 . The sys schema and pg_catalog.yb_deletes_pg_shdepend table are global and so
   are reported only under the yellowbrick database.
-. Sizesare pretty printed so are text, not numeric.
+. Sizes are "pretty printed" so are text, not numeric.
 
 Example Result:
 
