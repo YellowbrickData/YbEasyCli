@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2022.12.27 - Cosmetic update.
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.07.26 - Yellowbrick Technical Support 
 */
@@ -51,11 +52,13 @@ CREATE TABLE column_dstr_t
 /* ****************************************************************************
 ** Create the procedure.
 */
-CREATE OR REPLACE PROCEDURE column_dstr_p(  _db_name     VARCHAR
-                                          , _schema_name VARCHAR  
-                                          , _table_name  VARCHAR  
-                                          , _column_name VARCHAR
-                                          , _log_n       NUMERIC DEFAULT 10)
+CREATE OR REPLACE PROCEDURE column_dstr_p(  
+      _db_name     VARCHAR
+    , _schema_name VARCHAR  
+    , _table_name  VARCHAR  
+    , _column_name VARCHAR
+    , _log_n       NUMERIC DEFAULT 10
+   )
    RETURNS SETOF column_dstr_t 
    LANGUAGE 'plpgsql' 
    VOLATILE
@@ -78,11 +81,10 @@ DECLARE
                            ;
   
 BEGIN  
-   /* Txn read_only to protect against potential SQL injection attacks on sp that take args
-   SET TRANSACTION       READ ONLY;
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ;    
+
+   -- Prefix ybd_query_tags with the procedure name
+   EXECUTE 'SET ybd_query_tags  TO ' || quote_literal( _tags );
+   --PERFORM sql_inject_check_p('_yb_util_filter', _yb_util_filter);   
 
    _sql := 'SELECT 
       ' || quote_literal( _fqcn ) || '::VARCHAR(256)        AS fqcn
@@ -114,10 +116,8 @@ BEGIN
 
    RETURN QUERY EXECUTE _sql;
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ; 
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE  'SET ybd_query_tags  TO ' || quote_literal( _prev_tags );
    
 END;   
 $proc$
@@ -125,11 +125,11 @@ $proc$
 
    
 COMMENT ON FUNCTION column_dstr_p( VARCHAR, VARCHAR, VARCHAR, VARCHAR, NUMERIC ) IS 
-'Description:
+$cmnt$Description:
 Distribution of rows per distinct values for column grouped on a logarithmic scale 
 
-For example, if you had an "invoices" table "cust_id" column with 224 rows and only 
-4 cust_id values lie:
+For example, if you had an "invoices" table "cust_id" column with 224 rows unevenly 
+distributed across 4 cust_id values like:
 cust_id rows
 ------- ----
 1007       7
@@ -146,8 +146,8 @@ magnitude | rows_per | to | to_rows_per | distincts | max_rows | tot_rows
 
   
 Examples:
-  SELECT * FROM column_dstr_p( ''my_database'', ''my_schema'', ''my_table'', ''my_column'' );
-  SELECT * FROM column_dstr_p( ''yellowbrick'', ''sys'', ''shardstore'', ''table_id'', 4 );
+  SELECT * FROM column_dstr_p( 'my_database', 'my_schema', 'my_table', 'my_column' );
+  SELECT * FROM column_dstr_p( 'yellowbrick', 'sys', 'shardstore', 'table_id', 4 );
   
 Arguments:
 . _db_name     VARCHAR - (required) Database name  
@@ -161,8 +161,8 @@ Notes:
   procedure
 
 Version:
-. 2020.12.09 - Yellowbrick Technical Support
-'
+. 2022.12.27 - Yellowbrick Technical Support
+$cmnt$
 ;
 
 

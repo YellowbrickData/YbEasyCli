@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023-01-11 - Update
 ** . 2022.12.29 - YbEasyCli inclusion. 
 ** . 2022.03.05 - Inital Version 
 */
@@ -52,7 +53,7 @@ AS
 $proc$
 DECLARE
 
-   _sql TEXT := 'SELECT ''2022-12-28''::DATE, ''5.0 to 5.3''::VARCHAR(24) ';
+   _sql TEXT := 'SELECT ''2023-01-11''::DATE, ''5.0 to 5.3''::VARCHAR(24) ';
     
 BEGIN  
 
@@ -75,6 +76,6 @@ Arguments:
 . None
 
 Version:
-. 2022.12.28 - Yellowbrick Technical Support 
+. 2023-01-11 - Yellowbrick Technical Support 
 $cmnt$
 ;

@@ -14,6 +14,9 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2022.12.27 - YbCliUtils update.
+** . 2022.04.06 - Update for db, schema, and obj ilike args.
+** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.01.20 - fix: reset tags on exit.
 ** . 2020.10.30 - Yellowbrick Technical Support 
 */
@@ -51,12 +54,16 @@ CREATE TABLE         all_user_objs_t
 ** Create the procedure.
 */
 CREATE OR REPLACE PROCEDURE all_user_objs_p(
-   _yb_util_filter VARCHAR DEFAULT 'TRUE')
+     _db_ilike       VARCHAR DEFAULT '%'
+   , _schema_ilike   VARCHAR DEFAULT '%'
+   , _obj_ilike      VARCHAR DEFAULT '%'
+   , _yb_util_filter VARCHAR DEFAULT 'TRUE' )
    RETURNS SETOF all_user_objs_t
    LANGUAGE 'plpgsql'
    VOLATILE
    CALLED ON NULL INPUT
-   SECURITY INVOKER AS
+   SECURITY INVOKER 
+AS
 $proc$
 DECLARE
 
@@ -64,6 +71,7 @@ DECLARE
    _db_id               BIGINT;
    _db_list_sql         TEXT;
    _db_name             VARCHAR(128);
+   _pred                TEXT;   
    _ret_sql             TEXT;
    _sql                 TEXT;
    
@@ -75,16 +83,18 @@ DECLARE
 
 BEGIN
  
-   --SET TRANSACTION       READ ONLY;
-
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ;    
+   EXECUTE 'SET ybd_query_tags  TO ' || quote_literal( _tags );
    PERFORM sql_inject_check_p('_yb_util_filter', _yb_util_filter);
 
-   /* Query for the databases to iterate over
-   */
-   _db_list_sql = 'SELECT database_id AS db_id, name AS db_name FROM sys.database ORDER BY name' ;
+   _pred := 'db_name     ILIKE ' || quote_literal( _db_ilike ) 
+   || ' AND schema_name  ILIKE ' || quote_literal( _schema_ilike )
+   || ' AND obj_name     ILIKE ' || quote_literal( _obj_ilike  ) 
+   || ' AND obj_id       > 16384 '
+   || ' AND schema_name NOT IN ( ''sys'', ''information_schema'' )'
+   || CHR(10);
       
+   -- Query for the databases to iterate over
+   _db_list_sql = 'SELECT database_id AS db_id, name AS db_name FROM sys.database ORDER BY name' ;
    -- RAISE info '_db_list_sql = %', _db_list_sql;
 
    /* Iterate over each db and get the relation metadata including schema 
@@ -211,7 +221,9 @@ BEGIN
       , owner_type::VARCHAR(16)
       , acl::VARCHAR(60000)
       FROM objattrs
-      WHERE ' || _yb_util_filter || '
+      WHERE    
+             ' || _pred || '
+         AND ' || _yb_util_filter || '      
       ORDER BY obj_type, schema_id, obj_name 
       '
       ;
@@ -220,16 +232,15 @@ BEGIN
 
    END LOOP;
 
-   /* Reset ybd_query_tags back to its previous value
-   */
+   -- Reset ybd_query_tags back to its previous value
    EXECUTE  'SET ybd_query_tags  TO ' || quote_literal( _prev_tags );
 
 END;
 $proc$
 ;
 
-COMMENT ON FUNCTION all_user_objs_p(VARCHAR) IS 
-'Description:
+COMMENT ON FUNCTION all_user_objs_p(VARCHAR, VARCHAR, VARCHAR, VARCHAR) IS 
+$cmnt$Description:
 All user objects in all databases with owner and ACL detail. 
 
 Includes database, schema, owner, owner type, and ACLs for all schemas, tables,  
@@ -237,12 +248,15 @@ views, sequences, stored procedures, UDFs, and default ACLs.
   
 Examples:
   SELECT * FROM all_user_objs_p() 
-  SELECT * FROM all_user_objs_p() WHERE obj_type = ''SCHEMA''  
+  SELECT * FROM all_user_objs_p('my_db', 's%') WHERE obj_type = 'SCHEMA'  
   
 Arguments:
-. None.
+. _db_ilike       - (required) This is case sensitive so will normally be all lower case.
+. _schema_ilike   - (optional) An ILIKE pattern for the schema name. i.e. '%qtr%'.
+. _obj_ilike      - (optional) An ILIKE pattern for the table name.  i.e. 'fact%'.
+. _yb_util_filter - (internal) Used by YbEasyCli
 
 Version:
-. 2021.01.20 - Yellowbrick Technical Support
-'
+. 2022.12.27 - Yellowbrick Technical Support
+$cmnt$
 ;
