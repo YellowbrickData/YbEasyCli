@@ -19,6 +19,17 @@
 **   see the statements run by all users.
 **
 ** Revision History:
+** . 2022.08.28 - db_name added as first column.
+**                Added _date_part arg for timestamp truncation.
+**                Changed args order.
+**                Added restart number "n"
+**                modified predicate handling
+** . 2022.07.07 - line leading spaces removed
+**                IO wait is aprt of exec time
+**                Don't split application_name by default; now a proc option.
+** . 2022.07.01 - prep_secs updated; should not include wait time.
+** . 2022.06.06 - Condense plnr_sec & cmpl_sec into prep_secs.
+** . 2022.05.24 - Add exe_secs.
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.05.07 - Yellowbrick Technical Support 
 ** . 2021.04.20 - Yellowbrick Technical Support 
@@ -55,7 +66,9 @@
 DROP TABLE IF EXISTS log_query_t CASCADE ;
 CREATE TABLE log_query_t
 (
-   query_id                   BIGINT NOT NULL
+   db_name                    VARCHAR( 128 )
+ , query_id                   BIGINT NOT NULL
+ , n                          INTEGER
  , transaction_id             BIGINT
  , session_id                 BIGINT
  , pool_id                    VARCHAR( 128 )
@@ -68,9 +81,9 @@ CREATE TABLE log_query_t
  , rows                       BIGINT
  , submit_time                TIMESTAMP  
  , restart_sec                NUMERIC( 19, 1 ) 
- , plnr_sec                   NUMERIC( 19, 1 ) 
- , cmpl_sec                   NUMERIC( 19, 1 ) 
+ , prep_sec                   NUMERIC( 19, 1 )
  , que_sec                    NUMERIC( 19, 1 )
+ , exe_sec                    NUMERIC( 19, 1 )
  , run_sec                    NUMERIC( 19, 1 )
  , tot_sec                    NUMERIC( 19, 1 )
  , max_mb                     NUMERIC( 19, 0 )
@@ -85,9 +98,12 @@ DISTRIBUTE ON ( transaction_id )
 ** Create the procedure.
 */
 
-CREATE OR REPLACE PROCEDURE log_query_p(
-   _pred VARCHAR DEFAULT ''
-   , _query_chars INTEGER DEFAULT 32 ) 
+CREATE OR REPLACE PROCEDURE log_query_p( _pred        VARCHAR DEFAULT ''
+                                       , _show_all    BOOLEAN DEFAULT 't'
+                                       , _query_chars INTEGER DEFAULT 32
+                                       , _date_part   VARCHAR DEFAULT 'sec'
+                                       , _split_name  BOOLEAN DEFAULT 'f'
+                                       )
    RETURNS SETOF log_query_t 
    LANGUAGE 'plpgsql' 
    VOLATILE
@@ -96,7 +112,9 @@ AS
 $proc$
 DECLARE
 
-   _dflt_pred  text    := ' type <> ''system'' AND username NOT LIKE ''sys_ybd%''  '; 
+   _sys_pred      text    := ' type <> ''system'' AND username NOT LIKE ''sys_ybd%'' ';
+   _show_all_pred text    := CASE WHEN quote_literal( _show_all ) = 't' THEN ' ' ELSE _sys_pred END ;
+   _dflt_pred     text    := 'submit_time > dateadd (hours, -1, current_timestamp )';
    _sql        text    := '';
 
    _fn_name   VARCHAR(256) := 'log_query_p';
@@ -105,65 +123,69 @@ DECLARE
   
 BEGIN
 
-   --SET TRANSACTION       READ ONLY;
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ;     
- 
-   _pred := TRIM ( _pred );
-  
-   IF ( _pred = '' ) THEN 
-      _pred := 'WHERE  submit_time > dateadd (hours, -1, current_timestamp ) AND ' || _dflt_pred;  
-   ELSEIF ( _pred  NOT ILIKE 'where%' ) THEN 
-      _pred := 'WHERE  ' || _dflt_pred || ' ';
-   ELSE 
-      _pred := 'WHERE  ' || _dflt_pred || ' AND ' || SUBSTR( _pred, 6 );
+   EXECUTE 'SET ybd_query_tags  TO ' || quote_literal( _tags );
+
+   _pred :=  REGEXP_REPLACE( _pred, '\s*WHERE\s*', '', 'i' );
+
+   IF ( _pred = '' ) 
+   THEN
+      _pred := _dflt_pred ;
    END IF;
   
+   -- To prevent SQL injection attack.
+   --PERFORM sql_inject_check_p('_yb_util_filter', _pred);
+
   _sql := 'SELECT
-     query_id                                                                 AS query_id
+     database_name::VARCHAR( 128 )                                            AS database_name
+   , query_id                                                                 AS query_id
+   , num_restart                                                              AS n
    , transaction_id                                                           AS transaction_id
    , session_id                                                               AS session_id
    , pool_id::VARCHAR( 128 )                                                  AS pool_id
    , state::VARCHAR( 50 )                                                     AS state
    , error_code::VARCHAR( 5 )                                                 AS code   
    , username::VARCHAR( 128 )                                                 AS username 
-   , SPLIT_PART( application_name, '' '', 1 )::VARCHAR(128)                   AS app_name
+   , CASE WHEN ' || quote_literal( _split_name ) || '
+          THEN SPLIT_PART( application_name, '' '', 1 )::VARCHAR(128)
+          ELSE application_name
+     END                                                                      AS app_name
    , tags                                                                     AS tags
    , type                                                                     AS type
    , GREATEST( rows_deleted, rows_inserted, rows_returned )                   AS rows
    , date_trunc( ''secs'', submit_time )::TIMESTAMP                           AS submit_time
    , ROUND( restart_ms                      / 1000.0, 2 )::DECIMAL(19,1)      AS restart_sec 
-   , ROUND( ( parse_ms   + wait_parse_ms + wait_lock_ms + plan_ms + wait_plan_ms + assemble_ms + wait_assemble_ms ) / 1000.0, 2 )::DECIMAL(19,1) 
-                                                                              AS plnr_sec
-   , ROUND( (compile_ms + wait_compile_ms ) / 1000.0, 2 )::DECIMAL(19,1)      AS cmpl_sec                                                                             
+   , ROUND( ( parse_ms + plan_ms + assemble_ms + compile_ms ) / 1000.0, 2 )::DECIMAL(19,1)
+                                                                              AS prep_sec
    , ROUND( acquire_resources_ms            / 1000.0, 2 )::DECIMAL(19,1)      AS que_sec   
+   , ROUND( (run_ms - wait_run_cpu_ms                       ) / 1000.0, 2 )::DECIMAL(19, 1)
+                                                                              AS exe_sec
    , ROUND( run_ms                          / 1000.0, 2 )::DECIMAL(19,1)      AS run_sec
    , ROUND( total_ms                        / 1000.0, 2 )::DECIMAL(19,1)      AS tot_sec
    , ROUND( memory_bytes                    / 1024.0^2, 2 )::DECIMAL(19,0)    AS max_mb
    , ROUND( io_spill_space_bytes            / 1024.0^2, 2 )::DECIMAL(19,0)    AS spill_mb   
-   /* add total spill written */
-   , TRANSLATE( SUBSTR( query_text, 1,' || _query_chars ||' ), e''\n\t'', ''  '' )::VARCHAR(60000) AS query_text
+   , REGEXP_REPLACE( SUBSTR( query_text, 1,' || _query_chars ||' ), ''(^\s+|\r\s*|\n\s*|\t\s*)'', '' '')::VARCHAR(60000)
+                                                                              AS query_text
    FROM
      sys.log_query
-  ' || _pred || '      
-  ';
+   WHERE 
+  ' || _show_all_pred || ' AND ' || _pred 
+  ;
     
    -- RAISE INFO '_sql is: %', _sql ;
    RETURN QUERY EXECUTE _sql;
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ;  
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE  'SET ybd_query_tags  TO ' || quote_literal( _prev_tags );
+
   
 END;
 $proc$
 ;
 
 
-COMMENT ON FUNCTION log_query_p( VARCHAR, INTEGER ) IS 
-'Description:
-Details on completed backend statements. 
+COMMENT ON FUNCTION log_query_p( VARCHAR, BOOLEAN, INTEGER, VARCHAR, BOOLEAN ) IS
+$cmnt$Description:
+Details on completed statements.
 
 A transformed subset of sys.log_query columns with an optional argument of a 
 predicate to pushdown.
@@ -173,16 +195,28 @@ can be 100s of GBs or more. For the same reason, a default predicate of the last
 hour is inserted if the predicate argument is null.
 
 Examples:
-. SELECT * FROM log_query_p( );
-. SELECT * FROM log_query_p( ''WHERE submit_time > dateadd (hour, -2, current_timestamp )'' );
+. SELECT * FROM log_query_p( '', 't', 60 );
+. SELECT * FROM log_query_p( 'submit_time > dateadd (hour, -2, current_timestamp )' );
 . SELECT * FROM log_query_p( $$WHERE submit_time > dateadd (hour, -2, current_timestamp ) 
-                                      ORDER BY query_id DESC limit 10$$) ;
+                               ORDER BY query_id DESC LIMIT 10
+                             $$) ;
    
 Arguments:
 . _pred (optional) - A WHERE and/or ORDER BY and/or LIMIT clause. 
-                    Default: predicate for only statements in the last hour.
+                            Default: only statements in the last hour.
+. _show_all    (optional) - Include type 'system' AND username LIKE 'sys_ybd%' statements.
+                            DEFAULT 't'.
+. _query_chars (optional) - First "n" Characters of query text to display. Default 32.
+. _date_part   (optional) - Precision of timestamp columns. i.e. msec, etc...  DEFAULT 'sec'.
+. _split_name  (optional) - Display only the characters in the app_name up to the
+                            first blank space character. Default 'f'.
+
+Notes:
+. If no _pred predicate is provided, the results are limited to statements
+  executed within the previous 1 hour.
+. You can use $$ quoting for the outer quote char to not have to escape single quotes.
 
 Version:
-. 2021.12.09 - Yellowbrick Technical Support 
-'
+. 2022.08.28 - Yellowbrick Technical Support
+$cmnt$
 ;

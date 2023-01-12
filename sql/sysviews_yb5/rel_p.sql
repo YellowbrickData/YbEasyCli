@@ -1,12 +1,12 @@
 /* ****************************************************************************
-** rel_p_v4()
+** rel_p.sql
 **
-** All relations in all databases in YBDW >= 4.0. Similar to ybsql "\d".
+** All relations in all user databases. Similar to ybsql "\d".
 **
 ** Usage:
 **   See COMMENT ON FUNCTION statement after CREATE PROCEDURE.
 **
-** (c) 2018 Yellowbrick Data Corporation.
+** (c) 2018 - 3023 Yellowbrick Data Corporation.
 ** . This script is provided free of charge by Yellowbrick Data Corporation as a 
 **   convenience to its customers.
 ** . This script is provided "AS-IS" with no warranty whatsoever.
@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.01.11 - Cosmetic updates.
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.05.08 - Yellowbrick Technical Support 
 ** . 2020.11.09 - Yellowbrick Technical Support 
@@ -74,9 +75,9 @@ DECLARE
      
 BEGIN  
 
-   -- SET TRANSACTION       READ ONLY;
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ;   
+   -- Append sysviews:proc_name to ybd_query_tags
+   EXECUTE 'SET ybd_query_tags  TO '|| quote_literal( _tags );
+   
    PERFORM sql_inject_check_p('_yb_util_filter', _yb_util_filter);
 
    _pred := 'WHERE  '
@@ -152,10 +153,8 @@ BEGIN
    --RAISE INFO '_sql=%', _sql;
    RETURN QUERY EXECUTE _sql ;
  
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ; 
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO '|| quote_literal( _prev_tags );
 
 END;   
 $proc$ 
@@ -163,24 +162,25 @@ $proc$
 
 
 COMMENT ON FUNCTION rel_p( VARCHAR, VARCHAR, VARCHAR, VARCHAR ) IS 
-'Description:
-All user "relations" (tables, views, & sequences) in all databases. 
+$cmnt$Description:
+All user "relations" (tables, views, & sequences) in all user databases. 
 Similar to ybsql "\d".
 
 Examples:
   SELECT * FROM rel_p( );
-  SELECT * FROM rel_p( ''my_db'', ''s%'') WHERE rel_type = ''view'';
-  SELECT * FROM rel_p( ''%'', ''%qtr%'' ,''%fact%'');  
+  SELECT * FROM rel_p( 'my_db', 's%') WHERE rel_type = 'view';
+  SELECT * FROM rel_p( '%', '%qtr%' ,'%fact%');  
   
 Arguments:
-. _db_ilike     - (optional) An ILIKE pattern for the database name. i.e. ''yellowbrick%''.
-                  The defauuls is ''%''
-. _schema_ilike - (optional) An ILIKE pattern for the schema name. i.e. ''%qtr%''.
-                  The default is ''%''
-. _rel_ilike  - (optional) An ILIKE pattern for the table name.  i.e. ''fact%''.
-                  The default is ''%''
+. _db_ilike       - (optional) An ILIKE pattern for the database name. i.e. 'yellowbrick%'.
+                    The defauuls is '%'
+. _schema_ilike   - (optional) An ILIKE pattern for the schema name. i.e. '%qtr%'.
+                    The default is '%'
+. _rel_ilike      - (optional) An ILIKE pattern for the table name.  i.e. 'fact%'.
+                    The default is '%'
+. _yb_util_filter - (internal) Used by YbEasyCLI.
 
 Version:
-. 2021.12.09 - Yellowbrick Technical Support 
-'
+. 2023.01.11 - Yellowbrick Technical Support 
+$cmnt$
 ;

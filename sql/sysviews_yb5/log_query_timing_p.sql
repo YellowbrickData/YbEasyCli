@@ -18,6 +18,8 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.01.11 - Add io_wt_sec & fix exe_sec.
+** . 2022.04.11 - Add exe_sec.
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.05.08 - Yellowbrick Technical Support 
 ** . 2021.04.20 - Yellowbrick Technical Support   
@@ -50,10 +52,12 @@
 DROP TABLE IF EXISTS log_query_timing_t CASCADE ;
 CREATE TABLE         log_query_timing_t
 (
-   query_id                   BIGINT  
+   db_name                    VARCHAR( 128 )
+ , query_id                   BIGINT NOT NULL
+ , n                          INTEGER
  , submit_time                TIMESTAMP     
  , txn_id                     BIGINT
- , session_id                 BIGINT
+ , sess_id                    BIGINT
  , pool_id                    VARCHAR( 128 )
  , state                      VARCHAR(  50 )  
  , code                       VARCHAR(   5 )
@@ -62,15 +66,16 @@ CREATE TABLE         log_query_timing_t
  , tags                       VARCHAR( 255 )
  , type                       VARCHAR( 128 )
  , rows                       BIGINT
+ , rstrt_sec                  NUMERIC( 19, 1 )  
  , plnr_sec                   NUMERIC( 19, 1 ) 
  , cmpl_sec                   NUMERIC( 19, 1 ) 
  , que_sec                    NUMERIC( 19, 1 )
- , restart_sec                NUMERIC( 19, 1 ) 
+ , io_wt_sec                  NUMERIC( 19, 1 )  
+ , exe_sec                    NUMERIC( 19, 1 ) 
  , run_sec                    NUMERIC( 19, 1 )
  , tot_sec                    NUMERIC( 19, 1 )
  , spool_sec                  NUMERIC( 19, 1 )
- , client_sec                 NUMERIC( 19, 1 )
- , restarts                   INTEGER
+ , clnt_sec                   NUMERIC( 19, 1 )
  , mem_mb                     NUMERIC( 19, 0 )
  , spill_mb                   NUMERIC( 19, 0 )
  , query_text                 VARCHAR( 60000 )
@@ -98,13 +103,12 @@ DECLARE
 
    _fn_name   VARCHAR(256) := 'log_query_timing_p';
    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
-   _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;   
+   _new_tags  VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;   
   
 BEGIN
 
-   --SET TRANSACTION       READ ONLY;
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ;     
+   -- Append sysviews proc name to query tags
+   EXECUTE  'SET ybd_query_tags  TO ' || quote_literal( _new_tags );        
  
    _pred := TRIM ( _pred );
   
@@ -117,31 +121,35 @@ BEGIN
    END IF;
   
   _sql := 'SELECT
-     query_id                                                                    AS query_id
+     database_name::VARCHAR( 128 )                                                   AS db_name
+   , query_id                                                                        AS query_id
+   , num_restart                                                                     AS n
    , date_trunc( ''secs'', submit_time )::TIMESTAMP                              AS submit_time     
    , transaction_id                                                              AS txn_id
-   , session_id                                                                  AS session_id
+   , session_id                                                                      AS sess_id
    , pool_id::VARCHAR( 128 )                                                     AS pool_id
    , state::VARCHAR( 50 )                                                        AS state
    , error_code::VARCHAR( 5 )                                                    AS code
    , username::VARCHAR( 128 )                                                    AS username
    , SPLIT_PART( application_name, '' '', 1 )::VARCHAR( 128 )                    AS app_name
-   , tags::VARCHAR( 255 )                                                        AS tags
+   , split_part (tags, '':'', 1)::VARCHAR(255)                                       AS tags  
    , type::VARCHAR( 128 )                                                        AS type
    , GREATEST( rows_deleted, rows_inserted, rows_returned )                      AS rows
-   , ROUND( ( parse_ms   + wait_parse_ms + wait_lock_ms + plan_ms + wait_plan_ms + assemble_ms + wait_assemble_ms ) / 1000.0, 2 )::DECIMAL(19,1) 
-                                                                                 AS plnr_sec   
+   , ROUND( restart_ms                      / 1000.0, 2 )::DECIMAL(19,1)             AS rstrt_sec     
+   , ROUND( ( parse_ms   + wait_parse_ms + wait_lock_ms + plan_ms + wait_plan_ms     
+            + assemble_ms + wait_assemble_ms ) / 1000.0, 2 )::DECIMAL(19,1)          AS plnr_sec   
    , ROUND( compile_ms /1000.0, 2)::DECIMAL(19,1)                                AS cmpl_sec
    , ROUND( acquire_resources_ms / 1000.0, 1 )::DECIMAL(19,1)                    AS que_sec
-   , ROUND( restart_ms                      / 1000.0, 2 )::DECIMAL(19,1)         AS restart_sec    
+   , ROUND( wait_run_io_ms                  / 1000.0, 2 )::DECIMAL(19,1)             AS io_wt_sec
+   , ROUND( (run_ms - wait_run_cpu_ms )     / 1000.0, 2 )::DECIMAL(19, 1)            AS exe_sec
    , ROUND( run_ms                          / 1000.0, 2 )::DECIMAL(19,1)         AS run_sec
    , ROUND( total_ms  / 1000.0, 1 )::DECIMAL(19,1)                               AS tot_sec
    , ROUND( spool_ms  / 1000.0, 1 )::DECIMAL(19,1)                               AS spool_sec   
-   , ROUND( client_ms / 1000.0, 1 )::DECIMAL(19,1)                               AS client_sec      
-   , num_restart                                                                 AS restarts
-   , ROUND( memory_bytes         / 1024.0^2, 0 )::DECIMAL(19,0)                  AS mem_mb
+   , ROUND( client_ms / 1000.0, 1 )::DECIMAL(19,1)                                   AS clnt_sec      
+   , ROUND( memory_bytes_max         / 1024.0^2, 0 )::DECIMAL(19,0)                  AS mem_mb
    , ROUND( io_spill_space_bytes_max / 1024.0^2, 0 )::DECIMAL(19,0)              AS spill_mb   
-   , TRANSLATE( SUBSTR( query_text, 1, 32 ), e''\n\t'', ''  '' )::VARCHAR(60000) AS query_text
+   , REGEXP_REPLACE( SUBSTR( query_text, 1, 32 ), ''(^\s+|\r\s*|\n\s*|\t\s*)'', '' '')::VARCHAR(60000)
+                                                                                     AS query_text
   FROM
      sys.log_query 
   ' || _pred || ' 
@@ -151,10 +159,8 @@ ORDER BY query_id
    --RAISE INFO '_sql is: %', _sql ;
    RETURN QUERY EXECUTE _sql;
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ;  
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE  'SET ybd_query_tags  TO ' || quote_literal( _prev_tags ); 
   
 END;
 $proc$
@@ -162,7 +168,7 @@ $proc$
 
 
 COMMENT ON FUNCTION log_query_timing_p( VARCHAR ) IS 
-'Description:
+$cmnt$Description:
 Details on completed backend statements. 
 
 A transformed subset of sys.log_query columns with an optional argument of a 
@@ -174,7 +180,7 @@ the last hour is inserted if the predicate argument is null.
 
 Examples:
 . SELECT * FROM log_query_timing_p( );
-. SELECT * FROM log_query_timing_p( ''WHERE submit_time > dateadd (hour, -2, current_timestamp )'' );
+. SELECT * FROM log_query_timing_p( 'WHERE submit_time > dateadd (hour, -2, current_timestamp )' );
 . SELECT * FROM log_query_timing_p( $$WHERE submit_time > dateadd (hour, -2, current_timestamp ) 
                                       ORDER BY query_id DESC limit 10$$) ;
    
@@ -183,6 +189,6 @@ Arguments:
                     Default: predicate for only statements in the last hour.
 
 Version:
-. 2021.12.09 - Yellowbrick Technical Support 
-'
+. 2023.01.11 - Yellowbrick Technical Support 
+$cmnt$
 ;
