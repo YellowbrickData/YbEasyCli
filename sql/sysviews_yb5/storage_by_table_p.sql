@@ -1,12 +1,12 @@
 /* ****************************************************************************
-** storage_by_table_p_v4()
+** storage_by_table_p.sql
 **
 ** Storage summary by schema and table within the current database for YBD >= 4.0
 **
 ** Usage:
 **   See COMMENT ON FUNCTION statement after CREATE PROCEDURE.
 **
-** (c) 2018 Yellowbrick Data Corporation.
+** (c) 2018 - 2023 Yellowbrick Data Corporation.
 ** . This script is provided free of charge by Yellowbrick Data Corporation as a 
 **   convenience to its customers.
 ** . This script is provided "AS-IS" with no warranty whatsoever.
@@ -14,11 +14,8 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.01.11 - Cosmetic updates
 ** . 2021.12.09 - ybCliUtils inclusion.
-** . 2021.05.08 - Yellowbrick Technical Support 
-** . 2020.10.11 - Yellowbrick Technical Support 
-** . 2020.06.15 - Yellowbrick Technical Support 
-** . 2020.04.25 - Yellowbrick Technical Support 
 */
 
 /* ****************************************************************************
@@ -54,11 +51,10 @@ CREATE TABLE storage_by_table_t
 /* ****************************************************************************
 ** Create the procedure.
 */
-CREATE PROCEDURE storage_by_table_p(
-     _db_ilike VARCHAR DEFAULT '%'
-   , _schema_ilike VARCHAR DEFAULT '%'
-   , _table_ilike VARCHAR DEFAULT '%'
-   , _yb_util_filter VARCHAR DEFAULT 'TRUE' )
+CREATE PROCEDURE storage_by_table_p(  _db_ilike       VARCHAR DEFAULT '%'
+                                    , _schema_ilike   VARCHAR DEFAULT '%'
+                                    , _table_ilike    VARCHAR DEFAULT '%'
+                                    , _yb_util_filter VARCHAR DEFAULT 'TRUE' )
    RETURNS SETOF storage_by_table_t 
    LANGUAGE 'plpgsql' 
    VOLATILE
@@ -162,23 +158,23 @@ $proc$
 
 
 COMMENT ON FUNCTION storage_by_table_p( VARCHAR, VARCHAR, VARCHAR, VARCHAR ) IS 
-'Description:
+$desc$Description:
 Storage summary for user tables by database, schema, and table.
 
 Examples:
   SELECT * FROM storage_by_table_p( );
-  SELECT * FROM storage_by_table_p( ''my_db'', ''s%'');
-  SELECT * FROM storage_by_table_p( ''%'', ''%qtr%'' ,''%fact%'');  
+  SELECT * FROM storage_by_table_p( 'my_db', 's%');
+  SELECT * FROM storage_by_table_p( '%', '%qtr%' ,'%fact%');  
   
 Arguments:
-. _db_ilike     - (optional) An ILIKE pattern for the schema name. i.e. ''%fin%''.
+. _db_ilike     - (optional) An ILIKE pattern for the schema name. i.e. '%fin%'.
                   The default is ''%''
-. _schema_ilike - (optional) An ILIKE pattern for the schema name. i.e. ''%qtr%''.
+. _schema_ilike - (optional) An ILIKE pattern for the schema name. i.e. '%qtr%'.
                   The default is ''%''
-. _table_ilike  - (optional) An ILIKE pattern for the table name.  i.e. ''fact%''.
+. _table_ilike  - (optional) An ILIKE pattern for the table name.  i.e. 'fact%'.
                   The default is ''%''
 
 Version:
-. 2021.12.09 - Yellowbrick Technical Support 
-'
+. 2023.01.11 - Yellowbrick Technical Support 
+$desc$
 ;

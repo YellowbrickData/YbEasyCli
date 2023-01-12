@@ -1,5 +1,5 @@
 /* ****************************************************************************
-** session_smry_p()
+** session_smry_p.sql
 **
 ** Current seesions aggregated by db, user, state, app, ip, etc...
 **
@@ -14,6 +14,8 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.01.11 - Cosmetic updates.
+** . 2022.03.28 - Don't filter sys_yb sessions.
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.06.15 - Yellowbrick Technical Support 
 ** . 2020.03.09 - Yellowbrick Technical Support 
@@ -75,8 +77,8 @@ DECLARE
   
 BEGIN  
 
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ;    
+   -- Append sysviews:proc_name to ybd_query_tags.
+   EXECUTE 'SET ybd_query_tags  TO ''' || _tags || '''';
 
    _sql := 'SELECT
       date_trunc( ''secs'', CURRENT_TIMESTAMP )::TIMESTAMP                               AS currrent_ts
@@ -94,8 +96,8 @@ BEGIN
     , MAX( CEIL( ABS(extract( epoch FROM CURRENT_TIMESTAMP - backend_start ) / 60.0 )) ) AS max_mins
    FROM
       pg_stat_activity                                             
-   WHERE
-      user_name NOT LIKE ''sys_ybd%''
+   --WHERE
+   --   user_name NOT LIKE ''sys_ybd%''
    GROUP BY
       1, 2, 3, 4, 5, 8
    ORDER BY
@@ -104,9 +106,8 @@ BEGIN
 
    RETURN QUERY EXECUTE _sql ;
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   EXECUTE  'SET ybd_query_tags  TO ' || quote_literal( _prev_tags );
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO ''' || _prev_tags || '''';  
    
 END;   
 $proc$
@@ -114,7 +115,7 @@ $proc$
 
 
 COMMENT ON FUNCTION session_smry_p() IS 
-'Description:
+$cmnt$Description:
 Current sessions aggregated by db, user, state, app, ip, etc...
   
 Examples:
@@ -124,6 +125,6 @@ Arguments:
 . none
 
 Version:
-. 2020.12.09 - Yellowbrick Technical Support 
-'
+. 2023.01.11 - Yellowbrick Technical Support 
+$cmnt$
 ;

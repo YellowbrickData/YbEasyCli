@@ -1,5 +1,5 @@
 /* ****************************************************************************
-** wlm_active_profile_p()
+** wlm_active_profile_p.sql
 **
 ** Current active WLM profile details.
 **
@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.01.11 - Cosmetic updates.
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.05.08 - Yellowbrick Technical Support
 ** . 2020.06.15 - Yellowbrick Technical Support 
@@ -74,10 +75,7 @@ DECLARE
     
 BEGIN  
 
-   --SET TRANSACTION       READ ONLY;
-      
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ; 
+   EXECUTE 'SET ybd_query_tags  TO ''' || _tags || '''';
 
    _sql := 'SELECT
       profile::VARCHAR(128)                                              AS profile
@@ -112,10 +110,8 @@ BEGIN
 
    RETURN QUERY EXECUTE _sql;
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ;   
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO ''' || _prev_tags || '''';  
 
 END;   
 $proc$ 
@@ -123,7 +119,7 @@ $proc$
 
 
 COMMENT ON FUNCTION wlm_active_profile_p() IS 
-'Description:
+$cmnt$Description:
 Returns current active WLM profile configuration details by pool.
   
 Examples:
@@ -136,6 +132,6 @@ Notes:
 . Changes in the current profile are not reflected until saved/activated.
 
 Revision History:
-. 2021.12.09 - Yellowbrick Technical Support 
-'
+. 2023.01.11 - Yellowbrick Technical Support 
+$cmnt$
 ;

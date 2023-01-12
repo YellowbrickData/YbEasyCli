@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Version History:
+** . 2022.09.20 - Fix end_xid for GC filter
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.04.21 - Yellowbrick Technical Support
 ** . 2020.06.15 - Yellowbrick Technical Support
@@ -23,9 +24,9 @@
 /* ****************************************************************************
 **  Example results:
 **
-**  workers | data_gb | data_pct | to_gc_gb | to_gc_pct | other_gb | other_pct | spill_gb | spill_pct | used_gb | used_pct | free_gb | free_pct | total_gb
-** ---------+---------+----------+----------+-----------+----------+-----------+----------+-----------+---------+----------+---------+----------+----------
-**        8 |   11199 |      9.3 |      176 |       0.1 |    30046 |      25.0 |       28 |       0.0 |   41450 |     34.5 |   78733 |     65.5 |   120183
+**  chassis | wpc | workers | data_gb | data_pct | to_gc_gb | to_gc_pct | other_gb | other_pct | spill_gb | spill_pct | used_gb | used_pct | free_gb | free_pct | total_gb
+** ---------+-----+---------+---------+----------+----------+-----------+----------+-----------+----------+-----------+---------+----------+---------+----------+----------
+**        1 |   8 |       8 |   79964 |     65.5 |        0 |       0.0 |      174 |       0.1 |    24418 |      20.0 |  104556 |     85.6 |   17535 |     14.4 |   122091
 */
 
 /* ****************************************************************************
@@ -36,7 +37,9 @@ DROP TABLE IF EXISTS public.storage_t CASCADE
 
 CREATE TABLE public.storage_t
    (
-      workers   INTEGER
+      chassis   INTEGER
+    , wpc       INTEGER
+    , workers   INTEGER
     , data_gb   NUMERIC (19, 0)
     , data_pct  NUMERIC (19, 1)
     , to_gc_gb  NUMERIC (19, 0)
@@ -78,44 +81,55 @@ BEGIN
    _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
    EXECUTE _sql ;   
   
-  --TODO Kick what is this special number, I had to change '<' to '<='
-  _sql := '
-  WITH to_gc AS
-     (  SELECT worker                    AS worker
-         , SUM( size_comp_mib ) * 1000^2 AS to_gc_bytes
+  _sql := 'WITH to_gc AS
+     (  SELECT SUM( size_comp_mib ) * 1000^2   AS to_gc_bytes
         FROM sys.shardstore
-        WHERE end_xid <= 72057594037927935
-        GROUP BY 1
+        WHERE end_xid != 72057594037927935
      )
-  
-   SELECT
-     COUNT(*)::INTEGER                                          AS workers
-   , ROUND(( SUM( s.data_gb ) ), 0 )::NUMERIC (19, 0)                            AS data_gb
-   , ROUND(( SUM( s.data_gb ) / SUM( s.total_gb ) ) * 100, 1 )::NUMERIC (19, 1)  AS data_pct
-   , ROUND(( SUM( s.to_gc_gb ) ), 0 )::NUMERIC (19, 0)                           AS to_gc_gb
-   , ROUND(( SUM( s.to_gc_gb ) / SUM( s.total_gb ) ) * 100, 1 )::NUMERIC (19, 1) AS to_gc_pct   
-   , ROUND(( SUM( s.spill_gb ) ), 0 )::NUMERIC (19, 0)                           AS spill_gb
-   , ROUND(( SUM( s.spill_gb ) / SUM( s.total_gb ) ) * 100, 1 )::NUMERIC (19, 1) AS spill_pct
-   , ROUND(( SUM( s.other_gb ) ), 0 )::NUMERIC (19, 0)                           AS other_gb
-   , ROUND(( SUM( s.other_gb ) / SUM( s.total_gb ) ) * 100, 1 )::NUMERIC (19, 1) AS other_pct
-   , ROUND(( SUM( used_gb ) ), 0 )::NUMERIC (19, 0)                              AS used_gb
-   , ROUND(( SUM( used_gb ) / SUM( total_gb ) ) * 100, 1 )::NUMERIC (19, 1)      AS used_pct
-   , ROUND(( SUM( free_gb ) ), 0 )::NUMERIC (19, 0)                              AS free_gb
-   , ROUND(( SUM( free_gb ) / SUM( total_gb ) ) * 100, 1 )::NUMERIC (19, 1)      AS free_pct
-   , ROUND( SUM( total_gb ), 0 )::NUMERIC (19, 0)                                AS total_gb
-  FROM(  
+   , usage AS
+     (  SELECT 
+           COUNT(*)                                                                           AS workers
+         , SUM( ss.distributed_bytes + ss.replicated_bytes + ss.random_bytes )                AS data_bytes
+         , SUM( ss.scratch_bytes )                                                            AS spill_bytes
+         , SUM( ss.used_bytes 
+               -( ss.distributed_bytes + ss.replicated_bytes + ss.random_bytes 
+                  + ss.scratch_bytes + NVL( tg.to_gc_bytes, 0 ) 
+                ) 
+              )                                                                               AS other_bytes
+         , SUM( nvl( tg.to_gc_bytes, 0 ) ) ::NUMERIC                                          AS to_gc_bytes
+         , SUM( ss.used_bytes )                                                               AS used_bytes
+         , SUM( ss.free_bytes )                                                               AS free_bytes
+         , SUM( ss.total_bytes )                                                              AS total_bytes
+        FROM sys.storage AS ss
+        CROSS JOIN to_gc AS tg
+     )
+   , workers AS
+     (  SELECT 
+           MAX(chassis_id)              + 1 AS chassis
+         , COUNT( DISTINCT logical_id )     AS workers_per_chassis
+         , COUNT(*)                         AS workers
+        FROM sys.worker
+        WHERE role = ''MEMBER''
+     )
          SELECT
-          ( distributed_bytes + replicated_bytes + random_bytes )                        AS data_bytes
-         , data_bytes     / 1024.0^3                                                     AS data_gb
-         ,( scratch_bytes / 1024.0^3 )                                                   AS spill_gb
-         ,( used_bytes    - ( data_bytes + scratch_bytes + tg.to_gc_bytes ) )::NUMERIC / 1024.0^3 AS other_gb
-         , (tg.to_gc_bytes / 1024.0^3)::NUMERIC                                                     AS to_gc_gb
-         , used_bytes     / 1024.0^3                                                     AS used_gb
-         , free_bytes     / 1024.0^3                                                     AS free_gb
-         , total_bytes    / 1024.0^3                                                     AS total_gb
-        FROM sys.storage ss
-           JOIN to_gc    tg ON ss.worker_id = tg.worker 
-   ) s
+     w.chassis::INTEGER                                                                        AS chassis
+   , w.workers_per_chassis::INTEGER                                                            AS wpc
+   , w.workers::INTEGER                                                                        AS workers
+   , ROUND(( u.data_bytes  / 1024.0^3 ), 0 )::NUMERIC( 19, 0 )                                 AS data_gb
+   , ROUND(( u.data_bytes  / u.total_bytes::NUMERIC( 19, 1 ) ) * 100, 1 )::NUMERIC( 19, 1 )    AS data_pct
+   , ROUND(( u.to_gc_bytes / 1024.0^3 ), 0 )::NUMERIC( 19, 0 )                                 AS to_gc_gb
+   , ROUND(( u.to_gc_bytes / u.total_bytes::NUMERIC( 19, 1 ) ) * 100, 1 )::NUMERIC( 19, 1 )    AS to_gc_pct
+   , ROUND(( u.other_bytes / 1024.0^3 ), 0 )::NUMERIC( 19, 0 )                                 AS other_gb
+   , ROUND(( u.other_bytes / u.total_bytes::NUMERIC( 19, 1 ) ) * 100, 1 )::NUMERIC( 19, 1 )    AS other_pct
+   , ROUND(( u.spill_bytes / 1024.0^3 ), 0 )::NUMERIC( 19, 0 )                                 AS spill_gb
+   , ROUND(( u.spill_bytes / u.total_bytes::NUMERIC( 19, 1 ) ) * 100, 1 )::NUMERIC( 19, 1 )    AS spill_pct
+   , ROUND(( used_bytes    / 1024.0^3 ), 0 )::NUMERIC( 19, 0 )                                 AS used_gb
+   , ROUND(( used_bytes    / u.total_bytes::NUMERIC( 19, 1 ) ) * 100, 1 )::NUMERIC( 19, 1 )    AS used_pct
+   , ROUND(( free_bytes    / 1024.0^3 ), 0 )::NUMERIC( 19, 0 )                                 AS free_gb
+   , ROUND(( free_bytes    / u.total_bytes::NUMERIC( 19, 1 ) ) * 100, 1 )::NUMERIC( 19, 1 )    AS free_pct
+   , ROUND(( total_bytes   / 1024.0^3 ), 0 )::NUMERIC( 19, 0 )                                 AS total_gb
+  FROM usage         AS u
+  CROSS JOIN workers AS w
   ';
 
   RETURN QUERY EXECUTE _sql ;
@@ -131,8 +145,8 @@ $proc$
 
 
 COMMENT ON FUNCTION storage_p() IS 
-'Description:
-Aggregated appliance storage for data, spill, other, and total space.
+$cmnt$Description:
+Aggregated appliance storage for data, spill, to GC, other, and total space.
   
 Examples:
   SELECT * FROM storage_p();
@@ -145,6 +159,6 @@ Notes:
 . "other" includes uncommitted shards (i.e. running loads, etc..) and system overhead.
 
 Version:
-. 2021.12.09 - Yellowbrick Technical Support 
-'  
+. 2022.09.20 - Yellowbrick Technical Support 
+$cmnt$
 ;

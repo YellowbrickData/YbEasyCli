@@ -1,12 +1,12 @@
 /* ****************************************************************************
-** sysviews_p()
+** sysviews_p.sql
 **
 ** Brief listing of the sysviews procedures and their arguments.
 **
 ** Usage:
 **   See COMMENT ON FUNCTION statement after CREATE PROCEDURE.
 **
-** (c) 2018 Yellowbrick Data Corporation.
+** (c) 2018-2022 Yellowbrick Data Corporation.
 ** . This script is provided free of charge by Yellowbrick Data Corporation as a 
 **   convenience to its customers.
 ** . This script is provided "AS-IS" with no warranty whatsoever.
@@ -14,6 +14,8 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Version History:
+** . 2022.07.08 - Added optional _procedure_ilike argument.
+**                Fixed INT4 in "arguments" column.
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.10.30 - Yellowbrick Technical Support
 ** . 2020.06.15 - Yellowbrick Technical Support
@@ -49,7 +51,7 @@ DROP   PROCEDURE IF EXISTS sysviews_p();
 /* ****************************************************************************
 ** Create the procedure.
 */
-CREATE OR REPLACE PROCEDURE sysviews_p()
+CREATE OR REPLACE PROCEDURE sysviews_p( _procedure_ilike VARCHAR DEFAULT '%')
    RETURNS SETOF sysviews_t
    LANGUAGE 'plpgsql' 
    VOLATILE
@@ -67,12 +69,9 @@ DECLARE
      
 BEGIN  
 
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ;  
+   EXECUTE 'SET ybd_query_tags  TO ''' || _tags || '''';
 
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   PERFORM _sql ;    
-
+   -- The first line of the description text is expected to be the literal text 'Description:'.
    _sql := 'SELECT
       n.nspname::VARCHAR(128)                                                            AS schema
     , p.proname::VARCHAR(128)                                                            AS procedure
@@ -83,7 +82,7 @@ BEGIN
                                            , ''timestamp without time zone'', ''TIMESTAMP''  ) 
                                            , ''timestamp with time zone''   , ''TIMESTAMPTZ'')                                            
                                            , ''bigint''                     , ''BIGINT''     )
-                                           , ''integer''                    , ''INT8''       )
+                                           , ''integer''                    , ''INT4''       )
                                            , '',''                          , e''\n,''       )  
                                            , ''(::[A-Z]+\S*)''              , '''', ''g''    ))::VARCHAR(1000)
                                                                                          AS arguments
@@ -96,33 +95,32 @@ BEGIN
       pg_catalog.pg_function_is_visible (p.oid)
       AND p.prosp    = ''t''
       AND proname LIKE ''%_p''
+      AND proname ILIKE ' || quote_literal( _procedure_ilike ) || '
    ORDER BY
       1, 2, 3
    ';
 
    RETURN QUERY EXECUTE _sql ;
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ;   
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
    
 END;   
 $proc$
 ;
 
    
-COMMENT ON FUNCTION sysviews_p() IS 
-'Description:
+COMMENT ON FUNCTION sysviews_p( VARCHAR ) IS 
+$comment$Description:
 Names and arguments for all installed sysviews procedures.
   
 Examples:
   SELECT * FROM sysviews_p() ;
   
 Arguments:
-. None
+. _procedure_ilike (optional) - ILIKE pattern for the procedure name. Default '%'.
 
 Version:
-. 2020.12.09 - Yellowbrick Technical Support
-'
+. 2022.07.08 - Yellowbrick Technical Support
+$comment$
 ;
