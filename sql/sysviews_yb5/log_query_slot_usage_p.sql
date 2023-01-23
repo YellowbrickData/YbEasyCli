@@ -15,6 +15,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.01.07 - Fix to COMMENT ON.
 ** . 2022.10.07 - ybCliUtils inclusion.
 */
 
@@ -280,29 +281,29 @@ BEGIN
     RESET SESSION AUTHORIZATION;
     --
     RETURN QUERY EXECUTE 'SELECT * FROM log_query_slot_usage_' || _ts || ' ORDER BY 1, 2';
-    --
-    /* Reset ybd_query_tags back to its previous value
-    */
-    _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-    EXECUTE _sql;
-END $proc$;
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO '|| quote_literal( _prev_tags );
+END 
+$proc$;
 
-COMMENT ON FUNCTION log_query_slot_usage_p( VARCHAR, DATE, INT ) IS 
-$$Description:
-Create a WLM slot usage report by analyzing sys.log_query data. 
+
+COMMENT ON FUNCTION log_query_slot_usage_p( VARCHAR, DATE, INT, VARCHAR, VARCHAR ) IS 
+$cmnt$Description:
+Create a WLM slot usage by pool report by analyzing sys.log_query data. 
 
 Examples:
   SELECT * FROM log_query_slot_usage_p('dze');
 
 Arguments:
-. _non_su       - the utility must be run by a super user and requires a non-super user to execute
+. _non_su       (reqd) - the utility must be run by a super user and requires a non-super user to execute
                    without running into out of memory or spill issues
-. _from_date    - the date to start analyzing data on, defaults to 30 days before NOW
-. _days         - the number of days of data to analyze, defaults to 30 days
-. _days_of_week - days of the week to report on as a string of 0 to 6 numbers comma seperated, like
+. _from_date    (optl) - the date to start analyzing data on, defaults to 30 days before NOW
+. _days         (optl) - the number of days of data to analyze, defaults to 30 days
+. _days_of_week (optl) - days of the week to report on as a string of 0 to 6 numbers comma seperated, like
                   '1,2,3,4,5', where 0 is Sunday, 1 is Monday, ..., 6 is Sunday, defaults to all days
-. _hours_of_day - hours of the day to report on as a string of 0 to 23 numbers comma seperated, like
+. _hours_of_day (optl) - hours of the day to report on as a string of 0 to 23 numbers comma seperated, like
                   '9,10,11', defaults to all hours
 Revision:
-$$
+. 2023-01-20 - Yellowbrick Technical Support 
+$cmnt$
 ;

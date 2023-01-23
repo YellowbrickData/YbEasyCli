@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.01.20 - Fix COMMENT ON.
 ** . 2022.12.27 - Added _yb_util_filter.
 ** . 2022.08.28 - Added _from_ts & _to_ts args.
 **                Default is now the previous 7 days.
@@ -130,7 +131,7 @@ $proc$
 ;
 
 
-COMMENT ON FUNCTION log_bulk_xfer_p( TIMESTAMP, TiMESTAMP) IS 
+COMMENT ON FUNCTION log_bulk_xfer_p( TIMESTAMP, TiMESTAMP, VARCHAR ) IS 
 $cmnt$Description:
 Completed bulk transfers (ybload & ybunload) from sys.log_load and sys.log_unload.
 
@@ -148,6 +149,6 @@ Arguments:
 . _yb_util_filter     - (internal) Used by YbEasyCli.
 
 Version:
-. 2022.12.27 - Yellowbrick Technical Support 
+. 2023.01.20 - Yellowbrick Technical Support 
 $cmnt$
 ;

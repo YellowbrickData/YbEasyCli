@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.01.20 - Fix to COMMENT ON.
 ** . 2022.04.11 - Increase rule_type width to 24.
 ** . 2022.03.05 - Cosmetic updates.
 ** . 2021.12.09 - ybCliUtils inclusion.
@@ -101,21 +102,24 @@ $proc$
 
 
 COMMENT ON FUNCTION wlm_active_rule_p( INTEGER ) IS 
-$comt$Description:
+$cmnt$Description:
 Current active WLM profile rules.
-  
+
+The expression text is truncated with newlines removed so it can be displayed
+on a single line.  
+
 Examples:
   SELECT * FROM wlm_active_rule_p(); 
   SELECT * FROM wlm_active_rule_p( 80 );  
   
 Arguments: 
-. _expr_chars - (optional) INTEGER - max number of chars of WLM JavaScript text
+. _expr_chars - (optl) INTEGER - max number of chars of WLM JavaScript text
                  to display. Default: 32
 
 Notes:
 . Changes in the current profile are not reflected until saved/activated.
 
 Version:
-. 2022.04.11 - Yellowbrick Technical Support 
+. 2023.01.20 - Yellowbrick Technical Support 
 $cmnt$
 ;
