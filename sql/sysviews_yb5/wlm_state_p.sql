@@ -1,5 +1,5 @@
 /* ****************************************************************************
-** wlm_state_p()
+** wlm_state_p.sql
 **
 ** Current active WLM profile details.
 **
@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2022.04.06 - Cosmetic code updates.
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.04.22 - Yellowbrick Technical Support 
 */
@@ -73,10 +74,7 @@ DECLARE
     
 BEGIN  
 
-   -- SET TRANSACTION       READ ONLY;
-      
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ; 
+   EXECUTE 'SET ybd_query_tags  TO ''' || _tags || '''';
 
    _sql := 'WITH active_profile AS
    ( SELECT
@@ -130,20 +128,16 @@ BEGIN
 
    RETURN QUERY EXECUTE _sql; 
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ;   
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO ''' || _prev_tags || ''''; 
 
 END;   
 $proc$ 
 ;
 
--- ALTER FUNCTION wlm_state_p()
---    SET search_path = pg_catalog,pg_temp;
 
 COMMENT ON FUNCTION wlm_state_p() IS 
-'Description:
+$cmnt$Description:
 Returns current active WLM profile state metrics by pool.
   
 Includes pool, size, and active and queued statements in the poool.
@@ -158,6 +152,6 @@ Notes:
 . Changes in the current profile are not reflected until saved/activated.
 
 Revision:
-. 2021.12.09 - Yellowbrick Technical Support  
-'
+. 2022.04.06 - Yellowbrick Technical Support  
+$cmnt$
 ;

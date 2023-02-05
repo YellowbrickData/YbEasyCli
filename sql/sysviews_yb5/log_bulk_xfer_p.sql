@@ -14,6 +14,10 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.01.20 - Fix COMMENT ON.
+** . 2022.12.27 - Added _yb_util_filter.
+** . 2022.08.28 - Added _from_ts & _to_ts args.
+**                Default is now the previous 7 days.
 ** . 2021.12.09 - ybcli inclusion.
 ** . 2021.05.08 - Yellowbrick Technical Support 
 */
@@ -21,7 +25,7 @@
 /* ****************************************************************************
 **  Example results:
 **
-**      start_time      |  type  | db_name | username |    hostname     |  state  | secs | rows | bytes | mbps
+**      start_time      |  type  | db_name | username  |    hostname     |  state  | secs | rows | bytes | mbps
 ** ---------------------+--------+---------+-----------+-----------------+---------+------+------+-------+------
 **  2021-04-22 20:54:10 | ybload | kick    | kick      | LAPTOP-RLSCI6RN | ERROR   |   66 |    0 |     0 |    0
 **  2021-04-22 20:54:58 | ybload | kick    | kick      | LAPTOP-RLSCI6RN | RUNNING |   18 |    0 |     0 |    0
@@ -52,7 +56,11 @@ CREATE TABLE log_bulk_xfer_t
 /* ****************************************************************************
 ** Create the procedure.
 */
-CREATE OR REPLACE PROCEDURE log_bulk_xfer_p()
+CREATE OR REPLACE PROCEDURE log_bulk_xfer_p(
+      _from_ts        TIMESTAMP DEFAULT  (DATE_TRUNC('week', CURRENT_DATE)::DATE - 7) 
+    , _to_ts          TIMESTAMP DEFAULT  CURRENT_TIMESTAMP
+    , _yb_util_filter VARCHAR   DEFAULT 'TRUE' 
+   )
    RETURNS SETOF log_bulk_xfer_t 
    LANGUAGE 'plpgsql' 
    VOLATILE
@@ -69,13 +77,11 @@ DECLARE
   
 BEGIN  
 
-   -- SET TRANSACTION       READ ONLY;
-   
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ;    
+   -- Append sysviews proc to query tags
+   EXECUTE  'SET ybd_query_tags  TO ' || quote_literal( _new_tags );  
+   PERFORM sql_inject_check_p('_yb_util_filter', _yb_util_filter);  
 
-   _sql := '
-   SELECT
+   _sql := 'SELECT
       date_trunc (''secs'', start_time)::TIMESTAMP   AS start_time
     , ''ybload''::VARCHAR(12)                        AS type
     , database_name::VARCHAR(128)                    AS db_name
@@ -108,35 +114,41 @@ BEGIN
       END::NUMERIC(12,1)                             AS mbps
    FROM
       sys.log_unload
+   WHERE  submit_time    >= ' || quote_literal( _from_ts ) || '::TIMESTAMP
+      AND submit_time    <= ' || quote_literal( _to_ts   ) || '::TIMESTAMP
+      AND ' || _yb_util_filter || '
    ORDER BY
       start_time
    ';
 
    RETURN QUERY EXECUTE _sql; 
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ; 
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE  'SET ybd_query_tags  TO ' || quote_literal( _prev_tags );
    
 END;   
 $proc$ 
 ;
 
 
-COMMENT ON FUNCTION log_bulk_xfer_p() IS 
-'Description:
-Transformed subset completed bulk transfers (ybload & ybunload) from sys.log_load and sys.log_unload.
+COMMENT ON FUNCTION log_bulk_xfer_p( TIMESTAMP, TiMESTAMP, VARCHAR ) IS 
+$cmnt$Description:
+Completed bulk transfers (ybload & ybunload) from sys.log_load and sys.log_unload.
 
-Bulkloads do not include rows loaded to the rowstore via \copy or INSERT...VALUES.
+Bulktransfers do not include \copy, ycopy, or INSERT...VALUES statements.
   
 Examples:
   SELECT * FROM log_bulk_xfer_p();
+  SELECT * FROM log_bulk_xfer_p( CURRENT_DATE ) WHERE type = 'load';
   
 Arguments:
-. none
+. _from_ts (optional) - Starting timestamp of load/unload statements.  
+                        Default: begining of previous week (Sunday).
+. _to_ts   (optional) - Ending timestamp of load/unload statements.  
+                        Default: now().
+. _yb_util_filter     - (internal) Used by YbEasyCli.
 
 Version:
-. 2021.12.09 - Yellowbrick Technical Support 
-'
+. 2023.01.20 - Yellowbrick Technical Support 
+$cmnt$
 ;

@@ -6,7 +6,18 @@
 **
 ** To grant default permissions on the procedures, run sysviews_grant.sql .
 **
-** Version history:
+** Version history:                                 
+** . 2022.12.28 - Added:
+**                  catalog_storage_by_db_p.sql    
+**                  column_p.sql                                    
+** .                catalog_storage_by_db_p.sql    
+** .                catalog_storage_by_table_p.sql 
+** .                log_replica_p.sql              
+** .                stmt_topn_p.sql                
+** .                storage_by_worker_p.sql        
+** .                table_p.sql                                        
+** .                version_p.sql                  
+** .                view_validate_p.sql                
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.05.07 - Yellowbrick Technical Support
 ** . 2021.05.07 - For Yellowbrick version >= 5.0 only.
@@ -17,15 +28,15 @@
 \echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SET search_path TO public,pg_catalog;
 CREATE DATABASE sysviews ENCODING UTF8;
+
 \c sysviews
+SET search_path TO public,pg_catalog;                     
 
 SELECT LEFT( setting, 1 ) AS ver_m FROM pg_settings WHERE name = 'yb_server_version' ;
 \gset
 
 \echo
-\echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-\echo Running stored proc creation scripts for major version :ver_m
-
+\echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                                                                             
 \echo Create the sysviews_settings table
 \i  sysviews_settings.sql
 
@@ -36,8 +47,13 @@ SELECT LEFT( setting, 1 ) AS ver_m FROM pg_settings WHERE name = 'yb_server_vers
 \i  analyze_immed_user_p.sql
 \i  analyze_immed_sess_p.sql
 \i  bulk_xfer_p.sql
+\i  catalog_storage_by_table_p.sql 
+\i  catalog_storage_by_db_p.sql                             
 \i  column_dstr_p.sql
+\i  column_p.sql
 \i  column_stats_p.sql
+--\i  column_values_p.sql
+--\i  db_role_privs_p.sql
 \i  help_p.sql
 \i  load_p.sql
 \i  log_bulk_xfer_p.sql
@@ -47,25 +63,34 @@ SELECT LEFT( setting, 1 ) AS ver_m FROM pg_settings WHERE name = 'yb_server_vers
 \i  log_query_smry_p.sql
 \i  log_query_steps_p.sql
 \i  log_query_timing_p.sql
+\i  log_replica_p.sql
 \i  procedure_p.sql
 \i  query_p.sql
 \i  query_rule_events_p.sql
 \i  query_steps_p.sql
 \i  rel_p.sql
-\i  rowstore_p.sql
+--\i  rel_ddl.p.sql
 \i  rowstore_by_table_p.sql
+\i  rowstore_p.sql
 \i  schema_p.sql
 \i  session_p.sql
 \i  session_smry_p.sql
+\i  stmt_topn_p.sql
 \i  storage_by_db_p.sql
 \i  storage_by_schema_p.sql
 \i  storage_by_table_p.sql
+                           
 \i  storage_p.sql
 \i  sysviews_p.sql
 \i  table_constraints_p.sql
+\i  table_p.sql
+--\i  table_info_p.sql
 \i  table_skew_p.sql
+--\i  table_skew_p2.sql
 --\i  table_deps_p.sql
 --\i  view_ddls_p.sql
+\i  version_p.sql
+\i  view_validate_p.sql            
 \i  wlm_active_profile_p.sql
 \i  wlm_active_rule_p.sql
 \i  wlm_profile_rule_p.sql

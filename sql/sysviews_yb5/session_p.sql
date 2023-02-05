@@ -1,12 +1,12 @@
 /* ****************************************************************************
-** session_p()
+** session_p.sql
 **
 ** Current session state details.
 **
 ** Usage:
 **   See COMMENT ON FUNCTION statement after CREATE PROCEDURE.
 **
-** (c) 2018 Yellowbrick Data Corporation.
+** (c) 2018 - 2023 Yellowbrick Data Corporation.
 ** . This script is provided free of charge by Yellowbrick Data Corporation as a 
 **   convenience to its customers.
 ** . This script is provided "AS-IS" with no warranty whatsoever.
@@ -14,6 +14,8 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.10.11 - Cosmetic updates.
+** . 2022.03.28 - Don't filter yb sessions.
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.06.15 - Yellowbrick Technical Support 
 ** . 2020.02.09 - Yellowbrick Technical Support 
@@ -78,11 +80,8 @@ DECLARE
 
 BEGIN  
 
-   /* Txn read_only to protect against potential SQL injection attacks on sp that take args
-   SET TRANSACTION       READ ONLY;
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ; 
+   -- Append sysviews:proc_name to ybd_query_tags.
+   EXECUTE 'SET ybd_query_tags  TO ''' || _tags || '''';
 
    _sql := 'SELECT 
       TRIM (ps.datname)::VARCHAR(128)                                             AS db_name
@@ -106,16 +105,14 @@ BEGIN
          FROM pg_locks
          GROUP BY pid
       )                                                                  pl ON ps.pid = pl.pid
-   WHERE usename NOT LIKE ''sys_ybd%''
+   --WHERE usename NOT LIKE ''sys_ybd%''
    ORDER BY query_id
    ';
 
    RETURN QUERY EXECUTE _sql ;
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ;    
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO ''' || _prev_tags || '''';  
 
 END;   
 $proc$ 
@@ -123,20 +120,19 @@ $proc$
 
 
 COMMENT ON FUNCTION session_p() IS 
-'Description:
+$cmnt$Description:
 Current session state details.
+
+Transformed session information similar to pg_stat_activity.
 
 Examples:
   SELECT * FROM session_p() ;
-  SELECT * FROM session_p() WHERE state != ''idle'' ;
+  SELECT * FROM session_p() WHERE state != 'idle' ;
   
 Arguments:
 . none
 
-Notes:
-. Transformed session information similar to pg_stat_activity.
-
 Version:
-. 2020.12.09 - Yellowbrick Technical Support 
-'
+. 2023.01.11 - Yellowbrick Technical Support 
+$cmnt$
 ;

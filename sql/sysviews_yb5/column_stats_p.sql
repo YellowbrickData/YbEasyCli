@@ -14,6 +14,8 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2022.12.27 - Cosmetic updates.
+** . 2022.04.06 - Include column name filter
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.06.15 - Yellowbrick Technical Support 
 ** . 2020.03.05 - Yellowbrick Technical Support 
@@ -66,11 +68,13 @@ CREATE TABLE column_stats_t
 /* ****************************************************************************
 ** Create the procedure.
 */
-CREATE OR REPLACE PROCEDURE column_stats_p(
-    _db_name VARCHAR
-    , _schema_ilike VARCHAR DEFAULT ''
-    , _table_ilike VARCHAR DEFAULT ''
-    , _yb_util_filter VARCHAR DEFAULT 'TRUE' )
+CREATE OR REPLACE PROCEDURE column_stats_p( 
+      _db_name        VARCHAR
+    , _schema_ilike   VARCHAR DEFAULT '%'
+    , _table_ilike    VARCHAR DEFAULT '%'
+    , _column_ilike   VARCHAR DEFAULT '%'    
+    , _yb_util_filter VARCHAR DEFAULT 'TRUE' 
+   )
    RETURNS SETOF column_stats_t 
    LANGUAGE 'plpgsql' 
    VOLATILE
@@ -88,21 +92,18 @@ DECLARE
   
 BEGIN  
 
-   /* Txn read_only to protect against potential SQL injection attack overwrites
-   SET TRANSACTION       READ ONLY;
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ;    
+   -- Append sysviews:proc_name to tags
+   EXECUTE 'SET ybd_query_tags  TO '|| quote_literal( _tags ); 
    PERFORM sql_inject_check_p('_yb_util_filter', _yb_util_filter);
    
    
    IF ( TRIM(_schema_ilike) != '' AND TRIM(_table_ilike) != '' ) 
    THEN 
-      _addl_pred := 'AND  n.nspname ILIKE ' 
-      || CASE WHEN TRIM(_schema_ilike) = '' THEN quote_literal( '%' ) ELSE quote_literal( _schema_ilike ) END
-      || ' AND c.relname ILIKE '       
-      || CASE WHEN TRIM(_table_ilike)  = '' THEN quote_literal( '%' ) ELSE quote_literal( _table_ilike  ) END
-      || ' ' || CHR(10);
+      _addl_pred := ' 
+      AND n.nspname ILIKE ' || quote_literal( _schema_ilike  ) || '
+      AND c.relname ILIKE ' || quote_literal( _table_ilike   ) || '    
+      AND a.attname ILIKE ' || quote_literal( _column_ilike  ) || ' 
+      ' || CHR(10);   
    END IF;
    
 
@@ -172,33 +173,39 @@ BEGIN
       2, 3, 4
    ';
  
+   --RAISE INFO '_sql = %', _sql;  
    RETURN QUERY EXECUTE _sql;
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ; 
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO '|| quote_literal( _prev_tags );
    
 END;   
 $proc$ 
 ;
 
 
-COMMENT ON FUNCTION column_stats_p( VARCHAR, VARCHAR, VARCHAR, VARCHAR ) IS 
-'Description:
+COMMENT ON FUNCTION column_stats_p( VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR ) IS 
+$cmnt$Description:
 Table column metadata including cardinality estimates from the db statistics.
 
+Note: The results are based on DB statistics which are an estimate and tend to become
+less accurate as the number of row updates/deletions/additions since the last
+ANALYZE statement.
+
 Examples:
-  SELECT * FROM column_stats_p( ''my_db'');
-  SELECT * FROM column_stats_p( ''my_db'', ''s%'');
-  SELECT * FROM column_stats_p( ''my_db'', ''%'' ,''%fact%'');  
+  SELECT * FROM column_stats_p( 'my_db' );
+  SELECT * FROM column_stats_p( 'my_db', 's%' );
+  SELECT * FROM column_stats_p( 'my_db', '%' ,'%fact%' );  
+  SELECT * FROM column_stats_p( 'my_db', '%' ,'%fact%', '%id%' );  
   
 Arguments:
-. database_name - (required) This is case sensitive so will normally be all lower case.
-. schema ilike  - (optional) An ILIKE pattern for the schema name. i.e. ''%qtr%''.
-. table  ilike  - (optional) An ILIKE pattern for the table name.  i.e. ''fact%''.
+. database_name   - (required) This is case sensitive so will normally be all lower case.
+. schema ilike    - (optional) An ILIKE pattern for the schema name. i.e. '%qtr%'.
+. table  ilike    - (optional) An ILIKE pattern for the table name.  i.e. 'fact%'.
+. column_ilike    - (optional) An ILIKE pattern for the column name. i.e. 'rate%'.
+. _yb_util_filter - (internal) Used by YbEasyCli.
 
 Version:
-. 2021.12.09 - Yellowbrick Technical Support  
-'
+. 2022.12.27 - Yellowbrick Technical Support  
+$cmnt$
 ;

@@ -1,12 +1,12 @@
 /* ****************************************************************************
-** rowstore_p()
+** rowstore_p.sql
 **
 ** Details of user tables in the rowstore.
 **
 ** Usage:
 **   See COMMENT ON FUNCTION statement after CREATE PROCEDURE.
 **
-** (c) 2018 Yellowbrick Data Corporation.
+** (c) 2018 - 2023 Yellowbrick Data Corporation.
 ** . This script is provided free of charge by Yellowbrick Data Corporation as a 
 **   convenience to its customers.
 ** . This script is provided "AS-IS" with no warranty whatsoever.
@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2022.10.09 - Cosmetic updates.
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.04.26 - Yellowbrick Technical Support 
 ** . 2020.06.15 - Yellowbrick Technical Support 
@@ -78,10 +79,7 @@ DECLARE
   
 BEGIN  
 
-   -- SET TRANSACTION       READ ONLY;
-
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ;    
+   EXECUTE 'SET ybd_query_tags  TO ''' || _tags || '''';  
 
    _sql := 'SELECT *
    FROM
@@ -120,10 +118,8 @@ BEGIN
 
    RETURN QUERY EXECUTE _sql; 
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ; 
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
    
 END;   
 $proc$ 
@@ -131,8 +127,8 @@ $proc$
 
 
 COMMENT ON FUNCTION rowstore_p() IS 
-'Description:
-Rowstore overal metrics including size of data in user tables.
+$cmnt$Description:
+Rowstore aggregated metrics including rows and size of data.
   
 Examples:
   SELECT * FROM rowstore_p() 
@@ -146,6 +142,6 @@ Notes:
 . The columnstore and catalog storage space is not included.
 
 Version:
-. 2020.12.09 - Yellowbrick Technical Support 
-'
+. 2022.10.09 - Yellowbrick Technical Support 
+$cmnt$
 ;

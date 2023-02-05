@@ -14,6 +14,9 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.01.20 - Fix to COMMENT ON.
+** . 2022.04.11 - Increase rule_type width to 24.
+** . 2022.03.05 - Cosmetic updates.
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.06.15 - Yellowbrick Technical Support 
 ** . 2020.06.15 - Yellowbrick Technical Support 
@@ -40,7 +43,7 @@ CREATE TABLE wlm_active_rule_t
    (
       profile_name VARCHAR (256)
     , rule_name    VARCHAR (256)
-    , rule_type    VARCHAR (16)
+    , rule_type    VARCHAR (24)
     , rule_order   INTEGER
     , user_type    VARCHAR (40)
     , expression   VARCHAR (60000)
@@ -67,16 +70,13 @@ DECLARE
     
 BEGIN  
 
-   /* Txn read_only to protect against potential SQL injection attacks on sp that take args
-   SET TRANSACTION       READ ONLY;
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ; 
+   -- Append sysviews:proc_name to ybd_query_tags
+   EXECUTE 'SET ybd_query_tags  TO '|| quote_literal( _tags );
 
    _sql := 'SELECT 
       profile_name::VARCHAR(256)                                              AS profile_name
     , rule_name::VARCHAR(256)                                                 AS rule_name
-    , rule_type::VARCHAR(16)                                                  AS rule_type
+    , rule_type::VARCHAR(24)                                                  AS rule_type
     , "order"                                                                 AS rule_order
     , CASE WHEN superuser = ''t'' THEN ''superuser'' ELSE ''user'' END::VARCHAR(40)
                                                                               AS user_type
@@ -90,13 +90,11 @@ BEGIN
    ';
 
    --RAISE INFO '_sql: %', _sql;
-   
    RETURN QUERY EXECUTE _sql; 
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ;   
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO '|| quote_literal( _prev_tags );
+
 
 END;   
 $proc$ 
@@ -104,21 +102,24 @@ $proc$
 
 
 COMMENT ON FUNCTION wlm_active_rule_p( INTEGER ) IS 
-'Description:
+$cmnt$Description:
 Current active WLM profile rules.
-  
+
+The expression text is truncated with newlines removed so it can be displayed
+on a single line.  
+
 Examples:
   SELECT * FROM wlm_active_rule_p(); 
   SELECT * FROM wlm_active_rule_p( 80 );  
   
 Arguments: 
-. _expr_chars - (optional) INTEGER - max number of chars of WLM JavaScript text
+. _expr_chars - (optl) INTEGER - max number of chars of WLM JavaScript text
                  to display. Default: 32
 
 Notes:
 . Changes in the current profile are not reflected until saved/activated.
 
 Version:
-. 2021.12.09 - Yellowbrick Technical Support 
-'
+. 2023.01.20 - Yellowbrick Technical Support 
+$cmnt$
 ;

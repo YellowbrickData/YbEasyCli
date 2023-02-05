@@ -15,6 +15,17 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2022.08.28 - db_name added as first column.
+**                Added _date_part arg for timestamp truncation. 
+**                Changed args order.
+**                Added restart_number "n"
+** . 2022.07.07 - Line leading spaces removed
+**                IO wait is aprt of exec time
+**                Condense plnr_sec & cmpl_sec into prep_secs.
+** .              Add exe_secs.
+**                Don't split application_name by default; now a proc option.
+**                First arg of prediate replaced with boolean for showing system stmts.
+** . 2022.07.01 - prep_secs updated; should not include wait time.
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.05.07 - Yellowbrick Technical Support 
 ** . 2021.04.20 - Yellowbrick Technical Support 
@@ -43,7 +54,9 @@
 DROP TABLE IF EXISTS public.query_t CASCADE ;
 CREATE TABLE public.query_t
 (
-   query_id                   BIGINT  
+   db_name                    VARCHAR( 128 )
+ , query_id                   BIGINT  
+ , n                          INTEGER
  , transaction_id             BIGINT
  , session_id                 BIGINT
  , pool_id                    VARCHAR( 128 )
@@ -73,9 +86,11 @@ DISTRIBUTE ON ( transaction_id )
 ** Create the procedure.
 */
 
-CREATE OR REPLACE PROCEDURE public.query_p(
-   _pred VARCHAR DEFAULT 'TRUE'
-   , _query_chars INTEGER DEFAULT 32 )  
+CREATE OR REPLACE PROCEDURE query_p( _show_all    BOOLEAN DEFAULT 't'
+                                   , _query_chars INTEGER DEFAULT 32 
+                                   , _date_part   VARCHAR DEFAULT 'sec'
+                                   , _split_name  BOOLEAN DEFAULT 'f'
+                                   )  
    RETURNS SETOF public.query_t 
    LANGUAGE 'plpgsql' 
    VOLATILE
@@ -85,6 +100,7 @@ AS
 $proc$
 DECLARE
 
+   _pred        TEXT    := ' type <> ''system'' AND username NOT LIKE ''sys_ybd%''  ';
    _sql         TEXT    := '';
 
    _fn_name     VARCHAR(256) := 'query_steps_p';
@@ -93,64 +109,76 @@ DECLARE
 
 BEGIN
 
-   -- SET TRANSACTION       READ ONLY;
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ;   
+   EXECUTE 'SET ybd_query_tags  TO ''' || _tags || '''';
+   
+   IF NOT _show_all 
+   THEN 
+      _pred  := ' type <> ''system'' AND username NOT LIKE ''sys_ybd%''  ';
+   END IF;
 
    _sql := 'SELECT
-     query_id                                                                 AS query_id
-   , transaction_id                                                           AS transaction_id
+     database_name ::VARCHAR( 128 )                                           AS db_name
+   , query_id                                                                 AS query_id
+   , num_restart                                                              AS n
    , session_id                                                               AS session_id
+   , transaction_id                                                           AS transaction_id
    , pool_id::VARCHAR( 128 )                                                  AS pool_id
    , state::VARCHAR( 50 )                                                     AS state
    , error_code::VARCHAR( 5 )                                                 AS code
    , username::VARCHAR( 128 )                                                 AS username 
-   , SPLIT_PART( application_name, '' '', 1 )::VARCHAR(128)                   AS app_name
+   , CASE WHEN ' || quote_literal( _split_name ) || ' 
+          THEN SPLIT_PART( application_name, '' '', 1 )::VARCHAR(128)
+          ELSE application_name 
+     END                                                                      AS app_name
    , tags                                                                     AS tags
    , type                                                                     AS type
    , GREATEST( rows_deleted, rows_inserted, rows_returned )                   AS rows
-   , date_trunc( ''secs'', submit_time )::TIMESTAMP                           AS submit_time
+   , DATE_TRUNC(' || quote_literal(_date_part) || ',submit_time)::TIMESTAMP   AS submit_time
    , ROUND( restart_ms                      / 1000.0, 2 )::DECIMAL(19,1)      AS restart_sec 
-   , ROUND( ( parse_ms   + wait_parse_ms + wait_lock_ms + plan_ms + wait_plan_ms + assemble_ms + wait_assemble_ms ) / 1000.0, 2 )::DECIMAL(19,1) 
+   , ROUND( ( parse_ms + plan_ms + assemble_ms + compile_ms ) / 1000.0, 2 )::DECIMAL(19,1)
                                                                               AS prep_sec
-   , ROUND( (compile_ms + wait_compile_ms ) / 1000.0, 2 )::DECIMAL(19,1)      AS cmpl_sec                                                                             
    , ROUND( acquire_resources_ms            / 1000.0, 2 )::DECIMAL(19,1)      AS que_sec   
+   , ROUND( (run_ms - wait_run_cpu_ms                       ) / 1000.0, 2 )::DECIMAL(19, 1)
+                                                                              AS exe_sec
    , ROUND( run_ms                          / 1000.0, 2 )::DECIMAL(19,1)      AS run_sec
    , ROUND( total_ms                        / 1000.0, 2 )::DECIMAL(19,1)      AS tot_sec
    , ROUND( memory_bytes                    / 1024.0^2, 2 )::DECIMAL(19,0)    AS max_mb
-   , ROUND( io_spill_space_bytes            / 1024.0^2, 2 )::DECIMAL(19,0)    AS mx_spill_mb   
-   /* add total spill written */
-   , TRANSLATE( SUBSTR( query_text, 1,' || _query_chars ||' ), e''\n\t'', ''  '' )::VARCHAR(60000) AS query_text
+   , ROUND( io_spill_space_bytes             / 1024.0^2, 2 )::DECIMAL(19,0)   AS spill_mb                                                                             
+   , REGEXP_REPLACE( SUBSTR( query_text, 1,' || _query_chars ||' ), ''(^\s+|\r\s*|\n\s*|\t\s*)'', '' '')::VARCHAR(60000)
+                                                                              AS query_text 
    FROM
      sys.query
    WHERE type NOT IN (''system'', ''unknown'') 
      AND STRPOS(username, ''sys_ybd'') != 1
-     AND ' || _pred;
+   ';
     
    --RAISE INFO '_sql is: %', _sql ;
    RETURN QUERY EXECUTE _sql;
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ;  
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
   
 END;
 $proc$
 ;
 
 
-COMMENT ON FUNCTION query_p( VARCHAR, INTEGER ) IS 
-'Description:
+COMMENT ON FUNCTION query_p( BOOLEAN, INTEGER, VARCHAR, BOOLEAN ) IS 
+$cmnt$Description:
 Transformed subset of sys.query columns for currently running statements. 
 
 Examples:
   SELECT * FROM query_p();
+  SELECT * FROM query_p( 60, 't');
 
 Arguments:
-. None
+. _show_all    (optional) - Show (or hide) system and sys_ybd* statements. Default 't'.
+. _query_chars (optional) - First "n" Characters of query text to display. Default 32.
+. _date_part   (optional) - Precision of timestamp columns. i.e. msec, etc...  DEFAULT 'sec'.
+. _split_name  (optional) - Display only the characters in the app_name up to the
+                            first blank space character. Default 'f'.
 
 Revision:
-. 2021.12.09 - Yellowbrick Technical Support 
-'
+. 2022.08.28 - Yellowbrick Technical Support 
+$cmnt$
 ;
