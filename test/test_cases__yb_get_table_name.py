@@ -21,7 +21,7 @@ test_cases = [
 
     , test_case(
         cmd=(
-            """yb_get_table_name.py @{argsdir}/db1 --current_schema dev --schema """
+            """yb_get_table_name.py @{argsdir}/db2 --current_schema dev --schema """
             """'Prod' --table C1_t --database {db2}""")
         , exit_code=0
         , stdout='"C1_t"'

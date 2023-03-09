@@ -2,7 +2,7 @@ test_cases = [
     test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col1'
+            '--object data_types_t --column col1'
         , exit_code=0
         , stdout='BIGINT'
         , stderr='')
@@ -10,7 +10,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col2'
+            '--object data_types_t --column col2'
         , exit_code=0
         , stdout='INTEGER'
         , stderr='')
@@ -18,7 +18,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col3'
+            '--object data_types_t --column col3'
         , exit_code=0
         , stdout='SMALLINT'
         , stderr='')
@@ -26,7 +26,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col4'
+            '--object data_types_t --column col4'
         , exit_code=0
         , stdout='NUMERIC(18,0)'
         , stderr='')
@@ -34,7 +34,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col5'
+            '--object data_types_t --column col5'
         , exit_code=0
         , stdout='REAL'
         , stderr='')
@@ -42,7 +42,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col6'
+            '--object data_types_t --column col6'
         , exit_code=0
         , stdout='DOUBLE PRECISION'
         , stderr='')
@@ -50,7 +50,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col7'
+            '--object data_types_t --column col7'
         , exit_code=0
         , stdout='UUID'
         , stderr='')
@@ -58,7 +58,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col8'
+            '--object data_types_t --column col8'
         , exit_code=0
         , stdout='CHARACTER VARYING(256)'
         , stderr='')
@@ -66,7 +66,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col9'
+            '--object data_types_t --column col9'
         , exit_code=0
         , stdout='CHARACTER(1)'
         , stderr='')
@@ -74,7 +74,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col10'
+            '--object data_types_t --column col10'
         , exit_code=0
         , stdout='DATE'
         , stderr='')
@@ -82,7 +82,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col11'
+            '--object data_types_t --column col11'
         , exit_code=0
         , stdout='TIME WITHOUT TIME ZONE'
         , stderr='')
@@ -90,7 +90,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col12'
+            '--object data_types_t --column col12'
         , exit_code=0
         , stdout='TIMESTAMP WITHOUT TIME ZONE'
         , stderr='')
@@ -98,7 +98,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col13'
+            '--object data_types_t --column col13'
         , exit_code=0
         , stdout='TIMESTAMP WITH TIME ZONE'
         , stderr='')
@@ -106,7 +106,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col14'
+            '--object data_types_t --column col14'
         , exit_code=0
         , stdout='IPV4'
         , stderr='')
@@ -114,7 +114,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col15'
+            '--object data_types_t --column col15'
         , exit_code=0
         , stdout='IPV6'
         , stderr='')
@@ -122,7 +122,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col16'
+            '--object data_types_t --column col16'
         , exit_code=0
         , stdout='MACADDR'
         , stderr='')
@@ -130,7 +130,7 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col17'
+            '--object data_types_t --column col17'
         , exit_code=0
         , stdout='MACADDR8'
         , stderr='')
@@ -138,14 +138,14 @@ test_cases = [
     , test_case(
         cmd=
             'yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column colXX'
+            '--object data_types_t --column colXX'
         , exit_code=0
         , stdout=''
         , stderr='')
 
     , test_case(
         cmd=('yb_get_column_type.py @{argsdir}/db1 --schema dev '
-            '--table data_types_t --column col1 --database {db2}')
+            '--object data_types_t --column col1 --database {db2}')
         , exit_code=0
         , stdout='BIGINT'
         , stderr='')
@@ -155,9 +155,9 @@ test_cases = [
         , exit_code=(0 if Common.is_windows else 1)
         , stdout=""
         , stderr=(
-        """yb_get_column_type.py: error: the following arguments are required: --table, --column
+        """yb_get_column_type.py: error: the following arguments are required: --object, --column
 for complete help, execute: yb_get_column_type.py --help"""
         if self.test_py_version == 3
-        else """yb_get_column_type.py: error: argument --table is required
+        else """yb_get_column_type.py: error: argument --object is required
 for complete help, execute: yb_get_column_type.py --help"""))
 ]
