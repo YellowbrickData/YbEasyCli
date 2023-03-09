@@ -16,8 +16,7 @@ Output:
 from yb_common import StoredProc, Util
 
 class find_columns(Util):
-    """Issue the ybsql command used to list the column names comprising an
-    object.
+    """Issue the ybsql command used to list the column names comprising an object.
     """
     config = {
         'description': 'List column names and column attributes for filtered columns.'
