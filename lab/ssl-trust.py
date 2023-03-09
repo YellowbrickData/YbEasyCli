@@ -25,8 +25,10 @@ args = parser.parse_args()
 if args.loopback:
 	args.target = args.source
 
+# TODO: show WARNING about proper SSL configuration before proceeding
+
 # YB appliance connection string format: username/password@host:port/database, port and password are optional (either YBPASSWORD envvar or .ybpass entry work fine)
-rx = re.compile(r'(?P<YBUSER>\w+)(?:/(?P<YBPASSWORD>.+))?@(?P<YBHOST>\S+?)(?::(?P<YBPORT>\d+))?/(?P<YBDATABASE>\w+)')
+rx = re.compile(r'(?P<YBUSER>\S+)(?:/(?P<YBPASSWORD>.+))?@(?P<YBHOST>\S+?)(?::(?P<YBPORT>\d+))?/(?P<YBDATABASE>\w+)')
 clusters = {'source': {'env': {}, 'ssl': {'ca': None}, 'trust': {}}, 'target': {'env':{}, 'ssl': {'system': None}, 'trust': {}}}
 # NOTE: a PEM file could contain multiple certificates (the whole chain of trust for example), but only the first one gets ingested by 'import ssl trust' command
 # NOTE: below I'm extracting only the base64-encoded part of the first certificate
