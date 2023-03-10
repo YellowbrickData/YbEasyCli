@@ -172,13 +172,13 @@ Examples:
   SELECT * FROM rel_p( '%', '%qtr%' ,'%fact%');  
   
 Arguments:
-. _db_ilike       - (optional) An ILIKE pattern for the database name. i.e. 'yellowbrick%'.
-                    The defauuls is '%'
-. _schema_ilike   - (optional) An ILIKE pattern for the schema name. i.e. '%qtr%'.
+. _db_ilike       - (optl) An ILIKE pattern for the database name. i.e. 'yellowbrick%'.
                     The default is '%'
-. _rel_ilike      - (optional) An ILIKE pattern for the table name.  i.e. 'fact%'.
+. _schema_ilike   - (optl) An ILIKE pattern for the schema name. i.e. '%qtr%'.
                     The default is '%'
-. _yb_util_filter - (internal) Used by YbEasyCLI.
+. _rel_ilike      - (optl) An ILIKE pattern for the table name.  i.e. 'fact%'.
+                    The default is '%'
+. _yb_util_filter - (intrnl) Used by YbEasyCLI.
 
 Version:
 . 2023.01.11 - Yellowbrick Technical Support 

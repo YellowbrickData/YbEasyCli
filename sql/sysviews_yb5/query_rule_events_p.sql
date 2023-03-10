@@ -15,6 +15,8 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.03.09 - Cosmetic updates
+** . 2022.03.24 - Initial Version
 */
 
 
@@ -23,29 +25,29 @@
 **
 ** Example result:
 **
-**  query_id  |event_order|event_time             |rule_type |rule_name                                     |event_type|event                                                    |
-**  ----------+-----------+-----------------------+----------+----------------------------------------------+----------+---------------------------------------------------------+
-**  2514544697|          1|2022-03-24 23:58:19.751|submit    |                                              |          |                                                         |
-**  2514544697|          2|2022-03-24 23:58:19.751|          |PROD: logSubmit                               |info      |w.resourcePool: null                                     |
-**  2514544697|          3|2022-03-24 23:58:19.751|          |global_throttleConcurrentQueries              |throttle  |Throttle 500 accesses                                    |
-**  2514544697|          4|2022-03-24 23:58:19.752|assemble  |                                              |          |                                                         |
-**  2514544697|          5|2022-03-24 23:58:19.752|          |PROD: logAssemble                             |info      |w.resourcePool: null                                     |
-**  2514544697|          6|2022-03-24 23:58:19.762|prepare   |                                              |          |                                                         |
-**  2514544697|          7|2022-03-24 23:58:19.762|          |global_throttleExternalTables                 |info      |Rule changed no query settings                           |
-**  2514544697|          8|2022-03-24 23:58:19.762|          |global_mapAAToLowPriority                     |ignore    |Rule configured for superuser queries (query user: denav)|
+**  query_id  |event_order|event_time             |rule_type |rule_name                        |event_type|event                                                    |
+**  ----------+-----------+-----------------------+----------+---------------------------------+----------+---------------------------------------------------------+
+**  2514544697|          1|2022-03-24 23:58:19.751|submit    |                                 |          |                                                         |
+**  2514544697|          2|2022-03-24 23:58:19.751|          |PROD: logSubmit                  |info      |w.resourcePool: null                                     |
+**  2514544697|          3|2022-03-24 23:58:19.751|          |global_throttleConcurrentQueries |throttle  |Throttle 500 accesses                                    |
+**  2514544697|          4|2022-03-24 23:58:19.752|assemble  |                                 |          |                                                         |
+**  2514544697|          5|2022-03-24 23:58:19.752|          |PROD: logAssemble                |info      |w.resourcePool: null                                     |
+**  2514544697|          6|2022-03-24 23:58:19.762|prepare   |                                 |          |                                                         |
+**  2514544697|          7|2022-03-24 23:58:19.762|          |global_throttleExternalTables    |info      |Rule changed no query settings                           |
+**  2514544697|          8|2022-03-24 23:58:19.762|          |global_mapAAToLowPriority        |ignore    |Rule configured for superuser queries (query user: denav)|
 **  ...
 ** 
 */
-DROP TABLE IF EXISTS public.query_rule_events_t CASCADE ;
-CREATE TABLE public.query_rule_events_t
+DROP   TABLE IF EXISTS query_rule_events_t CASCADE ;
+CREATE TABLE           query_rule_events_t
 (
-    query_id BIGINT
+    query_id      BIGINT
     , event_order BIGINT
-    , event_time TIMESTAMP
-    , rule_type VARCHAR(128)
-    , rule_name VARCHAR(128)
-    , event_type VARCHAR(128)
-    , event VARCHAR(4096)
+    , event_time  TIMESTAMP
+    , rule_type   VARCHAR(128)
+    , rule_name   VARCHAR(128)
+    , event_type  VARCHAR(128)
+    , event       VARCHAR(4096)
 )
 DISTRIBUTE ON ( query_id )
 ;
@@ -56,11 +58,11 @@ DISTRIBUTE ON ( query_id )
 ** Create the procedure.
 */
 
-CREATE OR REPLACE PROCEDURE public.query_rule_events_p(
-   _query_id     BIGINT  
+CREATE OR REPLACE PROCEDURE query_rule_events_p(
+     _query_id   BIGINT  
    , _rule_type  VARCHAR DEFAULT '' 
    , _event_type VARCHAR DEFAULT '' )
-   RETURNS SETOF public.query_rule_events_t
+   RETURNS SETOF query_rule_events_t
    LANGUAGE 'plpgsql' 
    VOLATILE
    CALLED ON NULL INPUT
@@ -80,8 +82,7 @@ DECLARE
 BEGIN
 
    -- SET TRANSACTION       READ ONLY;
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ;   
+   EXECUTE 'SET ybd_query_tags  TO ''' || _tags || ''''; 
 
    IF _rule_type <> '' THEN
       _rule_type_clause := 'row_rule_type IN ('|| _rule_type || ')';
@@ -151,10 +152,8 @@ $sql$::VARCHAR(4096), '{query_id}'::VARCHAR, _query_id::VARCHAR), '{rule_type_cl
    --RAISE INFO '_sql is: %', _sql ;
    RETURN QUERY EXECUTE _sql;
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ;  
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
   
 END;
 $proc$
@@ -162,17 +161,18 @@ $proc$
 
 
 COMMENT ON FUNCTION query_rule_events_p( BIGINT, VARCHAR, VARCHAR ) IS 
-'Description:
+$cmnt$Description:
 Return the WLM rule events for a query. 
 
 Examples:
   SELECT * FROM query_rule_events_p(12345);
 
 Arguments:
-. _query_id - query_id as a bigint.
+. _query_id   BIGINT  (reqd) - query_id as a BIGINT.
+. _rule_type  VARCHAR (optl) - DEFAULT ''.
+. _event_type VARCHAR (optl) - DEFAULT ''.
 
 Revision:
 . 2022.03.24 - Yellowbrick Technical Support 
-. 2022.10.01 - added rule and event type filters 
-'
+$cmnt$
 ;

@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Version History:
+** . 2023.03.09 - Add _db_ilike param
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.05.08 - Yellowbrick Technical Support
 ** . 2020.06.15 - Yellowbrick Technical Support
@@ -52,7 +53,9 @@ CREATE TABLE storage_by_db_t
 /* ****************************************************************************
 ** Create the procedure.
 */
-CREATE PROCEDURE storage_by_db_p(_yb_util_filter VARCHAR DEFAULT 'TRUE')
+CREATE PROCEDURE storage_by_db_p( _db_ilike       VARCHAR DEFAULT '%'
+                                , _yb_util_filter VARCHAR DEFAULT 'TRUE'
+                                )
    RETURNS SETOF storage_by_db_t
    LANGUAGE 'plpgsql' 
    VOLATILE
@@ -71,14 +74,13 @@ DECLARE
 BEGIN  
 
    -- SET TRANSACTION       READ ONLY;
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ; 
+   EXECUTE 'SET ybd_query_tags  TO ''' || _tags || '''';
    PERFORM sql_inject_check_p('_yb_util_filter', _yb_util_filter);
 
    _sql := 'WITH appliance_storage AS
          ( SELECT
-            ROUND( SUM( scratch_bytes / 1024.0^3 ), 3 ) ::numeric( 15, 3 ) AS spill_gb
-          , ROUND( SUM( total_bytes   / 1024.0^3 ), 3 ) ::numeric( 15, 3 ) AS total_gb
+            ROUND( SUM( scratch_bytes / 1024.0^3 ), 3 ) ::NUMERIC( 15, 3 ) AS spill_gb
+          , ROUND( SUM( total_bytes   / 1024.0^3 ), 3 ) ::NUMERIC( 15, 3 ) AS total_gb
          FROM
             sys.storage
          )
@@ -86,15 +88,15 @@ BEGIN
          SELECT
            d.name::VARCHAR( 128 )                                                 AS db_name
          , COUNT( DISTINCT t.table_id )::INTEGER                                  AS tables
-         , ROUND( SUM( ts.rows_columnstore )   / 1000000.0, 0 )::numeric( 12, 0 ) AS rows_mil
-         , ROUND( SUM( ts.compressed_bytes )   / 1024.0^3, 0 )::numeric( 12, 0 )  AS cmpr_gb
-         , ROUND( SUM( ts.uncompressed_bytes ) / 1024.0^3, 0 )::numeric( 12, 0 )  AS uncmpr_gb
-         , ROUND(( cmpr_gb / MAX( aps.total_gb ) ) * 100.0, 1 ) ::numeric( 12, 1 )AS appl_pct
-         , ROUND( MAX( aps.total_gb ) )::numeric( 12, 0 )                         AS appl_gb
+         , ROUND( SUM( ts.rows_columnstore )   / 1000000.0, 0 )::NUMERIC( 12, 0 ) AS rows_mil
+         , ROUND( SUM( ts.compressed_bytes )   / 1024.0^3, 0 )::NUMERIC( 12, 0 )  AS cmpr_gb
+         , ROUND( SUM( ts.uncompressed_bytes ) / 1024.0^3, 0 )::NUMERIC( 12, 0 )  AS uncmpr_gb
+         , ROUND(( cmpr_gb / MAX( aps.total_gb ) ) * 100.0, 1 ) ::NUMERIC( 12, 1 )AS appl_pct
+         , ROUND( MAX( aps.total_gb ) )::NUMERIC( 12, 0 )                         AS appl_gb
          FROM
             sys.table_storage            ts
             RIGHT JOIN sys.table         t ON ts.table_id   = t.table_id
-            JOIN sys.database            d ON t.database_id = d.database_id
+            JOIN sys.database            d ON t.database_id = d.database_id AND d.name ILIKE quote_literal( _db_ilike )
             CROSS JOIN appliance_storage aps
          WHERE
             ts.table_id > 16384
@@ -104,11 +106,11 @@ BEGIN
          SELECT
            ''temp space''::VARCHAR( 128 )                                       AS db_name
          , 0::INTEGER                                                           AS tables
-         , 0::numeric( 12, 0 )                                                  AS rows_mil
-         , aps.spill_gb::numeric( 12, 0 )                                       AS cmpr_gb
-         , aps.spill_gb::numeric( 12, 0 )                                       AS uncmpr_gb
-         , ROUND(( aps.spill_gb / aps.total_gb ) * 100.0, 1 )::numeric( 12, 1 ) AS pct       
-         , aps.total_gb::numeric( 12, 0 )                                       AS appl_gb
+         , 0::NUMERIC( 12, 0 )                                                  AS rows_mil
+         , aps.spill_gb::NUMERIC( 12, 0 )                                       AS cmpr_gb
+         , aps.spill_gb::NUMERIC( 12, 0 )                                       AS uncmpr_gb
+         , ROUND(( aps.spill_gb / aps.total_gb ) * 100.0, 1 )::NUMERIC( 12, 1 ) AS pct       
+         , aps.total_gb::NUMERIC( 12, 0 )                                       AS appl_gb
          FROM
             appliance_storage aps
       )
@@ -120,27 +122,27 @@ BEGIN
    --RAISE INFO '_sql=%', _sql;
    RETURN QUERY EXECUTE _sql ;
   
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ;     
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
 
 END;   
 $proc$ 
 ;
 
    
-COMMENT ON FUNCTION storage_by_db_p(VARCHAR) IS 
-'Description:
+COMMENT ON FUNCTION storage_by_db_p(VARCHAR, VARCHAR) IS 
+$cmnt$Description:
 Storage space of committed blocks in user tables aggregated by database.
 
 Examples:
   SELECT * FROM storage_by_db_p();
   
 Arguments:
-. None  
+. _db_ilike       - (optl) An ILIKE pattern for the schema name. i.e. '%fin%'.
+                    The default is '%'
+. _yb_util_filter - (intrnl) for YbEasyCli use.
 
 Version:
-. 2021.12.09 - Yellowbrick Technical Support 
-'
+. 2023.03.09 - Yellowbrick Technical Support 
+$cmnt$
 ;

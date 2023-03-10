@@ -56,41 +56,41 @@
 ** Create a table to define the rowtype that will be returned by the procedure.
 ** Yellowbrick does not support user defined types or RETURNS TABLE. 
 */
-DROP TABLE IF EXISTS log_query_slot_usage_t CASCADE;
-CREATE TABLE log_query_slot_usage_t (
-    pool_id CHARACTER VARYING(128)
-    , slots      BIGINT
-    , secs       BIGINT
-    , secs_pct   NUMERIC(38,2)
-    , min_sec_ts TIMESTAMP WITHOUT TIME ZONE
-    , max_sec_ts TIMESTAMP WITHOUT TIME ZONE
+DROP   TABLE IF EXISTS log_query_slot_usage_t CASCADE;
+CREATE TABLE           log_query_slot_usage_t (
+   pool_id    VARCHAR(128)
+ , slots      BIGINT
+ , secs       BIGINT
+ , secs_pct   NUMERIC(38,2)
+ , min_sec_ts TIMESTAMP
+ , max_sec_ts TIMESTAMP
 );
 
 /* ****************************************************************************
 ** Create the procedure.
 */
-CREATE OR REPLACE PROCEDURE log_query_slot_usage2_p(
-    _non_su         VARCHAR 
-    , _from_date    DATE DEFAULT NULL
-    , _days         INT DEFAULT 30
+CREATE OR REPLACE PROCEDURE log_query_slot_usage_p(
+      _non_su       VARCHAR 
+    , _from_date    DATE    DEFAULT NULL
+    , _days         INT     DEFAULT 30
     , _days_of_week VARCHAR DEFAULT NULL
     , _hours_of_day VARCHAR DEFAULT NULL)
-    RETURNS SETOF log_query_slot_usage_t
-    LANGUAGE 'plpgsql' 
-    VOLATILE
+   RETURNS SETOF log_query_slot_usage_t
+   LANGUAGE 'plpgsql' 
+   VOLATILE
 AS
 $proc$
 DECLARE
     _start_date DATE := NVL(_from_date, (CURRENT_DATE - _days + 1));
-    _end_date DATE := _start_date + _days;
+    _end_date   DATE := _start_date + _days;
     _total_secs INT := 60 * 60 * 24 * _days;
-    _rec RECORD;
-    _ts VARCHAR(15);
+    _rec        RECORD;
+    _ts         VARCHAR(15);
     --
     _sql TEXT;
     _fn_name   VARCHAR(256) := 'column_stats_p';
     _prev_tags VARCHAR(256) := CURRENT_SETTING('ybd_query_tags');
-    _tags VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;      
+    _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;      
 BEGIN
     --RAISE INFO '_start_date: %' , _start_date; --DEBUG
     --RAISE INFO '_end_date: %' , _end_date; --DEBUG
@@ -283,6 +283,7 @@ BEGIN
     RETURN QUERY EXECUTE 'SELECT * FROM log_query_slot_usage_' || _ts || ' ORDER BY 1, 2';
    -- Reset ybd_query_tags back to its previous value
    EXECUTE 'SET ybd_query_tags  TO '|| quote_literal( _prev_tags );
+   
 END 
 $proc$;
 
@@ -296,13 +297,13 @@ Examples:
 
 Arguments:
 . _non_su       (reqd) - the utility must be run by a super user and requires a non-super user to execute
-                   without running into out of memory or spill issues
+                         without running into out of memory or spill issues
 . _from_date    (optl) - the date to start analyzing data on, defaults to 30 days before NOW
 . _days         (optl) - the number of days of data to analyze, defaults to 30 days
 . _days_of_week (optl) - days of the week to report on as a string of 0 to 6 numbers comma seperated, like
-                  '1,2,3,4,5', where 0 is Sunday, 1 is Monday, ..., 6 is Sunday, defaults to all days
+                         '1,2,3,4,5', where 0 is Sunday, 1 is Monday, ..., 6 is Sunday, defaults to all days
 . _hours_of_day (optl) - hours of the day to report on as a string of 0 to 23 numbers comma seperated, like
-                  '9,10,11', defaults to all hours
+                        '9,10,11', defaults to all hours
 Revision:
 . 2023-01-20 - Yellowbrick Technical Support 
 $cmnt$
