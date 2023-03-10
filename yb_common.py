@@ -39,7 +39,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20221120'
+    version = '20230309'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -957,7 +957,7 @@ class DBFilterArgs:
             to "''" when set to True (Default value = False)
         :returns: SQL filter clause
         """
-        arg_value = eval('self.args_handler.args.%s' % otype)
+        arg_value = eval("self.args_handler.args.%s if hasattr(self.args_handler.args, '%s') else None" % (otype, otype))
         if arg_value:
             filter_clause = ("%s = '%s'" % (column_name, arg_value))
         else:
@@ -1088,6 +1088,9 @@ class DBConnect:
     env_to_set = conn_args.copy()
     env_to_set['pwd'] = 'YBPASSWORD'
 
+    # TODO, revisit when YB 4.X is depricated these warnings seem to only be for YB<=4.X
+    ybtool_stderr_strip_warnings = []
+
     def __init__(self, args_handler=None, env=None, conn_type=''
         , connect_timeout=10, on_fail_exit=True):
         """Creates a validated database connection object.
@@ -1174,6 +1177,11 @@ class DBConnect:
                 self.env['pwd'] = '-*-force bad password-*-'
 
         self.verify()
+
+        if self.ybdb['version_major'] <= 4:
+            self.ybtool_stderr_strip_warnings.append('WARNING:  setting the restricted parameter "ybd_analyze_after_writes" may lead to unexpected system behavior')
+            self.ybtool_stderr_strip_warnings.append(r'WARNING:  Error querying database metadata.*')
+
 
     @staticmethod
     def get_ybpass(user_env, user):
@@ -1329,8 +1337,7 @@ WHERE rolname = CURRENT_USER""")
             Common.error('this utility must be run by a database super user...')
 
     ybsql_call_count = 0
-    ybtool_stderr_strip_warnings = [
-        'WARNING:  setting the restricted parameter "ybd_analyze_after_writes" may lead to unexpected system behavior']
+
     def ybsql_query(self, sql_statement
         , options = '-A -q -t -v ON_ERROR_STOP=1 -X', stdin = None, strip_warnings=[]):
         """Run and evaluate a query using ybsql.
@@ -1967,6 +1974,7 @@ class Util(object):
     def additional_args_process(self):
         None
 
+    # currently only used by yb_to_yb_copy_table
     def src_to_dst_table_ddl(self, src_table, dst_table, src_db_conn, dst_db_conn, in_args_handler):
         from yb_ddl_object import ddl_object
 
@@ -1981,13 +1989,14 @@ class Util(object):
         ddlo = ddl_object(db_conn=db_conn, args_handler=args_handler)
 
         ddlo.init_config('table')
-        args_handler.args.schema = src_schema if src_schema else db_conn.schema
-        args_handler.args.table = src_table
-        args_handler.args.template = '{ddl}'
+        args_handler.args.schema      = src_schema if src_schema else db_conn.schema
+        args_handler.args.table       = src_table
+        args_handler.args.database    = db_conn.database
+        args_handler.args.template    = '{ddl}'
         args_handler.args.with_schema = False
-        args_handler.args.with_db = False
+        args_handler.args.with_db     = False
         args_handler.args.exec_output = False
-        args_handler.db_filter_args = DBFilterArgs(['schema', 'table'], [], [], args_handler)
+        args_handler.db_filter_args   = DBFilterArgs(['database', 'schema', 'table'], [], [], args_handler)
         ddl = ddlo.execute()
 
         ddl = re.sub(r'^CREATE TABLE[^(]*', 'CREATE TABLE %s ' % Common.quote_object_paths(dst_table), ddl)
@@ -1995,7 +2004,11 @@ class Util(object):
         cmd.on_error_exit()
 
     def get_dbs(self, filter_clause=None):
-        filter_clause = self.db_filter_args.build_sql_filter({'database':'db_name'})
+        arg_name = 'database'
+        if not filter_clause:
+            filter_clause = (
+                "has_database_privilege(name, 'CONNECT')\n"
+                "    AND " + self.db_filter_args.build_sql_filter({arg_name:'name'}))
 
         sql_query = """
 SELECT
@@ -2011,12 +2024,12 @@ ORDER BY
         cmd_result.on_error_exit()
 
         dbs = cmd_result.stdout.strip()
-        if dbs == '' and self.db_filter_args.has_optional_args_multi_set('database'):
+        if dbs == '' and self.db_filter_args.has_optional_args_multi_set(arg_name):
             dbs = []
         elif dbs == '':
             dbs = ['"' + self.db_conn.database + '"']
         else:
-            dbs = dbs.split('\n')
+            dbs = dbs.replace('\r', '').split('\n')
 
         return dbs
 

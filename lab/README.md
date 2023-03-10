@@ -1,4 +1,4 @@
-# lab
+# 🧪 Lab area
 
 This directory serves as a laboratory for utilities that are functional but are not properly documented or still in a crud form.
 
@@ -11,3 +11,4 @@ This directory serves as a laboratory for utilities that are functional but are 
 | selective-backup.py          | Does smart backups by checking first if there was any data change since the last successful backup                                |
 | ssl-trust.py                 | Manages SSL trust (required for replication) between two appliances (source and target)                                           |
 | summarize_lime_status_log.py | Displays a summary of critical cluster events (failovers, database restarts, blade crashes, etc)                                  |
+| get-wlm-profile-from-yb.py   | Exports specified WLM profile, including pools/rules, in JSON format, which can be modified and imported back through the SMC     |

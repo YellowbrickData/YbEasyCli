@@ -3,14 +3,14 @@ test_cases = [
         cmd=
             'yb_get_column_name.py @{argsdir}/db1 --schema dev --object a1_t --column col1'
         , exit_code=0
-        , stdout='col1'
+        , stdout='{db1}.dev.a1_t.col1'
         , stderr='')
 
     , test_case(
         cmd=
             'yb_get_column_name.py @{argsdir}/db1 --schema dev --object a1_v --column col1'
         , exit_code=0
-        , stdout='col1'
+        , stdout='{db1}.dev.a1_v.col1'
         , stderr='')
 
     , test_case(
@@ -25,14 +25,14 @@ test_cases = [
             'yb_get_column_name.py @{argsdir}/db1 --schema dev '
             '--object data_types_t --column col10')
         , exit_code=0
-        , stdout='col10'
+        , stdout='{db1}.dev.data_types_t.col10'
         , stderr='')
 
     , test_case(
         cmd=
             """yb_get_column_name.py @{argsdir}/db1 --schema 'Prod' --object C1_t --column Col1 --database {db2}"""
         , exit_code=0
-        , stdout='"Col1"'
+        , stdout='{db2}."Prod"."C1_t"."Col1"'
         , stderr='')
 
     , test_case(

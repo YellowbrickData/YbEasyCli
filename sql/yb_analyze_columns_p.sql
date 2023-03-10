@@ -76,7 +76,7 @@ SELECT
     , schemaname
     , tableowner
     , column_num
-    , DECODE(TRUE, data_type LIKE '%(%', RTRIM(SPLIT_PART(data_type,'(',2),')')) AS dimensions
+    , DECODE(TRUE, data_type LIKE '%(%' AND data_type NOT LIKE '%TIME%', RTRIM(SPLIT_PART(data_type,'(',2),')')) AS dimensions
     , SPLIT_PART(dimensions,',',1)::INT AS precision
     , SPLIT_PART(dimensions,',',2) AS scale_char
     , DECODE(scale_char, NULL, NULL::INT, '', NULL::INT, scale_char::INT) AS scale
@@ -242,11 +242,11 @@ BEGIN
                     || '|' || NVL(v_rec_tables.max_bytes::VARCHAR,'');
                 IF v_has_stats THEN
                     v_str := v_str
-                        || '|' || v_rec_tables.est_null_pct
-                        || '|' || v_rec_tables.est_byte_width
-                        || '|' || v_rec_tables.est_count_distinct
-                        || '|' || v_rec_tables.est_rows
-                        || '|' || v_rec_tables.est_total_bytes;
+                        || '|' || NVL(v_rec_tables.est_null_pct::VARCHAR, '')
+                        || '|' || NVL(v_rec_tables.est_byte_width::VARCHAR, '')
+                        || '|' || NVL(v_rec_tables.est_count_distinct::VARCHAR, '')
+                        || '|' || NVL(v_rec_tables.est_rows::VARCHAR, '')
+                        || '|' || NVL(v_rec_tables.est_total_bytes::VARCHAR, '');
                 END IF;
                 IF a_level >= 2 THEN
                     v_str := v_str

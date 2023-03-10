@@ -2,14 +2,11 @@
 """
 USAGE:
       yb_get_table_distribution_key.py [options]
-
 PURPOSE:
       Identify the column name(s) on which this table is distributed.
-
 OPTIONS:
       See the command line help message for all options.
       (yb_get_table_distribution_key.py --help)
-
 Output:
       The columns comprising the distribution key are echoed out, one column
       name per line, in the order in which they were specified in the
@@ -33,10 +30,40 @@ class get_table_distribution_key(Util):
         , 'usage_example': {
             'cmd_line_args': "@$HOME/conn.args --schema Prod --table sales --"
             , 'file_args': [Util.conn_args_file] }
-        , 'db_filter_args': {'owner':'ownername','schema':'schemaname','table':'tablename'}
-    }
+        , 'db_filter_args': {'owner':'u.name', 'database':'d.name', 'schema':'s.name', 'table':'t.name'} }
 
     def execute(self):
+        sql_query = ''
+        if not(self.db_conn.ybdb['is_super_user']) and self.args_handler.args.database:
+            sql_query = '\\c %s' % self.args_handler.args.database
+        if not(self.args_handler.args.database):
+            self.args_handler.args.database = self.db_conn.database
+        if not(self.args_handler.args.schema):
+            self.args_handler.args.schema = self.db_conn.schema
+
+        sql_query += """
+SELECT
+    DECODE(
+        LOWER(t.distribution)
+            , 'hash', t.distribution_key
+            , UPPER(t.distribution)
+    ) AS distribution
+FROM
+    sys.table AS t
+    LEFT JOIN sys.schema AS s
+        ON t.schema_id = s.schema_id AND t.database_id = s.database_id
+    LEFT JOIN sys.database AS d
+        ON t.database_id = d.database_id
+    LEFT JOIN sys.user AS u
+        ON t.owner_id = u.user_id
+WHERE
+    s.name NOT IN ('sys', 'pg_catalog', 'information_schema')
+    AND {filter_clause}""".format(
+             filter_clause = self.db_filter_sql() )
+
+        self.cmd_results = self.db_conn.ybsql_query(sql_query)
+
+    def execute2(self):
         sql_query = """
 WITH
 tbl AS (
@@ -79,6 +106,8 @@ WHERE
 def main():
     gtdk = get_table_distribution_key()
     gtdk.execute()
+
+    gtdk.cmd_results.write(quote=(gtdk.cmd_results.stdout.strip() not in ('RANDOM', 'REPLICATED')))
 
     exit(gtdk.cmd_results.exit_code)
 

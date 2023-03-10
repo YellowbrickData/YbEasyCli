@@ -10,6 +10,7 @@ wrapper scripts that utilize this module. These include
     - yb_ddl_sequence.py
 """
 
+import argparse
 import os
 import re
 import sys
@@ -67,9 +68,7 @@ FROM
 ORDER BY LOWER(schema), LOWER(stored_proc)
 """
 
-    config = {
-        'optional_args_single': ['database']
-        , 'output_tmplt_default': '{ddl}{^M}' }
+    config = {'output_tmplt_default': '{ddl}{^M}' }
 
     def init_config(self, object_type):
         """Initialize config dict.
@@ -112,21 +111,23 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
             , action='store_true', help="add the schema name to the %s DDL" % self.object_type)
         args_ddl_grp.add_argument("--with_db"
             , action='store_true', help="add the database name to the %s DDL" % self.object_type)
-        args_ddl_grp.add_argument("--schema_name"
+        args_ddl_grp.add_argument("--new_schema_name"
             , help="set a new schema name to the %s DDL" % self.object_type)
-        args_ddl_grp.add_argument("--db_name"
+        args_ddl_grp.add_argument("--new_db_name"
             , help="set a new database name to the %s DDL" % self.object_type)
+        args_ddl_grp.add_argument("--database", help=argparse.SUPPRESS)
         if self.object_type in ('stored_proc', 'view'):
             args_ddl_grp.add_argument("--or_replace"
                 , action="store_true", help="add the 'OR REPLACE' clause to the %s DDL" % self.object_type)
 
     def additional_args_process(self):
-        if self.args_handler.args.schema_name:
+        if self.args_handler.args.new_schema_name:
             self.args_handler.args.with_schema = True
-        if self.args_handler.args.db_name:
+        if self.args_handler.args.new_db_name:
             self.args_handler.args.with_db = True
 
     def execute(self):
+        self.args_handler.args.database = self.db_conn.database
         describe_sql = self.get_describe_sql()
         output = self.exec_query_and_apply_template(describe_sql)
 
@@ -183,13 +184,15 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
             orig_template = args_handler.args.template
             args_handler.args.template = ('{%s_path}|{ordinal}|{owner}|{database}|{schema}|{%s}'
                 % (self.object_type, self.object_type))
+            args_handler.config['required_args_single'].append('database')
             code = ('get_{object_type}_names'
                 '(db_conn=self.db_conn, args_handler=args_handler)').format(
                     object_type=self.object_type)
             gons = eval(code)
 
             object_meta_data_rows = gons.execute()
-            # I needed to add this as the deepcopy seems to cary over some pointers
+
+            # I needed to add this as the deepcopy seems to carry over some pointers
             args_handler.args.template = orig_template
 
             describe_objects = []
@@ -225,15 +228,15 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
                 tablepath = matches.group(2)
                 if args.with_schema or args.with_db:
                     tablepath = (
-                        ( args.schema_name
-                          if args.schema_name
+                        ( args.new_schema_name
+                          if args.new_schema_name
                           else ddl_schema)
                         + '.' + tablepath
                     )
                 if args.with_db:
                     tablepath = (
-                        ( args.db_name
-                          if args.db_name
+                        ( args.new_db_name
+                          if args.new_db_name
                           else self.db_conn.database)
                         + '.' + tablepath
                     )

@@ -1,5 +1,5 @@
 test_cases = [
-    test_case(cmd='yb_get_stored_proc_names.py @{argsdir}/db1 --schema_in dev Prod'
+    test_case(cmd='yb_get_stored_proc_names.py @{argsdir}/db1 --database_in {db1} --schema_in dev Prod'
         , exit_code=0
         , stdout="""{db1}.dev.get_data_types_p
 {db1}.dev.query_definer_p
@@ -11,12 +11,12 @@ test_cases = [
 {db1}."Prod"."test_Raise_p" """
         , stderr='')
 
-    , test_case(cmd='yb_get_stored_proc_names.py @{argsdir}/db1 --schema_in Prod --stored_proc_in test_Raise_p'
+    , test_case(cmd='yb_get_stored_proc_names.py @{argsdir}/db1 --database_in {db1} --schema_in Prod --stored_proc_in test_Raise_p'
         , exit_code=0
         , stdout="""{db1}."Prod"."test_Raise_p" """
         , stderr='')
 
-    , test_case(cmd="yb_get_stored_proc_names.py @{argsdir}/db1 --schema_in dev Prod --output_template 'database: {{database}}, schema: {{schema}}, proc: {{stored_proc}}'"
+    , test_case(cmd="yb_get_stored_proc_names.py @{argsdir}/db1 --database_in {db1} --schema_in dev Prod --output_template 'database: {{database}}, schema: {{schema}}, proc: {{stored_proc}}'"
         , exit_code=0
         , stdout="""database: {db1}, schema: dev, proc: get_data_types_p
 database: {db1}, schema: dev, proc: query_definer_p
@@ -76,6 +76,14 @@ optional database object filter arguments:
                         owner/s like the pattern/s
   --owner_NOTlike PATTERN [PATTERN ...]
                         owner/s NOT like the pattern/s
+  --database_in DATABASE_NAME [DATABASE_NAME ...]
+                        database/s in the list
+  --database_NOTin DATABASE_NAME [DATABASE_NAME ...]
+                        database/s NOT in the list
+  --database_like PATTERN [PATTERN ...]
+                        database/s like the pattern/s
+  --database_NOTlike PATTERN [PATTERN ...]
+                        database/s NOT like the pattern/s
   --schema_in SCHEMA_NAME [SCHEMA_NAME ...]
                         schema/s in the list
   --schema_NOTin SCHEMA_NAME [SCHEMA_NAME ...]
@@ -102,7 +110,7 @@ else """  yb_get_stored_proc_names.py @$HOME/conn.args --schema_in dev Prod --st
 
   file '$HOME/conn.args' contains:
     --host yb89
-    --dbuser dze
+    --dbuser {user_name}
     --conn_db stores""")
     , stderr=''
     , map_out=[ { 'regex' : re.compile(r'optional arguments\:'), 'sub' : 'options:'} ] )

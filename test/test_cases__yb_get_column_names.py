@@ -1,20 +1,22 @@
 test_cases = [
     test_case(
-        cmd='yb_get_column_names.py @{argsdir}/db1 --schema_in dev --object a1_t'
+        cmd="yb_get_column_names.py @{argsdir}/db1 --schema_in dev --object_in a1_t --database_like '%{user_name}%'"
         , exit_code=0
-        , stdout="""col1"""
+        , stdout="""{db1}.dev.a1_t.col1
+{db2}.dev.a1_t.col1"""
         , stderr='')
 
     , test_case(
-        cmd='yb_get_column_names.py @{argsdir}/db1 --schema_in dev --object a1_v'
+        cmd="yb_get_column_names.py @{argsdir}/db1 --schema_in dev --object_in a1_v --database_like '%{user_name}%'"
         , exit_code=0
-        , stdout="""col1"""
+        , stdout="""{db1}.dev.a1_v.col1
+{db2}.dev.a1_v.col1"""
         , stderr='')
 
     , test_case(
         cmd=(
-            'yb_get_column_names.py @{argsdir}/db1 --schema_in dev'
-            ' --object data_types_t')
+            "yb_get_column_names.py @{argsdir}/db1 --schema_in dev"
+            " --object_in data_types_t --database_in {db1} --output '{{column}}'")
         , exit_code=0
         , stdout="""col1
 col2
@@ -40,7 +42,7 @@ col19"""
     , test_case(
         cmd=(
             "yb_get_column_names.py @{argsdir}/db1 --schema_in dev"
-            " --column_NOTlike '%%1%%' --object 'data_types_t'")
+            " --column_NOTlike '%%1%%' --database_in {db1} --object_in data_types_t --output '{{column}}'")
         , exit_code=0
         , stdout="""col2
 col3
@@ -55,16 +57,16 @@ col9"""
     , test_case(
         cmd=(
             "yb_get_column_names.py @{argsdir}/db1 --schema_in Prod"
-            " --database {db2} --object C1_t")
+            " --database_in {db2} --object_in C1_t --output '{{column}}'")
         , exit_code=0
         , stdout='"Col1"'
         , stderr='')
 
     , test_case(
         cmd=(
-            "yb_get_column_names.py @{argsdir}/db1 --schema_in dev"
+            "yb_get_column_names.py @{argsdir}/db1 --schema_in dev --database_in {db1}"
             """ --output_template "SELECT 'MAX {{column}} value: ' || MAX({{column}} || '') FROM {{object_path}};" """
-            " --exec_output --object data_types_t")
+            " --exec_output --object_in data_types_t")
         , exit_code=0
         , stdout="""MAX col1 value: 999999
 MAX col2 value: 999999

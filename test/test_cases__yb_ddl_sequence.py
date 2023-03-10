@@ -28,7 +28,7 @@ CREATE SEQUENCE a1_seq START WITH 1000448;
 ,
 "ordinal": 1
 ,
-"owner": ""\" dze ""\"
+"owner": ""\" {user_name} ""\"
 ,
 "database": ""\" {db1} ""\"
 ,
@@ -62,7 +62,7 @@ CREATE SEQUENCE a1_seq START WITH 1000448;
 ,
 "ordinal": 1
 ,
-"owner": ""\" dze ""\"
+"owner": ""\" {user_name} ""\"
 ,
 "database": ""\" {db1} ""\"
 ,
@@ -107,7 +107,7 @@ CREATE SEQUENCE a1_seq START WITH 1000448;
 ,
 "ordinal": 1
 ,
-"owner": ""\" dze ""\"
+"owner": ""\" {user_name} ""\"
 ,
 "database": ""\" {db1} ""\"
 ,
@@ -140,7 +140,7 @@ CREATE SEQUENCE a1_seq START WITH 1000448;
 ,
 "ordinal": 1
 ,
-"owner": ""\" dze ""\"
+"owner": ""\" {user_name} ""\"
 ,
 "database": ""\" {db1} ""\"
 ,
@@ -184,7 +184,7 @@ CREATE SEQUENCE a1_seq START WITH 1000448;
 ,
 "ordinal": 1
 ,
-"owner": ""\" dze ""\"
+"owner": ""\" {user_name} ""\"
 ,
 "database": ""\" {db1} ""\"
 ,
@@ -217,7 +217,7 @@ CREATE SEQUENCE a1_seq START WITH 1000448;
 ,
 "ordinal": 1
 ,
-"owner": ""\" dze ""\"
+"owner": ""\" {user_name} ""\"
 ,
 "database": ""\" {db1} ""\"
 ,

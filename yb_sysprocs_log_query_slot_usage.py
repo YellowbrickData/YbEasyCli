@@ -58,7 +58,7 @@ class report_log_query_slot_usage(SPReportUtil):
             , (self.args_handler.args.from_date + timedelta(self.args_handler.args.days - 1)).strftime("%Y-%m-%d") ) )
 
         if self.args_handler.args.days_of_week:
-            self.report_header += ('\n--days of the week: %s' % ' ,'.join(self.args_handler.args.days_of_week)) 
+            self.report_header += ('\n--days of the week: %s' % ', '.join(self.args_handler.args.days_of_week)) 
             day_to_int = {'SU':0, 'MO':1, 'TU':2, 'WE':3, 'TH':4, 'FR':5, 'SA':6}
             self.args_handler.args.days_of_week = ", ".join([str(day_to_int[d]) for d in self.args_handler.args.days_of_week])
         else:
