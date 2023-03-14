@@ -151,6 +151,12 @@ Technical implementation details
 Revision history
 ================================================================================
 
+2023.03.13
+-------------------
+log_query_pivot_p.sql          : Updated to include granted memory. 
+log_query_pivot_p.xlsx         : Updated to include granted memory. 
+
+
 2023.03.10 
 -------------------
 rel_ddl_p.sql                  : Added 
