@@ -14,6 +14,8 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023-03-13 - Udated version.
+** . 2023-03-10 - Changed yellowbrick_versions to min and max version
 ** . 2023-01-11 - Update
 ** . 2022.12.29 - YbEasyCli inclusion. 
 ** . 2022.03.05 - Inital Version 
@@ -36,8 +38,9 @@ DROP TABLE IF EXISTS version_t CASCADE
 
 CREATE TABLE version_t
    (
-      revision_date         DATE
-    , yellowbrick_versions  VARCHAR( 24 )
+      revision_date   DATE
+    , yb_min_version  VARCHAR( 24 )
+    , yb_max_version  VARCHAR( 24 )    
    )
 ;
 
@@ -53,7 +56,7 @@ AS
 $proc$
 DECLARE
 
-   _sql TEXT := 'SELECT ''2023-01-11''::DATE, ''5.0 to 5.3''::VARCHAR(24) ';
+   _sql TEXT := $$SELECT '2023-03-13'::DATE, '5.0'::VARCHAR(24), '5.0'::VARCHAR(24) $$;
     
 BEGIN  
 
@@ -67,7 +70,7 @@ $proc$
 
 COMMENT ON FUNCTION version_p() IS 
 $cmnt$Description:
-Returns the most recently installed sysviews_yb5 version.
+The current installed sysviews_yb5 version.
   
 Examples:
   SELECT * FROM version_p(); 
@@ -76,6 +79,6 @@ Arguments:
 . None
 
 Version:
-. 2023-01-11 - Yellowbrick Technical Support 
+. 2023-03-10 - Yellowbrick Technical Support 
 $cmnt$
 ;

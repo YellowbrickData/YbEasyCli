@@ -7,6 +7,7 @@
 ** To grant default permissions on the procedures, run sysviews_grant.sql .
 **
 ** Version history:                                 
+** . 2023.03.10 - Added rel_ddl.sql
 ** . 2022.12.28 - Added:
 **                  catalog_storage_by_db_p.sql    
 **                  column_p.sql                                    
@@ -32,7 +33,7 @@ CREATE DATABASE sysviews ENCODING UTF8;
 \c sysviews
 SET search_path TO public,pg_catalog;                     
 
-SELECT LEFT( setting, 1 ) AS ver_m FROM pg_settings WHERE name = 'yb_server_version' ;
+SELECT LEFT( setting, 1 ) AS yb_major_ver FROM pg_settings WHERE name = 'yb_server_version' ;
 \gset
 
 \echo
@@ -69,7 +70,7 @@ SELECT LEFT( setting, 1 ) AS ver_m FROM pg_settings WHERE name = 'yb_server_vers
 \i  query_rule_events_p.sql
 \i  query_steps_p.sql
 \i  rel_p.sql
---\i  rel_ddl.p.sql
+\i  rel_ddl_p.sql
 \i  rowstore_by_table_p.sql
 \i  rowstore_p.sql
 \i  schema_p.sql
@@ -86,7 +87,7 @@ SELECT LEFT( setting, 1 ) AS ver_m FROM pg_settings WHERE name = 'yb_server_vers
 \i  table_p.sql
 --\i  table_info_p.sql
 \i  table_skew_p.sql
---\i  table_skew_p2.sql
+\i  table_skew2_p.sql
 --\i  table_deps_p.sql
 --\i  view_ddls_p.sql
 \i  version_p.sql

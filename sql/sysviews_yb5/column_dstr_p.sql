@@ -1,7 +1,7 @@
  /* ****************************************************************************
 ** column_dstr_p()
 **
-** OneSentenceDescriptionGoesHere.
+** Distribution of rows per distinct values for column grouped on a logarithmic scale 
 **
 ** Usage:
 **   See COMMENT ON FUNCTION statement after CREATE PROCEDURE.
@@ -45,7 +45,6 @@ CREATE TABLE column_dstr_t
     , max_rows           BIGINT
     , tot_rows           BIGINT
    )
-;
 ;
 
 

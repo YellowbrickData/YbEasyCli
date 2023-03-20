@@ -62,13 +62,13 @@
 /* ****************************************************************************
 ** Create a table to define the rowtype that will be returned by the procedure.
 */
-DROP TABLE IF EXISTS wlm__rule_t CASCADE
+DROP TABLE IF EXISTS wlm_profile_rule_t CASCADE
 ;
 
 CREATE TABLE wlm_profile_rule_t
-   (
-      rule VARCHAR (60000)
-   )
+(
+   rule VARCHAR (60000)
+)
 ;
 
 /* ****************************************************************************
@@ -83,20 +83,16 @@ AS
 $proc$
 DECLARE
 
-   _sql TEXT := '';
-   _rule_clause VARCHAR := 'wap.active IS TRUE';
+   _sql         TEXT         := '';
+   _rule_clause VARCHAR      := 'wap.active IS TRUE';
    
-   _fn_name   VARCHAR(256) := 'wlm_profile_rule_p';
-   _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
-   _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;   
+   _fn_name     VARCHAR(256) := 'wlm_profile_rule_p';
+   _prev_tags   VARCHAR(256) := current_setting('ybd_query_tags');
+   _tags        VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;   
     
 BEGIN  
 
-   /* Txn read_only to protect against potential SQL injection attacks on sp that take args
-   SET TRANSACTION       READ ONLY;
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ; 
+   EXECUTE 'SET ybd_query_tags  TO ''' || _tags || '''';
 
    IF _profile_name <> '' THEN
       _rule_clause := 'war.profile_name IN (''' || _profile_name || ''')';
@@ -136,10 +132,8 @@ $str$, '{rule_clause}', _rule_clause);
    
    RETURN QUERY EXECUTE _sql; 
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ;   
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO ''' || _prev_tags || '''';  
 
 END;   
 $proc$ 
@@ -155,8 +149,8 @@ Examples:
   SELECT * FROM wlm_profile_rule_p( 'my_profile' );  
 
 Arguments: 
-. _profile_name - (optional) VARCHAR - choose the profile to report on, default is the
-                      current active profile
+. _profile_name VARCHAR (optl) - Choose the profile to report on.
+                                 Default is the current active profile
 
 Notes:
 . Changes in the current profile are not reflected until saved/activated.

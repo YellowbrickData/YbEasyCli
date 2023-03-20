@@ -14,6 +14,12 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.03.13 - Integrated into YbEasyCli
+** . 2022.11.18 - Added _src_table option.
+** . 2022.08.07 - Changed type: 'declare cursor' as 'select'
+**                Added _to_ts arg.
+**                Added grnt_gb_grp column. Requires use of a new pivot.xls.
+** . 2022.04.11 - Fix exe_secs.   
 ** . 2022.02.23 - Yellowbrick Technical Support    
 ** . 2022.02.10 - Yellowbrick Technical Support                                                 
 ** . 2021.12.09 - ybCliUtils inclusion.
@@ -57,6 +63,7 @@ CREATE TABLE log_query_pivot_t
  , tags        VARCHAR (255)
  , stmt_type   VARCHAR (255)
  , gb_grp      INTEGER
+ , grnt_gb_grp INTEGER 
  , confidence  VARCHAR (16)
  , est_gb_grp  INTEGER
  , spill       VARCHAR (16)
@@ -82,7 +89,10 @@ CREATE TABLE log_query_pivot_t
 ** Create the procedure.
 */
 CREATE OR REPLACE PROCEDURE log_query_pivot_p(
-   _from_ts TIMESTAMP DEFAULT  (DATE_TRUNC('week', CURRENT_DATE)::DATE - 7) )
+        _from_ts   TIMESTAMP DEFAULT  (DATE_TRUNC('week', CURRENT_DATE)::DATE - 7) 
+      , _to_ts     TIMESTAMP DEFAULT  CURRENT_TIMESTAMP
+      , _src_table VARCHAR   DEFAULT 'sys.log_query'
+   )
    RETURNS SETOF log_query_pivot_t
    LANGUAGE 'plpgsql'
    VOLATILE
@@ -95,12 +105,12 @@ DECLARE
    _sql       TEXT         := '';
    _fn_name   VARCHAR(256) := 'log_query_pivot_p';
    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
-   _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;    
+   _new_tags  VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;    
   
 BEGIN  
    
    -- Append sysviews proc to query tags
-   EXECUTE 'SET ybd_query_tags  TO ''' || _tags || '''';     
+   EXECUTE  'SET ybd_query_tags  TO ' || quote_literal( _new_tags );   
 
    _sql := 'SELECT
       DATE_PART (''years'', DATE_TRUNC (''week'', submit_time)::DATE)::INTEGER              AS yyyy
@@ -114,7 +124,7 @@ BEGIN
     , NVL(pool_id, ''front_end'')::VARCHAR(128)                                             AS pool
     , (COUNT( DISTINCT slot ) + 1)::INTEGER                                                 AS slots
     , split_part (state, '' '', 1)::VARCHAR(255)                                            AS state  
-    , CASE WHEN username LIKE ''sys_ybd%'' THEN ''sys_ybd''
+    , CASE WHEN username LIKE ''sys_ybd%'' THEN ''sys_ybd*''
            ELSE username 
       END::VARCHAR(255)                                                                     AS username
     , split_part (application_name, '' '', 1)::VARCHAR(255)                                 AS app_name  
@@ -123,16 +133,17 @@ BEGIN
     , CASE
          WHEN type IN (''delete'', ''ctas'', ''insert'', ''update''
                      , ''select'', ''truncate table'', ''load'', ''create table as''
-                     , ''unload'', ''analyze''
+                     , ''unload'', ''analyze'', ''fetch''
                      , ''copy''  , ''gc''     , ''flush'' , ''yflush'', ''ycopy''
                      , ''ybload'', ''ybunload'')          
                                                          THEN type
-         WHEN type ILIKE ''%backup%'' 
-          AND username =''sys_ybd_replicator''           THEN ''replicate''                     
-         WHEN type ILIKE ''%restore%'' 
-          AND username =''sys_ybd_replicator''           THEN ''replicated''                     
-         WHEN type ILIKE ''%backup%''                    THEN ''backup''           
-         WHEN type ILIKE ''%restore%''                   THEN ''restore'' 
+         WHEN type =     ''declare cursor''     THEN ''select''
+         WHEN username = ''sys_ybd_replicator'' 
+              AND type = ''backup''             THEN ''replicate''                                        
+         WHEN username = ''sys_ybd_replicator'' 
+              AND type = ''restore''            THEN ''replicated''            
+         WHEN type =     ''backup''             THEN ''backup''           
+         WHEN type =     ''restor%''            THEN ''restore'' 
          WHEN type ILIKE ''create%''                     THEN ''ddl''
          WHEN type ILIKE ''drop%''                       THEN ''ddl''      
          WHEN type ILIKE ''alter%''                      THEN ''ddl''
@@ -144,6 +155,12 @@ BEGIN
         ELSE 2^ (CEIL(log (2, (memory_bytes / (1024^3))::DECIMAL) ) ) 
        END
       )::INTEGER                                                                            AS gb_grp   
+    ,(CASE
+        WHEN memory_granted_bytes < 0           THEN 1073741824::INTEGER
+        WHEN memory_granted_bytes < 1073741824  THEN 1::INTEGER
+        ELSE 2^ (CEIL(log (2, (memory_granted_bytes / (1024^3))::DECIMAL) ) ) 
+       END
+      )::INTEGER                                                                              AS grnt_gb_grp
     , memory_estimate_confidence::VARCHAR(16)                                               AS confidence
     , (CASE
         WHEN memory_estimated_bytes < 0          THEN 1073741824::INTEGER
@@ -170,8 +187,8 @@ BEGIN
          )::BIGINT                                                                          AS spilled
     , ROUND( MAX( acquire_resources_ms )                     / 1000.0, 1 )::NUMERIC(16, 1)  AS mx_q_sec
     , ROUND( SUM( acquire_resources_ms )                     / 1000.0, 1 )::NUMERIC(16, 1)  AS tot_q_sec 
-    , ROUND( MAX( run_ms + wait_run_cpu_ms + wait_run_io_ms )/ 1000.0, 1 )::NUMERIC(16, 1)  AS mx_exe_sec
-    , ROUND( SUM( run_ms + wait_run_cpu_ms + wait_run_io_ms )/ 1000.0, 1 )::NUMERIC(16, 1)  AS tot_exe_sec
+    , ROUND( MAX( run_ms - (wait_run_cpu_ms + wait_run_io_ms ))/ 1000.0, 1 )::NUMERIC(16, 1)  AS mx_exe_sec
+    , ROUND( SUM( run_ms - (wait_run_cpu_ms + wait_run_io_ms ))/ 1000.0, 1 )::NUMERIC(16, 1)  AS tot_exe_sec
     , ROUND( MAX( run_ms )                                   / 1000.0, 1 )::NUMERIC(16, 1)  AS mx_run_sec
     , ROUND( SUM( run_ms )                                   / 1000.0, 1 )::NUMERIC(16, 1)  AS tot_run_sec    
     , CEIL( MAX( memory_bytes )                              /( 1024.0^2 ))::NUMERIC(16, 0) AS mx_mb
@@ -184,16 +201,16 @@ BEGIN
     , add rows also
    */
    FROM
-      sys.log_query
-   WHERE
-      submit_time    > ' || quote_literal( _from_ts ) || '::TIMESTAMP
+      ' || _src_table || '
+   WHERE  submit_time    >= ' || quote_literal( _from_ts ) || '::TIMESTAMP
+      AND submit_time    <= ' || quote_literal( _to_ts   ) || '::TIMESTAMP
       --AND pool_id    IS NOT NULL
       --AND username  NOT LIKE ''sys_ybd%''
       --AND type       NOT IN ( ''drop table'', ''analyze'' )
    GROUP BY
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14,15, 16, 17, 18, 19
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
    ORDER BY
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14,15, 16, 17, 18, 19
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
    ';
 
    --RAISE INFO '_sql = %', _sql;
@@ -207,17 +224,22 @@ $proc$
 ;
 
 
-COMMENT ON FUNCTION log_query_pivot_p( TIMESTAMP ) IS 
-'Description:
-Queries for the last week aggregated by hour for use in WLM pivot table analysis.
+COMMENT ON FUNCTION log_query_pivot_p( TIMESTAMP, TIMESTAMP, VARCHAR ) IS 
+$cmnt$Description:
+Satements for the last week aggregated by hour for use in WLM pivot table analysis.
 See the Excel Pivot table worksheet that is included in the sysviews source.
   
 Examples:
-  SELECT * FROM log_query_pivot_p() 
+  SELECT * FROM log_query_pivot_p(); 
+  SELECT * FROM log_query_pivot_p( '2022-08-08', '2022-08-12 16:00:00' ); 
   
 Arguments:
-. _from_ts - (optional) Starting timestamp of statments to analyze. Default: 
+. _from_ts (optional) - Starting timestamp of statements to analyze. Default: 
              begining of previous week (Sunday).
+. _to_ts   (optional) - Ending timestamp of statements to analyze. Default: 
+             now().
+. _to_ts   (optional) - Ending timestamp of statements to analyze. Default: 
+             now().
 
 Notes:
 . A number of fields have been modified so that the number of distinct values
@@ -240,8 +262,8 @@ Notes:
   large pool.
 
 Version:
-. 2022.02.23 - Yellowbrick Technical Support
-'
+. 2023.03.13 - Yellowbrick Technical Support
+$cmnt$
 ;
 
 

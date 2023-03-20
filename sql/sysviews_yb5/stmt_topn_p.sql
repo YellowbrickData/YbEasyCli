@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.03.10 - Added db_name to output
 ** . 2022.04.09 - Yellowbrick Technical Support
 */
 
@@ -44,6 +45,7 @@ DROP TABLE IF EXISTS stmt_topn_t CASCADE
 CREATE TABLE stmt_topn_t
 (
    top                        VARCHAR( 128 )
+ , db_name                    VARCHAR( 128 )
  , query_id                   BIGINT NOT NULL
  , submit_time                TIMESTAMP     
  , pool_id                    VARCHAR( 128 )
@@ -91,12 +93,12 @@ DECLARE
    _arr_delim         TEXT    := ',';
    _col_name          VARCHAR := ',';   
    _col_names_arr     VARCHAR[];
-   _query_text_chars INTEGER  := 48;
-   _sql              TEXT     := '';
+   _query_text_chars  INTEGER  := 48;
+   _sql               TEXT     := '';
 
-   _fn_name   VARCHAR(256) := 'stmt_topn_p';
-   _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
-   _new_tags  VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;    
+   _fn_name           VARCHAR(256) := 'stmt_topn_p';
+   _prev_tags         VARCHAR(256) := current_setting('ybd_query_tags');
+   _new_tags          VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;    
   
 BEGIN  
 
@@ -118,6 +120,7 @@ BEGIN
 
       _sql := 'SELECT
       ' || quote_literal( _col_name ) || '::VARCHAR(128)                                         AS top  
+      , database_name::VARCHAR(128)                                                              AS db_name
       , query_id                                                                                 AS query_id
       , date_trunc( ''secs'', submit_time )::TIMESTAMP                                           AS submit_time
       , pool_id::VARCHAR( 128 )                                                                  AS pool_id
@@ -129,7 +132,7 @@ BEGIN
       , type                                                                                     AS type
       , GREATEST( rows_deleted, rows_inserted, rows_returned )                                   AS rows
       , ROUND( num_restart / 1000.0, 2 )::INTEGER                                                AS restart 
-      , ROUND( ( parse_ms   + wait_parse_ms + wait_lock_ms + plan_ms + wait_plan_ms + assemble_ms + wait_assemble_ms                     
+      , ROUND( ( parse_ms + wait_parse_ms + wait_lock_ms + plan_ms + wait_plan_ms + assemble_ms + wait_assemble_ms                     
                ) / 1000.0, 2 )::DECIMAL(19,1)                                                    AS plnr_sec
       , ROUND( (compile_ms + wait_compile_ms ) / 1000.0, 2 )::DECIMAL(19,1)                      AS cmpl_sec                                                                             
       , ROUND( acquire_resources_ms            / 1000.0, 2 )::DECIMAL(19,1)                      AS que_sec   
@@ -175,15 +178,15 @@ Examples:
   SELECT * FROM stmt_topn_p( 10, $$run_sec$$, $$2022-03-01$$, $$2022-03-31$$, $$type NOT LIKE '%load%'$$ );       
   
 Arguments:
-. _limit          - (optional) The number of rows to return for each "top n" type.
+. _limit          - (optl) The number of rows to return for each "top n" type.
                                Default: 50
-. _col_names      - (optional) Column(s) to do a "top n" of. 
+. _col_names      - (optl) Column(s) to do a "top n" of. 
                                Default: 'exe_sec,run_sec,spl_wrt_mb'
-. _date_begin     - (optional) Statement minimum date. Default: CURRENT_DATE - 7.
-. _date_end       - (optional) Statement maximum date. Default: CURRENT_DATE.
-. _yb_util_filter - (internal) Used by YbEasyCli.
+. _date_begin     - (optl) Statement minimum date. Default: CURRENT_DATE - 7.
+. _date_end       - (optl) Statement maximum date. Default: CURRENT_DATE.
+. _yb_util_filter - (intrnl) Used by YbEasyCli.
 
 Version:
-. 2022.04.09 - Yellowbrick Technical Support
+. 2023.03.10 - Yellowbrick Technical Support
 $cmnt$
 ;
