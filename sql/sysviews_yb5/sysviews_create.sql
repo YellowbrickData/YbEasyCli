@@ -94,6 +94,7 @@ SELECT LEFT( setting, 1 ) AS ver_m FROM pg_settings WHERE name = 'yb_server_vers
 \i  wlm_active_profile_p.sql
 \i  wlm_active_rule_p.sql
 \i  wlm_profile_rule_p.sql
+\i  wlm_profile_sql_p.sql
 \i  wlm_state_p.sql
 \echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 \echo
