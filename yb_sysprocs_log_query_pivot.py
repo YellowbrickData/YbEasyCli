@@ -193,7 +193,7 @@ SELECT * FROM {new_table_name} ORDER BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,1
                   self.args_handler.args_parser.error("--non_su '%s' must be a db non-super user..." % self.args_handler.args.non_su)
 
             self.pivot_name = "yb_log_query_pivot__%s__v%s__%s" % (
-                self.db_conn.env['host'].replace('.', '_')
+                str(self.db_conn.env['host']).replace('.', '_')
                 , self.db_conn.ybdb['version_major'], self.ts)
         elif self.csv_zip_file:
             self.pivot_name = self.csv_zip_file.rsplit('.', 1)[0]
