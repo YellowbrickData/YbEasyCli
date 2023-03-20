@@ -69,7 +69,7 @@ CREATE TABLE log_query_slot_usage_t (
 /* ****************************************************************************
 ** Create the procedure.
 */
-CREATE OR REPLACE PROCEDURE log_query_slot_usage2_p(
+CREATE OR REPLACE PROCEDURE log_query_slot_usage_p(
     _non_su         VARCHAR 
     , _from_date    DATE DEFAULT NULL
     , _days         INT DEFAULT 30
@@ -285,7 +285,6 @@ BEGIN
    EXECUTE 'SET ybd_query_tags  TO '|| quote_literal( _prev_tags );
 END 
 $proc$;
-
 
 COMMENT ON FUNCTION log_query_slot_usage_p( VARCHAR, DATE, INT, VARCHAR, VARCHAR ) IS 
 $cmnt$Description:
