@@ -98,7 +98,7 @@ class wl_profiler(Util):
         if self.step1:
             self.complete_db_conn()
             self.wlp_version = (4 if self.db_conn.ybdb['version_major'] <= 4 else 5)
-            self.profile_name = "yb_wl_profile__%s__v%s__%s" % (self.db_conn.env['host'].replace('.', '_'), self.wlp_version, self.ts)
+            self.profile_name = "yb_wl_profile__%s__v%s__%s" % (str(self.db_conn.env['host']).replace('.', '_'), self.wlp_version, self.ts)
         elif self.csv_zip_file:
             self.profile_name = self.csv_zip_file.rsplit('.', 1)[0]
             self.wlp_version = int(self.profile_name.split('__')[2][1:])
