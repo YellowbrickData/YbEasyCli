@@ -35,10 +35,10 @@ class report_query_rule_events(SPReportUtil):
         args_log_query_grp = self.args_handler.args_parser.add_argument_group('last query by DB user name arguments')
         args_log_query_grp.add_argument("--query_user", metavar='USER_NAME'
             , help="last query completed by DB user" )
-        args_log_query_grp.add_argument("--pole_x_times", "--pole_X_times"
-            , metavar='X', type=int, default=1, help="pole for last query X times, defaults to 1" )
-        args_log_query_grp.add_argument("--pole_every_x_secs", "--pole_every_X_secs"
-            , metavar='X', type=int, default=5, help="pole every X seconds, defaults to 5" )
+        args_log_query_grp.add_argument("--poll_x_times", "--poll_X_times"
+            , metavar='X', type=int, default=1, help="poll for last query X times, defaults to 1" )
+        args_log_query_grp.add_argument("--poll_every_x_secs", "--poll_every_X_secs"
+            , metavar='X', type=int, default=5, help="poll every X seconds, defaults to 5" )
 
         args_log_query_grp = self.args_handler.args_parser.add_argument_group('optional query event rules arguments')
         args_log_query_grp.add_argument(
@@ -127,13 +127,13 @@ SELECT NVL(MAX(query_id), -1) FROM sys.query_rule_event WHERE query_id = :query_
             self.event_type = "'" + "', '".join(self.args_handler.args.event_type) + "'"
 
         if not self.args_handler.args.query_user:
-            self.args_handler.args.pole_x_times = 1
+            self.args_handler.args.poll_x_times = 1
 
-        for i in range(1, self.args_handler.args.pole_x_times + 1):
-            is_last = (i == self.args_handler.args.pole_x_times)
+        for i in range(1, self.args_handler.args.poll_x_times + 1):
+            is_last = (i == self.args_handler.args.poll_x_times)
             self.print_query_rules(is_last)
             if (not is_last):
-                time.sleep(self.args_handler.args.pole_every_x_secs)
+                time.sleep(self.args_handler.args.poll_every_x_secs)
 
 def main():
     report_query_rule_events().execute()

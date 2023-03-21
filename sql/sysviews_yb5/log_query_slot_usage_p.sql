@@ -69,8 +69,8 @@ CREATE TABLE           log_query_slot_usage_t (
 /* ****************************************************************************
 ** Create the procedure.
 */
-CREATE OR REPLACE PROCEDURE log_query_slot_usage_p(
-      _non_su       VARCHAR 
+CREATE OR REPLACE PROCEDURE log_query_slot_usage2_p(
+    _non_su         VARCHAR 
     , _from_date    DATE    DEFAULT NULL
     , _days         INT     DEFAULT 30
     , _days_of_week VARCHAR DEFAULT NULL
@@ -286,7 +286,6 @@ BEGIN
    
 END 
 $proc$;
-
 
 COMMENT ON FUNCTION log_query_slot_usage_p( VARCHAR, DATE, INT, VARCHAR, VARCHAR ) IS 
 $cmnt$Description:
