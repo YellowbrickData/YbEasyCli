@@ -1,7 +1,7 @@
 README.TXT
 
 Yellowbrick Data Technical Support sysviews version 5 README file.
-Revision 2023.03.09
+Revision 2023.03.20
 
 In this README
 ========================================
@@ -150,6 +150,11 @@ Technical implementation details
 
 Revision history
 ================================================================================
+
+2023.03.13
+-------------------
+log_query_smry_by_p.sql        : Added. Overload of log_query_smry_p.
+
 
 2023.03.13
 -------------------
