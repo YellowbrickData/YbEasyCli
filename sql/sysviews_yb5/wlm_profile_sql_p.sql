@@ -41,8 +41,11 @@ AS
 $proc$
 DECLARE
 
-   _sql         TEXT    := '';
-   _rec         RECORD;
+   _sql          TEXT    := '';
+   _pools_detail TEXT    := '';
+   _pools        TEXT    := '';
+   _pools_js     TEXT    := 'profile = [];';
+   _rec          RECORD;
    
    _fn_name   VARCHAR(256) := 'wlm_profile_sql_p';
    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
@@ -61,18 +64,31 @@ BEGIN
    ---------------------------------------------------------
    -- BUILDING beginning of PLPGSQL script
    ---------------------------------------------------------
-   INSERT INTO profile_code VALUES (REPLACE($PLPGSQL$
----------------- WLM Profile SQL Creation Script -------------------
--- Profile: {the_profile_name}
---------------------------------------------------------------------
--- **** Running this script overwrites the existing WLM Profile ****
---------------------------------------------------------------------
+   INSERT INTO profile_code VALUES (REPLACE(REPLACE($PLPGSQL$
 DO $code$
 DECLARE
-    v_wlm_rec RECORD;
-    v_js_rec RECORD;
-    v_wlm_entry INTEGER := 0;
-    v_code VARCHAR(60000);
+    ---------------------------------------------------------------------------------
+    -- profile   : {the_profile_name}
+    -- created at: {now}
+    -- notes:      - this SQL script creates the WLM profile
+    --             - modify the following 3 arguments as needed
+    ---------------------------------------------------------------------------------
+    -- name of profile to create
+    v_profile_name               VARCHAR := $str${the_profile_name}$str$;
+    --
+    -- flag when set that drops the old named profile before creating the new profile
+    v_drop_old_profile_if_exists BOOLEAN := FALSE;
+    --
+    -- flag when set that will activate the newly created profile
+    v_activate_new_profile       BOOLEAN := FALSE;
+    ---------------------------------------------------------------------------------
+    --
+    v_wlm_rec           RECORD;
+    v_snippet_rec       RECORD;
+    v_wlm_entry         INTEGER := 0;
+    v_code              VARCHAR(60000);
+    v_pools_js          VARCHAR(60000);
+	v_is_active_profile BOOLEAN;
 BEGIN
     DROP TABLE IF EXISTS wlm_code;
     CREATE TEMP TABLE wlm_code (wlm_entry INTEGER, code VARCHAR(60000));
@@ -80,13 +96,16 @@ BEGIN
     DROP TABLE IF EXISTS wlm_snippet;
     CREATE TEMP TABLE wlm_snippet (alias VARCHAR(128), sub_order INTEGER, code VARCHAR(60000));
 
+    SELECT name = v_profile_name INTO v_is_active_profile FROM sys.wlm_active_profile WHERE active;
+
     INSERT INTO wlm_snippet (alias, sub_order, code)
     VALUES
-        ('{profile_name}', 1, $str${the_profile_name}$str$)
+        ('{profile_name}'        , 1, $str${the_profile_name}$str$)
         , ('{my_include_example}', 1, $JS$example = 'example string';$JS$)
     ;
 $PLPGSQL$
-        , '{the_profile_name}', _profile_name));
+        , '{the_profile_name}', _profile_name)
+        , '{now}'             , NOW()::VARCHAR));
 
    ---------------------------------------------------------
    -- profile query
@@ -124,9 +143,16 @@ $str$, '{profile_name}', _profile_name);
 ----------------------- Start Profile ------------------------------
 -- Profile: {profile_name} 
 --------------------------------------------------------------------
+    IF v_drop_old_profile_if_exists
+    THEN
+        v_wlm_entry := v_wlm_entry + 1;
+        INSERT INTO wlm_code VALUES (v_wlm_entry, $WLM_PROFILE$
+            DROP WLM PROFILE IF EXISTS "{profile_name}";
+$WLM_PROFILE$);
+    END IF;
+
     v_wlm_entry := v_wlm_entry + 1;
     INSERT INTO wlm_code VALUES (v_wlm_entry, $WLM_PROFILE$
-    DROP WLM PROFILE IF EXISTS "{profile_name}";
     CREATE WLM PROFILE "{profile_name}" ( DEFAULT_POOL "{default_pool}" );
 $WLM_PROFILE$);
 ----------------------- End Profile   ------------------------------
@@ -153,29 +179,69 @@ rp AS (
        JOIN rp USING (name, updated)
    GROUP BY 1, 2
 )
+, data AS (
+    SELECT
+        name
+        , profile_name
+        , DECODE(p.memory_requested, 'remainder', 'NULL', '''' || RTRIM(p.memory_requested, '%') || '''') AS requested_memory
+        , DECODE(p.temp_space_requested, 'remainder', 'NULL', '''' || RTRIM(p.temp_space_requested, '%') || '''') AS max_spill_pct
+        , p.max_concurrency
+        , p.min_concurrency
+        , p.queue_size
+        , NVL(rp.maximum_wait_limit::VARCHAR, 'NULL')         AS maximum_wait_limit
+        , NVL(rp.maximum_row_limit::VARCHAR, 'NULL')          AS maximum_row_limit
+        , NVL(rp.maximum_exec_time_limit::VARCHAR, 'NULL')    AS maximum_exec_time
+        , NVL(rp.next_memory_queue::VARCHAR, 'NULL')          AS next_memory_queue
+        , NVL(rp.next_exec_time_limit_queue::VARCHAR, 'NULL') AS next_exec_time_limit_queue
+        , p.max_concurrency AS max_slots, p.min_concurrency AS min_slots, p.queue_size
+        , memory_per_query_bytes / (1000.0 ^ 3) AS mem_max_slots_query_GB
+        , mem_max_slots_query_GB * max_slots AS mem_worker_GB
+        , (mem_max_slots_query_GB * max_slots) / min_slots AS mem_min_slots_query_GB
+        , temp_space_per_query_bytes / (1000.0 ^ 3) AS temp_max_slots_query_GB
+        , temp_max_slots_query_GB * max_slots AS temp_worker_GB
+        , (temp_max_slots_query_GB * max_slots) / min_slots AS temp_min_slots_query_GB
+    FROM
+        rp
+        JOIN m USING (name, updated, activated)
+        JOIN sys.wlm_pending_pool AS p USING (name)
+    WHERE
+        profile_name = '{profile_name}'
+)
+, data_sum AS (
+    SELECT
+        SUM(mem_worker_GB) AS total_mem_worker_GB
+        , SUM(temp_worker_GB) AS total_temp_worker_GB
+        , MAX(LENGTH(name)) AS max_len_name
+    FROM data
+)
 SELECT
-    name
-    , profile_name
-    , DECODE(p.memory_requested, 'remainder', 'NULL', '''' || RTRIM(p.memory_requested, '%') || '''') AS requested_memory
-    --, memory_per_query_bytes INT
-    , DECODE(p.temp_space_requested, 'remainder', 'NULL', '''' || RTRIM(p.temp_space_requested, '%') || '''') AS max_spill_pct
-    --, temp_space_per_query_bytes INT
-    , p.max_concurrency
-    , p.min_concurrency
-    , p.queue_size
-    , NVL(rp.maximum_wait_limit::VARCHAR, 'NULL')         AS maximum_wait_limit
-    , NVL(rp.maximum_row_limit::VARCHAR, 'NULL')          AS maximum_row_limit
-    , NVL(rp.maximum_exec_time_limit::VARCHAR, 'NULL')    AS maximum_exec_time
-    , NVL(rp.next_memory_queue::VARCHAR, 'NULL')          AS next_memory_queue
-    , NVL(rp.next_exec_time_limit_queue::VARCHAR, 'NULL') AS next_exec_time_limit_queue
+    *
+    -- Pools JS
+    , RPAD(REPLACE($$profile['{name}']$$, '{name}', name), max_len_name + 12, ' ')
+    || '= { slots: '  || LPAD(FORMAT(FLOOR(max_slots), 0), 3, ' ') || ', '
+    || 'slotsMin: '   || LPAD(FORMAT(FLOOR(min_slots), 0), 3, ' ') || ', '
+    || 'memMB: '      || LPAD(FORMAT(FLOOR(mem_worker_GB  * 1000), 0), 8, ' ') || ', '
+    || 'tempMB: '     || LPAD(FORMAT(FLOOR(temp_worker_GB * 1000), 0), 8, ' ') || ', '
+    || 'memSlotMB: '  || LPAD(FORMAT(FLOOR((mem_worker_GB  * 1000) / max_slots), 0), 8, ' ') || ', '
+    || 'tempSlotMB: ' || LPAD(FORMAT(FLOOR((temp_worker_GB * 1000) / max_slots), 0), 8, ' ') || ' };' AS pools_js
+    -- Pools Description
+    , CHR(10) || '-- ' || RPAD(name, (max_len_name + 5), ' ')
+    || LPAD(FORMAT(max_slots, '0'), 3, ' ') || ' / '|| RPAD(FORMAT(min_slots, '0'), 3, ' ')
+    || LPAD(FORMAT(ROUND(mem_worker_GB, 1), '0.0'), 7, ' ') || '   '
+    || LPAD(FORMAT(ROUND(mem_max_slots_query_GB, 1), '0.0'), 6, ' ')
+    || DECODE(mem_max_slots_query_GB, mem_min_slots_query_GB
+        , '        '
+        , '->' || RPAD(FORMAT(ROUND(mem_min_slots_query_GB, 1), '0.0'), 6, ' '))
+    || LPAD(ROUND((100 * mem_worker_GB) / total_mem_worker_GB), 4) || '   '
+    || LPAD(FORMAT(ROUND(temp_worker_GB, 1), '0.0'), 7, ' ') || '   '
+    || LPAD(FORMAT(ROUND(temp_max_slots_query_GB, 1), '0.0'), 6, ' ')
+    || DECODE(temp_max_slots_query_GB, temp_min_slots_query_GB
+        , '        '
+        , '->' || RPAD(FORMAT(ROUND(temp_min_slots_query_GB, 1), '0.0'), 6, ' '))
+    || LPAD(ROUND((100 * temp_worker_GB) / total_temp_worker_GB), 4) AS pool_details
 FROM 
-    rp
-    JOIN m USING (name, updated, activated)
-    JOIN sys.wlm_pending_pool AS p USING (name)
-WHERE
-    profile_name = '{profile_name}'
-    AND name != 'system'
-ORDER BY 2, 1
+    DATA CROSS JOIN data_sum
+ORDER BY profile_name, name
 $str$, '{profile_name}', _profile_name);
 
    ---------------------------------------------------------
@@ -184,8 +250,14 @@ $str$, '{profile_name}', _profile_name);
    --RAISE INFO '_sql: %', _sql; --DEGUG
    FOR _rec IN EXECUTE( _sql )
    LOOP
-      UPDATE profile_code SET code = code || 
-         REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE($PLPGSQL$
+      _pools_detail := _pools_detail || _rec.pool_details;
+
+      IF _rec.name != 'system'
+      THEN
+         _pools_js := _pools_js || CHR(10) || _rec.pools_js;
+         --
+         _pools := _pools || CHR(10) ||
+            REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE($PLPGSQL$
 ----------------------- Start Pool ---------------------------------
 -- Pool: {name} 
 --------------------------------------------------------------------
@@ -209,14 +281,33 @@ $str$, '{profile_name}', _profile_name);
 $WLM_POOL$);
 ----------------------- End Pool   ---------------------------------
 $PLPGSQL$
-         , '{name}', _rec.name), '{max_concurrency}', _rec.max_concurrency)
-         , '{min_concurrency}', _rec.min_concurrency), '{queue_size}', _rec.queue_size)
-         , '{maximum_wait_limit}', _rec.maximum_wait_limit), '{maximum_row_limit}', _rec.maximum_row_limit)
-         , '{maximum_exec_time}', _rec.maximum_exec_time), '{max_spill_pct}', _rec.max_spill_pct)
-         , '{requested_memory}', _rec.requested_memory), '{next_memory_queue}', _rec.next_memory_queue)
-         , '{next_exec_time_limit_queue}', _rec.next_exec_time_limit_queue)
-         , _profile_name, '{profile_name}');
+            , '{name}', _rec.name), '{max_concurrency}', _rec.max_concurrency)
+            , '{min_concurrency}', _rec.min_concurrency), '{queue_size}', _rec.queue_size)
+            , '{maximum_wait_limit}', _rec.maximum_wait_limit), '{maximum_row_limit}', _rec.maximum_row_limit)
+            , '{maximum_exec_time}', _rec.maximum_exec_time), '{max_spill_pct}', _rec.max_spill_pct)
+            , '{requested_memory}', _rec.requested_memory), '{next_memory_queue}', _rec.next_memory_queue)
+            , '{next_exec_time_limit_queue}', _rec.next_exec_time_limit_queue)
+            , _profile_name, '{profile_name}');
+      END IF;
    END LOOP;
+
+   _pools_detail := REPLACE(
+          CHR(10) || '-- ' || RPAD('POOL', _rec.max_len_name, ' ') || '       SLOTS   MEMORY_GB                      SPILL_SPACE_GB'
+       || CHR(10) || '-- ' || RPAD('    ', _rec.max_len_name, ' ') || '               WORKER    QUERY     PERCENT    WORKER    QUERY     PERCENT'
+       || CHR(10) || '-- ' || RPAD('----', _rec.max_len_name, '-') || '-------------------------------------------------------------------------'
+       || _pools_detail
+       || CHR(10) || '-- ' || RPAD('----', _rec.max_len_name, '-') || '-------------------------------------------------------------------------'
+       || CHR(10) || '-- ' || RPAD('    ', _rec.max_len_name, ' ') || LPAD(FORMAT(ROUND(_rec.total_mem_worker_GB, 1), '0.0'), 21) || LPAD(FORMAT(ROUND(_rec.total_temp_worker_GB, 1), '0.0'), 31)
+       , _profile_name, '{profile_name}');
+
+   _pools_js := REPLACE(CHR(10) || CHR(10) || '    v_pools_js := $JS$' || _pools_js || '$JS$;' || $PGPSQL$
+    INSERT INTO wlm_snippet (alias, sub_order, code)
+    VALUES ('{pools_js}', 1, v_pools_js);$PGPSQL$
+       , _profile_name, '{profile_name}');
+
+   UPDATE profile_code SET code = code || _pools_detail;
+   UPDATE profile_code SET code = code || _pools_js;
+   UPDATE profile_code SET code = code || _pools;
 
    ---------------------------------------------------------
    -- rules query
@@ -288,17 +379,26 @@ $PLPGSQL$
    -- BUILDING end of PLPGSQL script
    ---------------------------------------------------------
    UPDATE profile_code SET code = code || $PLPGSQL$
-   FOR v_wlm_rec IN SELECT code FROM wlm_code ORDER BY wlm_entry
-   LOOP
-       v_code := v_wlm_rec.code;
+    FOR v_wlm_rec IN SELECT code FROM wlm_code ORDER BY wlm_entry
+    LOOP
+        v_code := v_wlm_rec.code;
 
-	   FOR v_js_rec IN SELECT alias, code FROM wlm_snippet ORDER BY sub_order
-	   LOOP
-		   v_code := REPLACE(v_code, v_js_rec.alias, v_js_rec.code);
-	   END LOOP;
+	    FOR v_snippet_rec IN SELECT alias, code FROM wlm_snippet ORDER BY sub_order
+	    LOOP
+		    v_code := REPLACE(v_code, v_snippet_rec.alias, v_snippet_rec.code);
+            RAISE INFO 'alias: %, code: %', v_snippet_rec.alias, v_snippet_rec.code;
+	    END LOOP;
+        RAISE INFO 'alias: %, code: %', v_wlm_rec.code;
 
-	   EXECUTE v_code;
-   END LOOP;
+	    EXECUTE v_code;
+    END LOOP;
+
+    COMMIT;
+
+    IF v_activate_new_profile OR v_is_active_profile
+    THEN
+        EXECUTE FORMAT('ALTER WLM PROFILE "%s" ACTIVATE 10 WITHOUT CANCEL', v_profile_name);
+    END IF;
 
 END $code$;
 $PLPGSQL$;
