@@ -317,21 +317,19 @@ WITH
 rule AS (
    SELECT
       enabled
-      , war.superuser
-      , war.rule_type
-      , war."order"
-      , war.expression
-      , war.profile_name
-      , war.rule_name
-      , war.enabled
-      , DECODE(war.rule_type, 'submit', 10, 'assemble', 20, 'compile', 30, 'run', 40, 'runtime', 40, 'restart_for_error', 50, 'restart_for_user', 60, 'completion', 70
+      , wpr.superuser
+      , wpr.rule_type
+      , wpr."order"
+      , wpr.expression
+      , wpr.profile_name
+      , wpr.rule_name
+      , wpr.enabled
+      , DECODE(wpr.rule_type, 'submit', 10, 'assemble', 20, 'compile', 30, 'run', 40, 'runtime', 40, 'restart_for_error', 50, 'restart_for_user', 60, 'completion', 70
          , 80) AS rule_type_order
    FROM
-      sys.wlm_active_rule AS war
-      LEFT JOIN sys.wlm_active_profile AS wap
-         ON (wap.name = war.profile_name)
+      sys.wlm_pending_rule AS wpr
    WHERE
-      war.profile_name = '{profile_name}'
+      wpr.profile_name = '{profile_name}'
 )
 SELECT
    TRIM(TO_CHAR(ROW_NUMBER() OVER(ORDER BY superuser, rule_type_order, "order", profile_name), '000')) AS rule_ct
@@ -379,6 +377,9 @@ $PLPGSQL$
    -- BUILDING end of PLPGSQL script
    ---------------------------------------------------------
    UPDATE profile_code SET code = code || $PLPGSQL$
+    ---------------------------------------------------------
+    -- BUILDING profile
+    ---------------------------------------------------------
     FOR v_wlm_rec IN SELECT code FROM wlm_code ORDER BY wlm_entry
     LOOP
         v_code := v_wlm_rec.code;
@@ -386,10 +387,9 @@ $PLPGSQL$
 	    FOR v_snippet_rec IN SELECT alias, code FROM wlm_snippet ORDER BY sub_order
 	    LOOP
 		    v_code := REPLACE(v_code, v_snippet_rec.alias, v_snippet_rec.code);
-            RAISE INFO 'alias: %, code: %', v_snippet_rec.alias, v_snippet_rec.code;
 	    END LOOP;
-        RAISE INFO 'alias: %, code: %', v_wlm_rec.code;
 
+        --RAISE INFO '%', v_code; --DEBUG
 	    EXECUTE v_code;
     END LOOP;
 
@@ -404,7 +404,7 @@ END $code$;
 $PLPGSQL$;
 
 
-   RETURN QUERY EXECUTE $$SELECT code AS a FROM profile_code$$;
+   RETURN QUERY EXECUTE $$SELECT code FROM profile_code$$;
 
    /* Reset ybd_query_tags back to its previous value
    */
