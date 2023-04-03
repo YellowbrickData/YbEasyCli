@@ -86,8 +86,8 @@ CREATE TABLE log_query_smry_by_t
 ** Create the procedure.
 */
 
-CREATE OR REPLACE PROCEDURE log_query_smry_p( 
-        _from_ts   TIMESTAMP DEFAULT  (DATE_TRUNC('week', CURRENT_DATE)::DATE - 7) 
+CREATE OR REPLACE PROCEDURE log_query_smry_by_p( 
+        _from_ts   TIMESTAMP DEFAULT  (DATE_TRUNC('week', CURRENT_DATE)::DATE - 7)::TIMESTAMP 
       , _to_ts     TIMESTAMP DEFAULT  CURRENT_TIMESTAMP
       , _date_part VARCHAR   DEFAULT  'week'
       ) 
@@ -178,7 +178,7 @@ $proc$
 ;
 
 
-COMMENT ON FUNCTION log_query_smry_p( TIMESTAMP, TIMESTAMP, VARCHAR ) IS 
+COMMENT ON FUNCTION log_query_smry_by_p( TIMESTAMP, TIMESTAMP, VARCHAR ) IS 
 $cmnt$Description:
 Aggregated sys.log_query data for a given time range and aggregation period.
 

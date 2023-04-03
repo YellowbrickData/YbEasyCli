@@ -14,6 +14,9 @@
 **
 **
 ** Revision History:
+** . 2023.03.29 - Change _submit_ts to _from_dt to avoid problems with overloaded
+**                version of function (log_query_smry_by_p.sql)
+**                Added _to_dt.
 ** . 2022.07.08 - Fixed AVG spill; now avg of only stmts that did spill.
 **                exe secs now includes io wait.
 **                Fixed av_ru_sec column order problem.
@@ -79,7 +82,14 @@ CREATE TABLE log_query_smry_t
 ** Create the procedure.
 */
 
-CREATE OR REPLACE PROCEDURE log_query_smry_p( _submit_ts TIMESTAMP  DEFAULT  (DATE_TRUNC('week', CURRENT_DATE)::DATE - 7) ) 
+        _from_ts   TIMESTAMP DEFAULT  (DATE_TRUNC('week', CURRENT_DATE)::DATE - 7) 
+      , _to_ts     TIMESTAMP DEFAULT  CURRENT_TIMESTAMP
+      , _date_part VARCHAR   DEFAULT  'week'
+
+CREATE OR REPLACE PROCEDURE log_query_smry_p( 
+      _from_dt DATE  DEFAULT  (DATE_TRUNC('week', CURRENT_DATE)::DATE - 7) 
+    , _to_dt   DATE  DEFAULT  CURRENT_DATE + 1
+   ) 
    RETURNS SETOF log_query_smry_t 
    LANGUAGE 'plpgsql' 
    VOLATILE
@@ -134,18 +144,18 @@ BEGIN
                END ) / COUNT(*) * 100 ), 1 )::NUMERIC(5,1)                               AS spld_pct
  , ROUND( AVG( acquire_resources_ms )  / 1000, 1 )::NUMERIC(15, 1)                       AS av_que_sec
  , ROUND( MAX( acquire_resources_ms )  / 1000, 1 )::NUMERIC(15, 1)                       AS mx_que_sec
- , ROUND( AVG( run_ms - wait_run_cpu_ms   )/ 1000.0, 1 )::NUMERIC(15, 1)                   AS av_exe_sec
- , ROUND( MAX( run_ms - wait_run_cpu_ms   )/ 1000.0, 1 )::NUMERIC(15, 1)                   AS mx_exe_sec
+ , ROUND( AVG( run_ms - wait_run_cpu_ms   )/ 1000.0, 1 )::NUMERIC(15, 1)                 AS av_exe_sec
+ , ROUND( MAX( run_ms - wait_run_cpu_ms   )/ 1000.0, 1 )::NUMERIC(15, 1)                 AS mx_exe_sec
  , ROUND( AVG( run_ms )                / 1000, 1 )::NUMERIC(15, 1)                       AS av_run_sec
  , ROUND( MAX( run_ms )                / 1000, 1 )::NUMERIC(15, 1)                       AS mx_run_sec
  , ROUND( AVG( memory_required_bytes ) /( 1024.0^2 ), 0 )::NUMERIC(15, 0)                AS av_mb
  , ROUND( MAX( memory_required_bytes ) /( 1024.0^2 ), 0 )::NUMERIC(15, 0)                AS mx_mb
- , ROUND( AVG( nullif(io_spill_write_bytes,0 ))  /( 1024.0^2 ), 0 )::NUMERIC(15, 0)        AS av_spl_mb
+ , ROUND( AVG( NULLIF(io_spill_write_bytes,0 ))  /( 1024.0^2 ), 0 )::NUMERIC(15, 0)      AS av_spl_mb
  , ROUND( MAX( io_spill_write_bytes )  /( 1024.0^2 ), 0 )::NUMERIC(15, 0)                AS mx_spl_mb
 FROM
    sys.log_query
 WHERE
-       submit_time      > ' || quote_literal( _submit_ts ) || '
+       submit_time      > ' || quote_literal( _from_dt ) || '
 -- AND application_name NOT LIKE ''yb-%''
 -- AND pool             IS NOT NULL
 GROUP BY
@@ -165,21 +175,20 @@ $proc$
 ;
 
 
-COMMENT ON FUNCTION log_query_smry_p( TIMESTAMP ) IS 
+COMMENT ON FUNCTION log_query_smry_p( DATE ) IS 
 $cmnt$Description:
 Aggregated subset of the sys.log_query data.
 
 . Has optional submit date/timestamp arg for WLM effectiveness evaluation.
-. If no _submit_ts is specified, the default start timestamp will be the begining
+. If no _from_dt is specified, the default start timestamp will be the begining
   of the previous week.
 
 Examples:
 . SELECT * FROM log_query_smry_p( );
 . SELECT * FROM log_query_smry_p( '2020-01-01' );
-. SELECT * FROM log_query_smry_p( $$2020-01-01 00:00:00$$ ) ;
    
 Arguments:
-. _submit_ts (optional) - A DATE or TIMESTAMP for the minimum submit_time to use.
+. _from_dt (optional) - A DATE for the minimum submit_time to use.
   Default: midnight of the first day of the previous week.
 
 NOTE:
@@ -189,6 +198,6 @@ NOTE:
   of the action but instead the time of the preceeding CTAS, DROP, etc...
 
 Version:
-. 2022.07.08 - Yellowbrick Technical Support    
+. 2023.03.29 - Yellowbrick Technical Support    
 $cmnt$
 ;
