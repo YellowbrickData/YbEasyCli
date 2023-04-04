@@ -1,4 +1,4 @@
-/* log_query_smry_p.sql
+/* log_query_smry_by_p.sql
 **
 ** Return an aggregated subset of the sys.log_query columns with an optional argument
 ** for begining date for WLM effectiveness evaluation.
@@ -14,9 +14,7 @@
 **
 **
 ** Revision History:
-** . 2023.03.29 - Change _submit_ts to _from_dt to avoid problems with overloaded
-**                version of function (log_query_smry_by_p.sql)
-**                Added _to_dt.
+** . 2023.03.20 - Added _to_ts and period.
 ** . 2022.07.08 - Fixed AVG spill; now avg of only stmts that did spill.
 **                exe secs now includes io wait.
 **                Fixed av_ru_sec column order problem.
@@ -34,15 +32,20 @@
 **
 ** Example result:
 **
-**  week_begin | pool  | stmts | qued | que_pct | spld | spl_pct 
-** ------------+-------+-------+------+---------+------+---------
-**  2020-02-03 | admin |   302 |    0 |     0.0 |    0 |     0.0 
-**  2020-02-03 | small |     6 |    0 |     0.0 |    0 |     0.0 
-** ...
-** ...| av_que_sec | mx_que_sec | av_exe_sec | mx_exe_sec | av_run_sec | mx_run_sec | av_mb | mx_mb | av_spl_mb | mx_spl_mb 
-** ...+------------+------------+------------+------------+------------+------------+-------+-------+-----------+----------- 
-** ...|        0.0 |        0.0 |        0.0 |        0.1 |        0.1 |        5.0 |   188 |  2265 |         0 |         0 
-** ...|        0.0 |        0.0 |        0.0 |        0.0 |        0.0 |        0.0 |    89 |    89 |         0 |         0 
+      begining       |  by  |    pool     | stmts | sys_ybd | rstrts | errs | qued | que_pct | spld | spld_pct 
+---------------------+------+-------------+-------+---------+--------+------+------+---------+------+----------
+ 2023-03-01 00:00:00 | hour | front_end   |  5795 |    5795 |      0 |    0 |    0 |     0.0 |    0 |      0.0 
+ 2023-03-01 00:00:00 | hour | prod: large |     1 |       0 |      0 |    0 |    0 |     0.0 |    0 |      0.0 
+ 2023-03-01 00:00:00 | hour | system      |  1287 |    1287 |      0 |    0 |    0 |     0.0 |    0 |      0.0 
+ 2023-03-01 01:00:00 | hour | front_end   |  5801 |    5801 |      0 |    0 |    0 |     0.0 |    0 |      0.0 
+ 2023-03-01 01:00:00 | hour | prod: large |     1 |       0 |      0 |    0 |    1 |   100.0 |    0 |      0.0 
+...| av_que_sec | mx_que_sec | av_exe_sec | mx_exe_sec | av_run_sec | mx_run_sec | av_mb | mx_mb | av_spl_mb | mx_spl_mb
+...+------------+------------+------------+------------+------------+------------+-------+-------+-----------+-----------
+...|            |            |            |            |        0.0 |        0.0 |     0 |     0 |           |         0
+...|        0.0 |        0.0 |        0.0 |        0.0 |        0.1 |        0.1 |   499 |   499 |           |         0
+...|        0.0 |        0.0 |        0.1 |        2.6 |        0.1 |        2.6 |  1275 |  1762 |           |         0
+...|            |            |            |            |        0.0 |        0.0 |     0 |     0 |           |         0
+...|        0.1 |        0.1 |        0.0 |        0.0 |        0.1 |        0.1 |   499 |   499 |           |         0
 ** ... 
 */
 
@@ -51,10 +54,11 @@
 ** Create a table to define the rowtype that will be returned by the procedure.
 ** Yellowbrick does not support user defined types or RETURNS TABLE. 
 */
-DROP TABLE IF EXISTS log_query_smry_t CASCADE ;
-CREATE TABLE log_query_smry_t
+DROP TABLE IF EXISTS log_query_smry_by_t CASCADE ;
+CREATE TABLE log_query_smry_by_t
    (
-      week_begin DATE
+      begining   TIMESTAMP
+    , "by"       VARCHAR (16) 
     , pool       VARCHAR (128)
     , stmts      BIGINT
     , sys_ybd    BIGINT
@@ -73,7 +77,7 @@ CREATE TABLE log_query_smry_t
     , av_mb      NUMERIC (15, 0)
     , mx_mb      NUMERIC (15, 0)
     , av_spl_mb  NUMERIC (15, 0)
-    , mx_spl_mb  NUMERIC (15, 0)
+    , mx_spl_mb  NUMERIC (15, 0)          
    )
 ;
  
@@ -82,15 +86,12 @@ CREATE TABLE log_query_smry_t
 ** Create the procedure.
 */
 
-        _from_ts   TIMESTAMP DEFAULT  (DATE_TRUNC('week', CURRENT_DATE)::DATE - 7) 
+CREATE OR REPLACE PROCEDURE log_query_smry_by_p( 
+        _from_ts   TIMESTAMP DEFAULT  (DATE_TRUNC('week', CURRENT_DATE)::DATE - 7)::TIMESTAMP 
       , _to_ts     TIMESTAMP DEFAULT  CURRENT_TIMESTAMP
       , _date_part VARCHAR   DEFAULT  'week'
-
-CREATE OR REPLACE PROCEDURE log_query_smry_p( 
-      _from_dt DATE  DEFAULT  (DATE_TRUNC('week', CURRENT_DATE)::DATE - 7) 
-    , _to_dt   DATE  DEFAULT  CURRENT_DATE + 1
-   ) 
-   RETURNS SETOF log_query_smry_t 
+      ) 
+   RETURNS SETOF log_query_smry_by_t 
    LANGUAGE 'plpgsql' 
    VOLATILE
    CALLED ON NULL INPUT
@@ -111,7 +112,8 @@ BEGIN
    EXECUTE 'SET ybd_query_tags  TO ''' || _tags || '''';  
   
   _sql := 'SELECT
-   DATE_TRUNC(''WEEK'', submit_time )::date                                              AS week_begin
+   DATE_TRUNC(' || quote_literal(_date_part) || ', submit_time )::TIMESTAMP              AS begining
+ , ' || quote_literal(_date_part) || '::VARCHAR(16)                                      AS by   
  , NVL( pool_id, ''front_end'' )                                                         AS pool
  , COUNT(*)                                                                              AS stmts
  , SUM ( CASE 
@@ -150,18 +152,19 @@ BEGIN
  , ROUND( MAX( run_ms )                / 1000, 1 )::NUMERIC(15, 1)                       AS mx_run_sec
  , ROUND( AVG( memory_required_bytes ) /( 1024.0^2 ), 0 )::NUMERIC(15, 0)                AS av_mb
  , ROUND( MAX( memory_required_bytes ) /( 1024.0^2 ), 0 )::NUMERIC(15, 0)                AS mx_mb
- , ROUND( AVG( NULLIF(io_spill_write_bytes,0 ))  /( 1024.0^2 ), 0 )::NUMERIC(15, 0)      AS av_spl_mb
+ , ROUND( AVG( nullif(io_spill_write_bytes,0 ))  /( 1024.0^2 ), 0 )::NUMERIC(15, 0)      AS av_spl_mb
  , ROUND( MAX( io_spill_write_bytes )  /( 1024.0^2 ), 0 )::NUMERIC(15, 0)                AS mx_spl_mb
 FROM
    sys.log_query
 WHERE
-       submit_time      > ' || quote_literal( _from_dt ) || '
+       submit_time      >= ' || quote_literal( _from_ts ) || '
+   AND submit_time      <  ' || quote_literal( _to_ts ) || ' 
 -- AND application_name NOT LIKE ''yb-%''
 -- AND pool             IS NOT NULL
 GROUP BY
-   week_begin, pool
+   begining, pool, by
 ORDER BY
-   week_begin, pool 
+   begining, pool, by
   ';
     
    -- RAISE INFO '_sql is: %', _sql ;
@@ -175,29 +178,37 @@ $proc$
 ;
 
 
-COMMENT ON FUNCTION log_query_smry_p( DATE ) IS 
+COMMENT ON FUNCTION log_query_smry_by_p( TIMESTAMP, TIMESTAMP, VARCHAR ) IS 
 $cmnt$Description:
-Aggregated subset of the sys.log_query data.
+Aggregated sys.log_query data for a given time range and aggregation period.
+
+Typically used in evaluation WLM rule effectiveness.
 
 . Has optional submit date/timestamp arg for WLM effectiveness evaluation.
-. If no _from_dt is specified, the default start timestamp will be the begining
+. If no _from_ts is specified, the default start timestamp will be the begining
   of the previous week.
 
 Examples:
-. SELECT * FROM log_query_smry_p( );
-. SELECT * FROM log_query_smry_p( '2020-01-01' );
+. SELECT * FROM log_query_smry_p( '2023-03-01' ,  '2023-03-02' , 'hour'  ) ;
+. SELECT * FROM log_query_smry_p( DATE_TRUNC('week', CURRENT_DATE - 7), DATE_TRUNC('week', CURRENT_DATE), 'day' )
+. SELECT * FROM log_query_smry_p( '2023-01-01' ,  CURRENT_TIMESTAMP, 'month' ) ;
    
 Arguments:
-. _from_dt (optional) - A DATE for the minimum submit_time to use.
-  Default: midnight of the first day of the previous week.
+. _from_ts TIMESTAMP - (optl) TIMESTAMP for the minimum submit_time to use.
+                       Default: midnight of the first day of the previous week.
+. _to_ts   TIMESTAMP - (optl) TIMESTAMP for the minimum submit_time to use.
+                       Default: TIMESTAMP for the maximum submit_time to use.
+. _date_part VARCHAR - (Optl) i.e. yr, mon, week, hr. See:
+                       https://docs.yellowbrick.com/5.2/ybd_sqlref/dateparts_supported.html  
+
 
 NOTE:
-. The first day of the week is Sunday (, not Saturday).
 . To do a pivot table analysis of the historical queries use log_query_pivot_p.
-. DROP TABLE and ANALYZE times are misleading. Their start time is not the start
-  of the action but instead the time of the preceeding CTAS, DROP, etc...
+. DROP TABLE and ANALYZE times can be are misleading. Their start time may be the start
+  time of the preceeding CTAS, DROP, etc...
 
 Version:
-. 2023.03.29 - Yellowbrick Technical Support    
+. 2023.03.20 - Yellowbrick Technical Support    
 $cmnt$
 ;
+

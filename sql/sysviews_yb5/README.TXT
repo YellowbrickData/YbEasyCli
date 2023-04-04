@@ -1,7 +1,7 @@
 README.TXT
 
 Yellowbrick Data Technical Support sysviews version 5 README file.
-Revision 2023.03.09
+Revision 2023.03.20
 
 In this README
 ========================================
@@ -96,8 +96,9 @@ Using the procedures
  load_p                     | Transformed subset of sys.load columns for currently active bulk loads.
  log_bulk_xfer_p            | Completed bulk transfers (ybload & ybunload) from sys.log_load and sys.log_unload.
  log_query_p                | Details on completed statements.
- log_query_pivot_p          | Queries for the last week aggregated by hour for use in WLM pivot table analysis.
+ log_query_pivot_p          | Satements for the last week aggregated by hour for use in WLM pivot table analysis.
  log_query_slot_usage_p     | Create a WLM slot usage by pool report by analyzing sys.log_query data.
+ log_query_smry_by_p        | Aggregated sys.log_query data for a given time range and aggregation period.
  log_query_smry_p           | Aggregated subset of the sys.log_query data.
  log_query_steps_p          | Completed statements actual vs plan metrics by plan node.
  log_query_timing_p         | Details on completed backend statements.
@@ -128,9 +129,10 @@ Using the procedures
  view_validate_p            | to late bound views.
  wlm_active_profile_p       | Returns current active WLM profile configuration details by pool.
  wlm_active_rule_p          | Current active WLM profile rules.
- wlm_profile_rule_p         | Current active or named WLM detailed profile rules.
+ wlm_profile_rule_p         | Returns SQL(PLPGSQL script) to create a WLM profile.
+ wlm_profile_sql_p          |
  wlm_state_p                | Returns current active WLM profile state metrics by pool.
-(47 rows)
+(49 rows)
 
 
 Technical implementation details
@@ -150,6 +152,18 @@ Technical implementation details
 
 Revision history
 ================================================================================
+
+2023.04.03
+-------------------
+log_query_smry_by_p.sql        : Fix for overload probs.
+log_query_smry_p.sql           : Added addl arg.
+
+
+
+2023.03.13
+-------------------
+log_query_smry_by_p.sql        : Added. Overload of log_query_smry_p.
+
 
 2023.03.13
 -------------------

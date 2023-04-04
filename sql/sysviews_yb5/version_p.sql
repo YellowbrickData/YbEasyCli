@@ -14,6 +14,8 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023-04-03 - Udated version.
+** . 2023-03-20 - Udated version.
 ** . 2023-03-13 - Udated version.
 ** . 2023-03-10 - Changed yellowbrick_versions to min and max version
 ** . 2023-01-11 - Update
@@ -56,7 +58,7 @@ AS
 $proc$
 DECLARE
 
-   _sql TEXT := $$SELECT '2023-03-13'::DATE, '5.0'::VARCHAR(24), '5.0'::VARCHAR(24) $$;
+   _sql TEXT := $$SELECT '2023-03-04'::DATE, '5.0'::VARCHAR(24), '5.4'::VARCHAR(24) $$;
     
 BEGIN  
 
@@ -79,6 +81,6 @@ Arguments:
 . None
 
 Version:
-. 2023-03-10 - Yellowbrick Technical Support 
+. 2023-04-03 - Yellowbrick Technical Support 
 $cmnt$
 ;

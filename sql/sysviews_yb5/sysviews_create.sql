@@ -6,7 +6,8 @@
 **
 ** To grant default permissions on the procedures, run sysviews_grant.sql .
 **
-** Version history:                                 
+** Version history:                                
+** . 2023.03.20 - Added log_query_smry_by_p.sql 
 ** . 2023.03.10 - Added rel_ddl.sql
 ** . 2022.12.28 - Added:
 **                  catalog_storage_by_db_p.sql    
@@ -62,6 +63,7 @@ SELECT LEFT( setting, 1 ) AS yb_major_ver FROM pg_settings WHERE name = 'yb_serv
 \i  log_query_pivot_p.sql
 \i  log_query_slot_usage_p.sql
 \i  log_query_smry_p.sql
+\i  log_query_smry_by_p.sql
 \i  log_query_steps_p.sql
 \i  log_query_timing_p.sql
 \i  log_replica_p.sql
