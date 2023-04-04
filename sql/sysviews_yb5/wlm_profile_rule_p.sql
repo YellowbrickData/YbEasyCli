@@ -102,17 +102,21 @@ BEGIN
 WITH
 rule AS (
    SELECT
-      '//Enabled:    ' || DECODE(enabled, TRUE, 'yes', 'no')
-      || CHR(10) || '//Applies To: ' || DECODE(superuser, TRUE, 'superuser', 'user')
-      || CHR(10) || '//Type:       ' || war.rule_type
-      || CHR(10) || '//Order:      ' || war.order::VARCHAR
-      || CHR(10) || '//Profile:    ' || war.profile_name
+      DECODE(war.rule_type, 'submit', 10, 'assemble', 20, 'compile', 30, 'run', 40, 'runtime', 40, 'restart_for_error', 50, 'restart_for_user', 60, 'completion', 70
+         , 80) AS rule_type_order
+      , TO_CHAR(ROW_NUMBER() OVER(ORDER BY profile_name, rule_type_order, "order", superuser, rule_name), '000') AS rn
+      ,             '//------------------------------------------------'
+      || CHR(10) || '//Rule Count:'  || rn
       || CHR(10) || '//Rule:       ' || war.rule_name
+      || CHR(10) || '//Order:      ' || war.order::VARCHAR
+      || CHR(10) || '//Type:       ' || war.rule_type
+      || CHR(10) || '//Applies To: ' || DECODE(superuser, TRUE, 'superuser', 'user')
+      || CHR(10) || '//Enabled:    ' || DECODE(enabled, TRUE, 'yes', 'no')
+      || CHR(10) || '//Profile:    ' || war.profile_name
+      || CHR(10)
       || CHR(10) || war.expression AS rule_att
       , war.superuser
-      , DECODE(war.rule_type, 'submit', 10, 'assemble', 20, 'compile', 30, 'run', 40, 'runtime', 40, 'restart_for_error', 50, 'restart_for_user', 60, 'completion', 70
-         , 80) AS rule_type_order
-      , war."order", war.profile_name
+      , war."order", war.profile_name, war.rule_name
    FROM
       sys.wlm_active_rule AS war
       LEFT JOIN sys.wlm_active_profile AS wap
@@ -122,10 +126,9 @@ rule AS (
       OR war.profile_name = '(global)'
 )
 SELECT
-    ('//Rule Count:' || TO_CHAR(ROW_NUMBER() OVER(ORDER BY superuser, rule_type_order, "order", profile_name), '000')
-    || CHR(10) || rule_att || CHR(10))::VARCHAR(60000) AS rule
+    rule_att
 FROM rule
-ORDER BY rule
+ORDER BY rn
 $str$, '{rule_clause}', _rule_clause);
 
    --RAISE INFO '_sql: %', _sql;
