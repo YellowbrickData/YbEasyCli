@@ -84,6 +84,7 @@ CREATE TABLE log_query_t
  , prep_sec                   NUMERIC( 19, 1 )
  , que_sec                    NUMERIC( 19, 1 )
  , exe_sec                    NUMERIC( 19, 1 )
+ , io_wt_sec                  NUMERIC( 19, 1 )
  , run_sec                    NUMERIC( 19, 1 )
  , tot_sec                    NUMERIC( 19, 1 )
  , max_mb                     NUMERIC( 19, 0 )
@@ -157,12 +158,12 @@ BEGIN
    , ROUND( ( parse_ms + plan_ms + assemble_ms + compile_ms ) / 1000.0, 2 )::DECIMAL(19,1)
                                                                               AS prep_sec
    , ROUND( acquire_resources_ms            / 1000.0, 2 )::DECIMAL(19,1)      AS que_sec   
-   , ROUND( (run_ms - wait_run_cpu_ms                       ) / 1000.0, 2 )::DECIMAL(19, 1)
-                                                                              AS exe_sec
+   , ROUND( (run_ms - wait_run_cpu_ms     ) / 1000.0, 2 )::DECIMAL(19, 1)     AS exe_sec   
+   , ROUND( (wait_run_io_ms               ) / 1000.0, 2 )::DECIMAL(19, 1)     AS io_wt_sec   
    , ROUND( run_ms                          / 1000.0, 2 )::DECIMAL(19,1)      AS run_sec
    , ROUND( total_ms                        / 1000.0, 2 )::DECIMAL(19,1)      AS tot_sec
-   , ROUND( memory_bytes                    / 1024.0^2, 2 )::DECIMAL(19,0)    AS max_mb
-   , ROUND( io_spill_space_bytes            / 1024.0^2, 2 )::DECIMAL(19,0)    AS spill_mb   
+   , CEIL( memory_bytes_max                / 1024.0^2, 2 )::DECIMAL(19,0)     AS max_mb
+   , CEIL( io_spill_space_bytes_max        / 1024.0^2, 2 )::DECIMAL(19,0)     AS spill_mb   
    , REGEXP_REPLACE( SUBSTR( query_text, 1,' || _query_chars ||' ), ''(^\s+|\r\s*|\n\s*|\t\s*)'', '' '')::VARCHAR(60000)
                                                                               AS query_text
    FROM
@@ -217,6 +218,6 @@ Notes:
 . You can use $$ quoting for the outer quote char to not have to escape single quotes.
 
 Version:
-. 2022.08.28 - Yellowbrick Technical Support
+. 2023.04.04 - Yellowbrick Technical Support
 $cmnt$
 ;

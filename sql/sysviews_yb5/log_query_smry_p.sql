@@ -14,7 +14,7 @@
 **
 **
 ** Revision History:
-** . 2023.03.29 - Change _submit_ts to _from_dt to avoid problems with overloaded
+** . 2023.04.06 - Change _submit_ts to _from_dt to avoid problems with overloaded
 **                version of function (log_query_smry_by_p.sql)
 **                Added _to_dt.
 ** . 2022.07.08 - Fixed AVG spill; now avg of only stmts that did spill.
@@ -81,14 +81,9 @@ CREATE TABLE log_query_smry_t
 /* ****************************************************************************
 ** Create the procedure.
 */
-
-        _from_ts   TIMESTAMP DEFAULT  (DATE_TRUNC('week', CURRENT_DATE)::DATE - 7) 
-      , _to_ts     TIMESTAMP DEFAULT  CURRENT_TIMESTAMP
-      , _date_part VARCHAR   DEFAULT  'week'
-
 CREATE OR REPLACE PROCEDURE log_query_smry_p( 
       _from_dt DATE  DEFAULT  (DATE_TRUNC('week', CURRENT_DATE)::DATE - 7) 
-    , _to_dt   DATE  DEFAULT  CURRENT_DATE + 1
+    , _to_dt   DATE  DEFAULT  CURRENT_DATE
    ) 
    RETURNS SETOF log_query_smry_t 
    LANGUAGE 'plpgsql' 
@@ -155,14 +150,15 @@ BEGIN
 FROM
    sys.log_query
 WHERE
-       submit_time      > ' || quote_literal( _from_dt ) || '
--- AND application_name NOT LIKE ''yb-%''
--- AND pool             IS NOT NULL
+     submit_time      >= ' || quote_literal( _from_dt   ) || '
+ AND submit_time      <  ' || quote_literal( _to_dt + 1 ) || '
+   -- AND application_name NOT LIKE ''yb-%''
+   -- AND pool             IS NOT NULL
 GROUP BY
    week_begin, pool
 ORDER BY
    week_begin, pool 
-  ';
+';
     
    -- RAISE INFO '_sql is: %', _sql ;
    RETURN QUERY EXECUTE _sql;
@@ -175,7 +171,7 @@ $proc$
 ;
 
 
-COMMENT ON FUNCTION log_query_smry_p( DATE ) IS 
+COMMENT ON FUNCTION log_query_smry_p( DATE, DATE ) IS 
 $cmnt$Description:
 Aggregated subset of the sys.log_query data.
 
@@ -186,10 +182,13 @@ Aggregated subset of the sys.log_query data.
 Examples:
 . SELECT * FROM log_query_smry_p( );
 . SELECT * FROM log_query_smry_p( '2020-01-01' );
+. SELECT * FROM log_query_smry_p( '2020-01-01' , '2020-02-01);
    
 Arguments:
-. _from_dt (optional) - A DATE for the minimum submit_time to use.
-  Default: midnight of the first day of the previous week.
+. _from_dt DATE (optl) - A DATE for the minimum submit_time to use.
+                         Default: First day of the previous week.
+. _to_dt   DATE (optl) - A DATE for the maxiumu submit_time to use.
+                         Default: Current date.
 
 NOTE:
 . The first day of the week is Sunday (, not Saturday).
@@ -198,6 +197,6 @@ NOTE:
   of the action but instead the time of the preceeding CTAS, DROP, etc...
 
 Version:
-. 2023.03.29 - Yellowbrick Technical Support    
+. 2023.04.06 - Yellowbrick Technical Support    
 $cmnt$
 ;

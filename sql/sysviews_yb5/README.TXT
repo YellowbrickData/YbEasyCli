@@ -153,11 +153,16 @@ Technical implementation details
 Revision history
 ================================================================================
 
+2023.04.04
+-------------------
+log_query_smry_p.sql           : Fix for added addl arg.
+wlm_profile_rule_p.sql         : Fix for return rec varchar size.
+
+
 2023.04.03
 -------------------
 log_query_smry_by_p.sql        : Fix for overload probs.
 log_query_smry_p.sql           : Added addl arg.
-
 
 
 2023.03.13

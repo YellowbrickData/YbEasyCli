@@ -14,6 +14,8 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.04.06 - Fix for return row size.
+** . 2023.04.04 - Change ordering of comment lines in rule output begining.
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.06.15 - Yellowbrick Technical Support 
 ** . 2020.06.15 - Yellowbrick Technical Support 
@@ -23,37 +25,42 @@
 /* ****************************************************************************
 **  Example results:
 **
-**  //Rule Count: 001
-**  //Enabled:    yes
-**  //Applies To: user
-**  //Type:       submit
-**  //Order:      1
-**  //Profile:    (global)
-**  //Rule:       global_throttleConcurrentQueries
-**  if (w.type !== 'analyze') {
-**    wlm.throttle(500);
-**  }
-**
-**  //Rule Count: 002
-**  //Enabled:    yes
-**  //Applies To: user
-**  //Type:       compile
-**  //Order:      10000
-**  //Profile:    (global)
-**  //Rule:       global_restartErrorPolicy
-**   w.errorRecoverable = (w.numRestartError == 0);
-**
-**  //Rule Count: 003
-**  //Enabled:    no
-**  //Applies To: user
-**  //Type:       compile
-**  //Order:      10000
-**  //Profile:    (global)
-**  //Rule:       global_defaultRowLimit
-**  var maxRows = 5000000;
-**  if (w.type === 'select') {
-**      w.maximumRowLimit = Math.min(w.maximumRowLimit || maxRows, maxRows)
-**  }
+** //------------------------------------------------
+** //Rule Count: 001
+** //Rule:       global_throttleConcurrentQueries
+** //Order:      1
+** //Type:       submit
+** //Applies To: user
+** //Enabled:    yes
+** //Profile:    (global)
+** 
+** // Limit maximum number of concurrent queries.
+** // Note that maximum number of user connections is not affected by this rule.
+** // See Database Limits in the Appliance's documentation (max_connections and max_user_connections).
+** //
+** // Note: do not throttle on analyze hll, which is run as an implied query after CTAS and
+** //       INSERT/SELECT query types.
+** if (w.type !== 'analyze') {
+**   wlm.throttle(500);
+** }
+** 
+** //------------------------------------------------
+** //Rule Count: 002
+** //Rule:       global_throttleExternalTables
+** //Order:      1
+** //Type:       compile
+** //Applies To: user
+** //Enabled:    yes
+** //Profile:    (global)
+** 
+** if (w.isExternalScan()) {
+**     log.debug("Taking a external scan throttle");
+**     wlm.throttle(5);
+** } else if (w.isExternalWrite()) {
+**     log.debug("Taking a external write throttle");
+**     wlm.throttle(5);
+** 
+** }
 **
 **  ...
 */
@@ -126,7 +133,7 @@ rule AS (
       OR war.profile_name = '(global)'
 )
 SELECT
-    rule_att
+    rule_att::VARCHAR(60000)
 FROM rule
 ORDER BY rn
 $str$, '{rule_clause}', _rule_clause);
