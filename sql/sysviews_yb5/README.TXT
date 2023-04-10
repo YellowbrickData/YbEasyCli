@@ -1,7 +1,7 @@
 README.TXT
 
 Yellowbrick Data Technical Support sysviews version 5 README file.
-Revision 2023.03.20
+Revision 2023.04.10
 
 In this README
 ========================================
@@ -130,7 +130,7 @@ Using the procedures
  wlm_active_profile_p       | Returns current active WLM profile configuration details by pool.
  wlm_active_rule_p          | Current active WLM profile rules.
  wlm_profile_rule_p         | Returns SQL(PLPGSQL script) to create a WLM profile.
- wlm_profile_sql_p          |
+ wlm_profile_sql_p          | Generate SQL create script for WLM Profile
  wlm_state_p                | Returns current active WLM profile state metrics by pool.
 (49 rows)
 
@@ -152,6 +152,10 @@ Technical implementation details
 
 Revision history
 ================================================================================
+
+2023.04.10
+-------------------
+log_bulk_xfer_p.sql            : Fix related to _tag var and start_time column.
 
 2023.04.04
 -------------------

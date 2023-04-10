@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.04.19 - Fix code bug related to _tag var and start_time column.
 ** . 2023.01.20 - Fix COMMENT ON.
 ** . 2022.12.27 - Added _yb_util_filter.
 ** . 2022.08.28 - Added _from_ts & _to_ts args.
@@ -78,7 +79,7 @@ DECLARE
 BEGIN  
 
    -- Append sysviews proc to query tags
-   EXECUTE  'SET ybd_query_tags  TO ' || quote_literal( _new_tags );  
+   EXECUTE  'SET ybd_query_tags  TO ' || quote_literal( _tags );
    PERFORM sql_inject_check_p('_yb_util_filter', _yb_util_filter);  
 
    _sql := 'SELECT
@@ -97,6 +98,9 @@ BEGIN
       END::NUMERIC(12,1)                             AS mbps
    FROM
       sys.log_load
+   WHERE  start_time    >= ' || quote_literal( _from_ts ) || '::TIMESTAMP
+      AND start_time    <= ' || quote_literal( _to_ts   ) || '::TIMESTAMP
+      AND ' || _yb_util_filter || '
    UNION ALL
    SELECT
       date_trunc (''secs'', start_time) ::TIMESTAMP  AS start_time
@@ -114,8 +118,8 @@ BEGIN
       END::NUMERIC(12,1)                             AS mbps
    FROM
       sys.log_unload
-   WHERE  submit_time    >= ' || quote_literal( _from_ts ) || '::TIMESTAMP
-      AND submit_time    <= ' || quote_literal( _to_ts   ) || '::TIMESTAMP
+   WHERE  start_time    >= ' || quote_literal( _from_ts ) || '::TIMESTAMP
+      AND start_time    <= ' || quote_literal( _to_ts   ) || '::TIMESTAMP
       AND ' || _yb_util_filter || '
    ORDER BY
       start_time
