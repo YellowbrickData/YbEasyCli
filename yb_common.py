@@ -39,7 +39,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20230410'
+    version = '20230426'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -1181,6 +1181,8 @@ class DBConnect:
         if self.ybdb['version_major'] <= 4:
             self.ybtool_stderr_strip_warnings.append('WARNING:  setting the restricted parameter "ybd_analyze_after_writes" may lead to unexpected system behavior')
             self.ybtool_stderr_strip_warnings.append(r'WARNING:  Error querying database metadata.*')
+        else:
+            self.ybtool_stderr_strip_warnings.append(r'WARNING:  cache reference leak: cache pg_type.*')
 
 
     @staticmethod
