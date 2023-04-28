@@ -39,7 +39,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20230426'
+    version = '20230427'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -471,6 +471,8 @@ class ArgsHandler:
                     "YBPASSWORD env variable")
             conn_grp.add_argument(
                 "--skip_db_conn", action="store_true", help=argparse.SUPPRESS)
+            conn_grp.add_argument(
+                "--set_user_su", action="store_true", help=argparse.SUPPRESS)
         else:
             conn_grp = self.args_parser.add_argument_group(
                 'connection %s arguments' % type_desc)
@@ -500,6 +502,8 @@ class ArgsHandler:
                     "YBPASSWORD env variable")
             conn_grp.add_argument(
                 "--%s_skip_db_conn" % type, action="store_true", help=argparse.SUPPRESS)
+            conn_grp.add_argument(
+                "--%s_set_user_su" % type, action="store_true", help=argparse.SUPPRESS)
 
         return conn_grp
 
@@ -1119,6 +1123,7 @@ class DBConnect:
         self.env_set_by = {}
         self.env_args = {}
         self.on_manager_node = (find_executable('ybcli') is not None)
+        self.set_user_su = False
 
         if args_handler:
             for conn_arg in self.conn_args.keys():
@@ -1138,6 +1143,8 @@ class DBConnect:
             pwd_required = getattr(args_handler.args, '%sW' % arg_conn_prefix)
             self.current_schema = getattr(
                 args_handler.args, '%scurrent_schema' % arg_conn_prefix)
+            self.set_user_su = getattr(
+                args_handler.args, '%sset_user_su' % arg_conn_prefix)
         elif env:
             self.current_schema = None
             for env_var in env.keys():
@@ -1333,6 +1340,11 @@ WHERE rolname = CURRENT_USER""")
                     , Text.color(self.ybdb['database_encoding'], fg='cyan')
                     , Text.color('YBDB', style='bold')
                     , Text.color(self.ybdb['version'], fg='cyan')))
+
+        # This is a backdoor to make a regular user follow the SU code path and
+        # should be used carefully
+        if self.set_user_su:
+            self.ybdb['is_super_user'] = True
 
     def exit_if_not_su(self):
         if not self.ybdb['is_super_user']:
