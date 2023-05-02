@@ -25,13 +25,17 @@ class report_log_query_smry(SPReportUtil):
 
     def additional_args(self):
         args_grp = self.args_handler.args_parser.add_argument_group('report arguments')
-        args_grp.add_argument("--submit_date", type=ArgDate(), help=("the DATE(YYYY-MM-DD) for the minimum"
-            "  submit_time to use for the report, defaults to midnight of the first day of the current week.") )
+        args_grp.add_argument("--from_date", type=ArgDate(), help=("the DATE(YYYY-MM-DD) for the minimum"
+            "  from_date to use for the report, defaults to midnight of the first day of the current week.") )
+        args_grp.add_argument("--to_date", type=ArgDate(), help=("the DATE(YYYY-MM-DD) for the minimum"
+            "  to_date to use for the report, defaults to midnight of the first day of the current week.") )
 
     def execute(self):
         args = {}
-        if self.args_handler.args.submit_date:
-              args['_submit_ts'] = self.args_handler.args.submit_date
+        if self.args_handler.args.from_date:
+              args['_from_dt'] = self.args_handler.args.from_date
+        if self.args_handler.args.to_date:
+              args['_to_dt'] = self.args_handler.args.to_date
         return self.build(args)
 
 def main():
