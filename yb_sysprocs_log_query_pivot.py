@@ -166,6 +166,9 @@ SELECT * FROM {new_table_name} ORDER BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,1
 
 
         if Common.is_windows:
+            #wb.api.active_sheet.refresh_all(wb.api)
+            sheet = wb.sheets['WLM_PivotTable']
+            sheet.activate()
             wb.api.ActiveSheet.PivotTables('WorkloadPivot').RefreshTable()
         else:
             wb.api.active_sheet.refresh_all(wb.api)
