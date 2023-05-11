@@ -261,6 +261,8 @@ class yb_to_yb_copy_table(Util):
         src_table = Common.quote_object_paths(self.args_handler.args.src_table)
         if Common.is_windows:
             src_table = src_table.replace('"','"\\""')
+        else:
+            src_table = src_table.replace('"','\\"')
         table_unload_sql = "SELECT * FROM {src_table} WHERE TRUE{where_clause}".format(
             src_table = src_table
             , where_clause=(' AND %s' % self.args_handler.args.where_clause if self.args_handler.args.where_clause else ''))
