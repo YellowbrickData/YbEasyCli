@@ -82,7 +82,7 @@ BEGIN
    EXECUTE _sql ;   
   
   _sql := 'WITH to_gc AS
-     (  SELECT SUM( size_comp_mib ) * 1000^2   AS to_gc_bytes
+     (  SELECT SUM( size_comp_mib ) * 1024^2   AS to_gc_bytes
         FROM sys.shardstore
         WHERE end_xid != 72057594037927935
      )

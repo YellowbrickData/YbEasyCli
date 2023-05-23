@@ -96,7 +96,7 @@ BEGIN
          FROM
             sys.table_storage            ts
             RIGHT JOIN sys.table         t ON ts.table_id   = t.table_id
-            JOIN sys.database            d ON t.database_id = d.database_id AND d.name ILIKE quote_literal( _db_ilike )
+            JOIN sys.database            d ON t.database_id = d.database_id AND d.name ILIKE ' || quote_literal( _db_ilike ) || '
             CROSS JOIN appliance_storage aps
          WHERE
             ts.table_id > 16384

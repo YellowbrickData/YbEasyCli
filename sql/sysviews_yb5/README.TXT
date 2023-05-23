@@ -153,6 +153,13 @@ Technical implementation details
 Revision history
 ================================================================================
 
+2023.05.23
+-------------------
+backup_chains_p.sql            : Fix related to _tag var and start_time column. 
+procedure_p.sql                : Implement schema and procedure name filters.
+storage_by_db_p.sq             : Fix in ILIKE predicate.
+
+
 2023.04.10
 -------------------
 log_bulk_xfer_p.sql            : Fix related to _tag var and start_time column.

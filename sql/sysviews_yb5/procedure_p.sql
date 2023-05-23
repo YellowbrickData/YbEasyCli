@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.05.23 - Implement schema and procedure name filters.
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2021.04.26 - Yellowbrick Technical Support
 ** . 2020.10.30 - Yellowbrick Technical Support 
@@ -59,9 +60,9 @@ CREATE TABLE procedure_t
 ** Create the procedure.
 */
 CREATE OR REPLACE PROCEDURE procedure_p(
-   _db_ilike     VARCHAR DEFAULT '%'
-   , _schema_ilike VARCHAR DEFAULT '%'
-   , _rel_ilike    VARCHAR DEFAULT '%'
+     _db_ilike       VARCHAR DEFAULT '%'
+   , _schema_ilike   VARCHAR DEFAULT '%'
+   , _proc_ilike     VARCHAR DEFAULT '%'
    , _yb_util_filter VARCHAR DEFAULT 'TRUE' )
    RETURNS SETOF procedure_t 
    LANGUAGE 'plpgsql' 
@@ -85,12 +86,11 @@ DECLARE
 BEGIN  
 
    --SET TRANSACTION       READ ONLY;
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ;    
+   EXECUTE 'SET ybd_query_tags  TO ''' || _tags || '''';
+ 
    PERFORM sql_inject_check_p('_yb_util_filter', _yb_util_filter);
 
-   /* Query for the databases to iterate over
-   */
+   -- Query for the databases to iterate over
    _sql = 'SELECT database_id AS db_id, name AS db_name 
       FROM sys.database 
       WHERE name ILIKE ' || quote_literal( _db_ilike ) || ' 
@@ -99,8 +99,7 @@ BEGIN
       
    -- RAISE info '_sql = %', _sql;
 
-   /* Iterate over each db and get the relation metadata including schema 
-   */
+   --Iterate over each db and get the relation metadata including schema 
    FOR _db_rec IN EXECUTE _sql 
    LOOP
    
@@ -184,13 +183,16 @@ BEGIN
             LEFT JOIN  owners                       o ON p.proowner     = o.owner_id
             INNER JOIN pg_language                  l ON l.oid          = p.prolang           
          WHERE
-            p.oid > 16384
-            AND p.prosp    = ''t''
-            AND n.nspname NOT IN (''pg_catalog'', ''information_schema'', ''sys'')    
+                p.prosp = ''t''
+            AND p.oid     >     16384   
+            AND n.nspname ILIKE ''%s''
+            AND p.proname ILIKE ''%s''            
+            --AND n.nspname NOT IN (''pg_catalog'', ''information_schema'', ''sys'') 
             AND %s        
          ORDER BY
             1, 2, 3
-      ', _db_rec.db_name, _db_rec.db_name, _db_rec.db_name, _db_rec.db_name, _db_rec.db_name, _db_rec.db_name, _yb_util_filter
+      ', _db_rec.db_name, _db_rec.db_name, _db_rec.db_name, _db_rec.db_name, _db_rec.db_name, _db_rec.db_name
+       , _schema_ilike, _proc_ilike, _yb_util_filter
       );
 
       --RAISE INFO '_sql is: %', _sql ;
@@ -198,17 +200,15 @@ BEGIN
 
    END LOOP;
    
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ; 
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
    
 END;   
 $proc$ 
 ;
 
 COMMENT ON FUNCTION procedure_p( VARCHAR, VARCHAR, VARCHAR, VARCHAR) IS 
-'Description:
+$cmnt$Description:
 User created stored procedures.
   
 Examples:
@@ -220,10 +220,10 @@ Arguments:
 . _db_ilike     - (optional) An ILIKE pattern for the schema name. i.e. ''%fin%''.
 . _schema_ilike - (optional) An ILIKE pattern for the schema name. i.e. ''%qtr%''.
                   The default is ''%''
-. _rel_ilike    - (optional) An ILIKE pattern for the table name.  i.e. ''fact%''.
+. _proc_ilike    - (optional) An ILIKE pattern for the table name.  i.e. ''fact%''.
                   The default is ''%''
 
 Revision:
-. 2021.12.09 - Yellowbrick Technical Support
-'
+. 2023.05.23 - Yellowbrick Technical Support
+$cmnt$
 ;
