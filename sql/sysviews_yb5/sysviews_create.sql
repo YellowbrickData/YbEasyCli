@@ -49,7 +49,7 @@ SELECT LEFT( setting, 1 ) AS yb_major_ver FROM pg_settings WHERE name = 'yb_serv
 \i  all_user_objs_p.sql
 \i  analyze_immed_user_p.sql
 \i  analyze_immed_sess_p.sql
-\i  backup_chains_p.sql 
+--\i  backup_chains_p.sql --commented out waiting for kick to fix/push
 \i  bulk_xfer_p.sql
 \i  catalog_storage_by_table_p.sql 
 \i  catalog_storage_by_db_p.sql                             
