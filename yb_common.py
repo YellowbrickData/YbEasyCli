@@ -39,7 +39,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20230511'
+    version = '20230603'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -473,6 +473,8 @@ class ArgsHandler:
                 "--skip_db_conn", action="store_true", help=argparse.SUPPRESS)
             conn_grp.add_argument(
                 "--set_user_su", action="store_true", help=argparse.SUPPRESS)
+            conn_grp.add_argument(
+                "--sql_only", action="store_true", help=argparse.SUPPRESS)
         else:
             conn_grp = self.args_parser.add_argument_group(
                 'connection %s arguments' % type_desc)
@@ -504,6 +506,8 @@ class ArgsHandler:
                 "--%s_skip_db_conn" % type, action="store_true", help=argparse.SUPPRESS)
             conn_grp.add_argument(
                 "--%s_set_user_su" % type, action="store_true", help=argparse.SUPPRESS)
+            conn_grp.add_argument(
+                "--%s_sql_only" % type, action="store_true", help=argparse.SUPPRESS)
 
         return conn_grp
 
@@ -1821,13 +1825,16 @@ FROM report_data {order_by}""".format(
                 , pre_sql=self.pre_sql
                 , query=query)
 
-            self.cmd_results = self.db_conn.ybsql_query(query, strip_warnings=self.strip_warnings)
-            self.cmd_results.on_error_exit()
+            if self.args_handler.args.sql_only:
+                report = ('%s;' % query)
+            else:
+                self.cmd_results = self.db_conn.ybsql_query(query, strip_warnings=self.strip_warnings)
+                self.cmd_results.on_error_exit()
 
-            if args.report_type == 'formatted':
-                report = self.del_data_to_formatted_report(self.cmd_results.stdout, delimiter)
-            elif args.report_type == 'psv':
-                report = self.del_data_processed(self.cmd_results.stdout, delimiter)
+                if args.report_type == 'formatted':
+                    report = self.del_data_to_formatted_report(self.cmd_results.stdout, delimiter)
+                elif args.report_type == 'psv':
+                    report = self.del_data_processed(self.cmd_results.stdout, delimiter)
 
         elif args.report_type in ('ctas', 'insert'):
             #case 2 store report from cstore table
