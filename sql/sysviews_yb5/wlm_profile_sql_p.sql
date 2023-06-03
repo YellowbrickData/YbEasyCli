@@ -100,7 +100,7 @@ BEGIN
 
     INSERT INTO wlm_snippet (alias, sub_order, code)
     VALUES
-        ('{profile_name}'        , 1, $str${the_profile_name}$str$)
+        ('{profile_name}'        , 100, v_profile_name)
         , ('{my_include_example}', 1, $JS$example = 'example string';$JS$)
     ;
 $PLPGSQL$
