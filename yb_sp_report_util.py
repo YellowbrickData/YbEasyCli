@@ -13,7 +13,7 @@ class SPReportUtil(Util):
         super(SPReportUtil, self).__init__(db_conn, args_handler, init_default, util_name)
 
         version = 4
-        if (self.args_handler.args.sql_only or self.db_conn.ybdb['version_major'] > 4):
+        if (self.db_conn.ybdb['version_major'] > 4):
             version = 5
 
         full_proc_name = '{location}_yb{version}/{proc_name}'.format(
