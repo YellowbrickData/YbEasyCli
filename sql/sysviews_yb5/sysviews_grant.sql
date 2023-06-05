@@ -18,7 +18,17 @@ SET search_path TO public,pg_catalog;
 \echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 \echo CREATE ROLE sysviews_users_r;
-CREATE ROLE sysviews_users_r;
+DO
+$do$
+BEGIN
+   IF NOT EXISTS (
+      SELECT FROM pg_catalog.pg_roles 
+      WHERE  rolname = 'sysviews_users_r') 
+   THEN
+      CREATE ROLE sysviews_users_r;
+   END IF;
+END
+$do$;
 
 \echo REVOKE CONNECT ON DATABASE sysviews FROM PUBLIC;
 REVOKE CONNECT ON DATABASE sysviews FROM PUBLIC;

@@ -12,9 +12,13 @@ class SPReportUtil(Util):
 
         super(SPReportUtil, self).__init__(db_conn, args_handler, init_default, util_name)
 
+        version = 4
+        if (self.db_conn.ybdb['version_major'] > 4):
+            version = 5
+
         full_proc_name = '{location}_yb{version}/{proc_name}'.format(
             location=self.config['report_sp_location']
-            , version=(4 if self.db_conn.ybdb['version_major'] < 5 else 5)
+            , version=version
             , proc_name= ((self.__class__.__name__).replace('report_', '') + '_p') )
         if StoredProc.proc_file_exists(full_proc_name):
             self.sp = StoredProc(full_proc_name)

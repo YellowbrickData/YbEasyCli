@@ -470,8 +470,9 @@ END;$CODE$
 
         print("\nCreating '%s' database objects..." % Text.color('sysviews', 'cyan'))
         os.chdir('../sql/sysviews_yb%d' % (5 if db1_conn.ybdb['version_major'] >= 5 else 4) )
-        sql = ('DROP DATABASE IF EXISTS sysviews;\n%s\n%s'
-            % (Common.read_file('sysviews_create.sql'), (Common.read_file('sysviews_grant.sql')) ) ).replace('\\q', '')
+        sql = ('DROP DATABASE IF EXISTS sysviews;\n%s\n%s\nGRANT sysviews_users_r TO %s;\n'
+            % (Common.read_file('sysviews_create.sql'), Common.read_file('sysviews_grant.sql')
+                , self.config.get(self.section, 'user') ) ).replace('\\q', '')
         cmd_results = self.su_conn.ybsql_query(sql)
         cmd_results.on_error_exit()
 

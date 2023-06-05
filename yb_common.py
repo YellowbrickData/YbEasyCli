@@ -39,7 +39,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20230511'
+    version = '20230603'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -531,10 +531,12 @@ class ArgsHandler:
         args_optional_grp = self.args_parser.add_argument_group('optional report arguments')
 
         args_optional_grp.add_argument("--report_type"
-            , choices=['formatted', 'psv', 'ctas', 'insert'], default='formatted'
-            , help=("formatted: output a formatted report, psv: output pipe seperated row data,"
+            , choices=['formatted', 'psv', 'ctas', 'insert', 'sql'], default='formatted'
+            , help=("formatted: output a formatted report, "
+                " psv: output pipe seperated row data,"
                 " ctas: create a table containing the report data,"
-                " insert: insert report data into an existing table, defaults to formatted") )
+                " insert: insert report data into an existing table,"
+                " sql: returns the SQL to generate the report, defaults to formatted") )
         args_optional_grp.add_argument('--report_delimiter', help=argparse.SUPPRESS, default='|')
         args_optional_grp.add_argument("--report_dst_table", metavar='table'
             , help="report destination table applies to report_type 'ctas' and 'insert' only")
@@ -1461,7 +1463,7 @@ class StoredProc:
         self.proc_args_parse()
 
         if self.proc_is_setof:
-            self.parse_setof_create_table(as_temp_table=True)
+            self.parse_setof_create_table(as_temp_table=True, drop_if_exists=True)
             self.proc_before_return = re.sub(
                 r"([a-z0-9_.]+\.)?([a-z0-9_]+)%ROWTYPE", ('%s%%ROWTYPE' % self.new_table_name)
                 , self.proc_before_return, re.IGNORECASE)
@@ -1490,7 +1492,7 @@ class StoredProc:
 
             self.args.append(arg)
 
-    def parse_setof_create_table(self, new_table_name=None, as_temp_table=False):
+    def parse_setof_create_table(self, new_table_name=None, as_temp_table=False, drop_if_exists=False):
         # get the CREATE TABLE
         regex = r"((CREATE\s*(OR\s*REPLACE)?\s*TABLE\s*)([a-z0-9_.]+\.)?([a-z0-9_]+)[^;]*;)"
         matches = re.search(regex, self.proc_sql, re.IGNORECASE | re.DOTALL)
@@ -1499,7 +1501,7 @@ class StoredProc:
         regex = (r"((ON\s*COMMIT|SORT\s*ON|CLUSTER\s*ON|PARTITION\*BY|DISTRIBUTE\s*ON|DISTRIBUTE\s*REPLICATE|DISTRIBUTE\s*RANDOM)[^;]*)")
         result = re.sub(regex, '', matches.group(1), 1, re.IGNORECASE | re.DOTALL)
 
-        # parse CREATE TBALE statement
+        # parse CREATE TABLE statement
         regex = r"(CREATE\s*(OR\s*REPLACE)?\s*TABLE\s*)([a-z0-9_.]+\.)?([a-z0-9_]+)\s*\((\s*[^;]*)\)"
         matches = re.search(regex, result, re.IGNORECASE | re.DOTALL)
 
@@ -1508,9 +1510,12 @@ class StoredProc:
         self.new_table_name = new_table_name if new_table_name else ('%s_%s' % (matches.group(4), Common.get_uid()))
         temp_clause = ' TEMP' if as_temp_table else ''
 
-        self.create_new_table_sql = ('CREATE%s TABLE %s (%s)'
-            % (temp_clause, self.new_table_name, matches.group(5)) )
-        
+        self.create_new_table_sql = ('%sCREATE%s TABLE %s (%s)'
+            % ( ( ('DROP TABLE IF EXISTS %s;\n' % self.new_table_name) if drop_if_exists else '' )  
+               , temp_clause
+               , self.new_table_name
+               , matches.group(5)) )
+
         self.row_cols = []
         self.row_cols_def = {}
         col_defs = re.sub(r"^\s*--.*$", '', matches.group(5), 0, re.MULTILINE) # strip commented columns
@@ -1802,8 +1807,15 @@ FROM report_data {order_by}""".format(
             , at=('LOCALTIMESTAMP AS "at", ' if args.report_add_ts_column else '')
             , columns=('\n    , '.join(map(Common.qa, self.columns))) )
 
-        #case 1 create printed report
-        if args.report_type in ('formatted', 'psv'):
+        #case 1 create only the sql which generates the report
+        if args.report_type == 'sql':
+            report = """
+{pre_sql}{query};""".format(
+                pre_sql=self.pre_sql
+                , query=query)
+
+        #case 2 create printed report
+        elif args.report_type in ('formatted', 'psv'):
             if args.report_type == 'formatted':
                 delimiter = chr(31) # ASCII US(unit separator)
             elif args.report_type == 'psv':
@@ -1830,7 +1842,7 @@ FROM report_data {order_by}""".format(
                 report = self.del_data_processed(self.cmd_results.stdout, delimiter)
 
         elif args.report_type in ('ctas', 'insert'):
-            #case 2 store report from cstore table
+            #case 3 store report from cstore table
             if (is_source_cstore):
                 if args.report_type == 'ctas':
                     table_sql = 'CREATE TABLE %s AS ' % Common.quote_object_paths(args.report_dst_table)
@@ -1846,7 +1858,7 @@ FROM report_data {order_by}""".format(
                 self.cmd_results = self.db_conn.ybsql_query(query, strip_warnings=self.strip_warnings)
                 self.cmd_results.on_error_exit()
 
-            #case 3 store report from rstore table
+            #case 4 store report from rstore table
             else:
                 from yb_sys_query_to_user_table import sys_query_to_user_table
 
