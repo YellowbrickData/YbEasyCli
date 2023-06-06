@@ -153,11 +153,16 @@ Technical implementation details
 Revision history
 ================================================================================
 
+2023.06.05
+-------------------
+backup_chains_p.sql            : Re-add to sysviews_create. 
+
+
 2023.05.23
 -------------------
 backup_chains_p.sql            : Fix related to _tag var and start_time column. 
 procedure_p.sql                : Implement schema and procedure name filters.
-storage_by_db_p.sq             : Fix in ILIKE predicate.
+storage_by_db_p.sql            : Fix in ILIKE predicate.
 
 
 2023.04.10

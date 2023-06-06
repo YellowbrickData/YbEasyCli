@@ -7,6 +7,7 @@
 ** To grant default permissions on the procedures, run sysviews_grant.sql .
 **
 ** Version history:         
+** . 2023.06.05 - Re-added backup_chains_p.sql 
 ** . 2023.05.15 - Added backup_chains_p.sql 
 ** . 2023.03.20 - Added log_query_smry_by_p.sql 
 ** . 2023.03.10 - Added rel_ddl.sql
@@ -49,7 +50,7 @@ SELECT LEFT( setting, 1 ) AS yb_major_ver FROM pg_settings WHERE name = 'yb_serv
 \i  all_user_objs_p.sql
 \i  analyze_immed_user_p.sql
 \i  analyze_immed_sess_p.sql
---\i  backup_chains_p.sql --commented out waiting for kick to fix/push
+\i  backup_chains_p.sql 
 \i  bulk_xfer_p.sql
 \i  catalog_storage_by_table_p.sql 
 \i  catalog_storage_by_db_p.sql                             
@@ -91,7 +92,7 @@ SELECT LEFT( setting, 1 ) AS yb_major_ver FROM pg_settings WHERE name = 'yb_serv
 \i  table_p.sql
 --\i  table_info_p.sql
 \i  table_skew_p.sql
-\i  table_skew2_p.sql
+--\i  table_skew2_p.sql
 --\i  table_deps_p.sql
 --\i  view_ddls_p.sql
 \i  version_p.sql

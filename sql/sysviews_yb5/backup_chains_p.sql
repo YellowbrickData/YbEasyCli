@@ -14,13 +14,19 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.06.05 - Cosmetic code updates.
 ** . 2023.05.15 - ybCliUtils inclusion.
 */
 
 /* ****************************************************************************
 **  Example results:
 **
-
+**  database_id | database_name |   chain_name   | chain_type | history  |    creation_time    | chain_days |    last_snapshot    | snapshot_days |               policy
+** -------------+---------------+----------------+------------+----------+---------------------+------------+---------------------+---------------+------------------------------------
+**        40673 | db_a          | April2021      | backup     | previous | 2021-03-30 18:33:44 |        797 |                     |               |
+**        40673 | db_a          | db_a_202111    | backup     | previous | 2021-11-01 15:57:10 |        581 | 2021-11-01 15:57:10 |           581 |
+**        40673 | db_a          | db_a_2022Nov   | backup     | current  | 2022-11-16 02:07:26 |        202 | 2022-11-16 02:07:26 |           202 |
+**        40673 | db_a          | default        | backup     | current  | 2023-01-07 01:42:18 |        150 | 2023-01-07 01:42:18 |           150 | "excludedSchemas":["excluded\\_1"]
 */
 
 /* ****************************************************************************
@@ -51,7 +57,7 @@ CREATE TABLE backup_chains_t
 ** Create the procedure.
 */
 CREATE OR REPLACE PROCEDURE backup_chains_p( 
-      _trunc_policy    BOOLEAN DEFAULT 'FALSE'
+      _trunc_policy   BOOLEAN DEFAULT 'FALSE'
     , _yb_util_filter VARCHAR DEFAULT 'TRUE' 
    )
    RETURNS SETOF backup_chains_t
@@ -93,7 +99,7 @@ BEGIN
              , ceil(extract(epoch FROM(CURRENT_TIMESTAMP - ac.creation_time)) /(60 * 60 * 24))::INT4               AS chain_days
              , date_trunc(''secs'', bs.creation_time)::TIMESTAMP                                                   AS last_snapshot
              , ceil(extract(epoch FROM(CURRENT_TIMESTAMP - bs.creation_time)) /(60 * 60 * 24))::INT4               AS snapshot_days
-             , (CASE ' || quote_literal(_trunc_policy) || '
+             , (CASE ' || quote_literal(_trunc_policy) || '::BOOLEAN 
                   WHEN ''F'' THEN TRANSLATE(policy, ''{}'','''')
                   ELSE       SUBSTR(TRANSLATE(policy,''{}'',''''), 1, 6) 
                END)::VARCHAR(60000)                                                                                AS policy             
@@ -108,7 +114,7 @@ BEGIN
      )
    SELECT   *
    FROM     all_chains
-   ORDER BY 1, 2, 3, 4, 8 DESC
+   ORDER BY 1, 2, 6
    ';
 
    RETURN QUERY EXECUTE _sql;
@@ -129,17 +135,16 @@ Useful in finding unnecessary existing backup chains for deletion.
   
 Examples:
   SELECT * FROM backup_chains_p();
-  SELECT * FROM backup_chains_p() WHERE chain_type != 'replication';
+  SELECT * FROM backup_chains_p()    WHERE chain_type != 'replication';
+  SELECT * FROM backup_chains_p('f') WHERE chain_days > 45;  
   
 Arguments:
-. _trunc_policy   BOOLEAN - (optional) Truncate the chain policy desc at 6 chars.
-                                       DEFAULT 'FALSE'
-. _yb_util_filter VARCHAR - (internal) Used by YbEasyCli.
-                                       DEFAULT 'TRUE' 
+. _trunc_policy   BOOLEAN - (optl ) Truncate the chain policy desc at 6 chars.
+                            The policy is the schema exclude list if used.  
+                            DEFAULT 'FALSE'
+. _yb_util_filter VARCHAR - (intrn) Used by YbEasyCli.
+                            DEFAULT 'TRUE' 
 Version:
-. 2023.12.09 - Yellowbrick Technical Support
+. 2023.06.05 - Yellowbrick Technical Support
 $cmnt$
 ;
-
-SELECT * FROM sysviews_p('backup_chains_p');
-SELECT * FROM backup_chains_p() LIMIT 30;
