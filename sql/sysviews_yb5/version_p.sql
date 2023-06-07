@@ -60,7 +60,7 @@ AS
 $proc$
 DECLARE
 
-   _sql TEXT := $$SELECT '2023-05-23'::DATE, '5.2'::VARCHAR(24), '5.4'::VARCHAR(24) $$;
+   _sql TEXT := $$SELECT '2023-06-05'::DATE, '5.2'::VARCHAR(24), '5.4'::VARCHAR(24) $$;
     
 BEGIN  
 

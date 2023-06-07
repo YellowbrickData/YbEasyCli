@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.06.01 - change ORDER BY in CTE to LIMIT and usage text.
 ** . 2023.03.09 - Add row_skw, gb_skw, & fullest blade
 ** . 2022.08.07 - Overlaod of table_skew_p(VARCHAR) to include filter args,
 **                , set units to GB, show only skew across blades.
@@ -106,7 +107,7 @@ BEGIN
       sys.table_storage
    GROUP BY
       table_id
-   ORDER BY 1 /* order by to force materialization */
+   LIMIT 1000000000 /* order by to force this to be evaluated before the joins */
    )
  , tbl_strg_mx AS    
    (
@@ -233,8 +234,12 @@ Arguments:
                     The default is '%'
 . _yb_util_filter - (intrnl) for YbEasyCli use.
 
+Note: 
+. Tables that have no backend storage (i.e. tables created but not INSERTed into
+  and tables that have been truncated are excluded from the query.
+
 Version:
-. 2023.03.09 - Yellowbrick Technical Support
+. 2023.06.01 - Yellowbrick Technical Support
 $cmnt$
 ;
 
