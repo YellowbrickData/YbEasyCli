@@ -86,7 +86,6 @@ DECLARE
    
    _db_rec       RECORD;
    _col_rec      RECORD;
-   _col_info_rec column_t%rowtype;
 
    _pred         TEXT := '';
    _sql          TEXT := '';
