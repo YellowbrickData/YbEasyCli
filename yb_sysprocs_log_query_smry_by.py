@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+"""
+USAGE:
+      yb_sysprocs_log_query_smry_by.py [options]
+
+PURPOSE:
+      Aggregated subset of the sys.log_query data.
+
+OPTIONS:
+      See the command line help message for all options.
+      (yb_sysprocs_log_query_smry_by.py --help)
+
+Output:
+      The report as a formatted table, pipe seperated value rows, or inserted into a database table.
+"""
+from yb_sp_report_util import SPReportUtil
+from yb_common import ArgDate
+
+class report_log_query_smry_by(SPReportUtil):
+    """Issue the ybsql commands used to create the column distribution report."""
+    config = {
+        'description': 'Aggregated subset of the sys.log_query data.'
+        , 'report_sp_location': 'sysviews'
+        , 'report_default_order': 'begining|pool' }
+
+    def additional_args(self):
+        args_grp = self.args_handler.args_parser.add_argument_group('report arguments')
+        args_grp.add_argument("--from_date", type=ArgDate(), help=("the DATE(YYYY-MM-DD) for the minimum"
+            "  from_date to use for the report, defaults to midnight of the first day of the current week.") )
+        args_grp.add_argument("--to_date", type=ArgDate(), help=("the DATE(YYYY-MM-DD) for the minimum"
+            "  to_date to use for the report, defaults to midnight of the first day of the current week.") )
+        args_grp.add_argument("--date_part", help=("DATE_PART can be year, month, week day, hour or any from\n"
+            "  https://docs.yellowbrick.com/5.2/ybd_sqlref/dateparts_supported.html, defaults to week.") )
+
+    def execute(self):
+        args = {}
+        if self.args_handler.args.from_date:
+              args['_from_ts'] = self.args_handler.args.from_date
+        if self.args_handler.args.to_date:
+              args['_to_ts'] = self.args_handler.args.to_date
+        if self.args_handler.args.date_part:
+              args['_date_part'] = self.args_handler.args.date_part
+        return self.build(args)
+
+def main():
+    print(report_log_query_smry_by().execute())
+    exit(0)
+
+if __name__ == "__main__":
+    main()
