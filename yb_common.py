@@ -39,7 +39,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20230620'
+    version = '20230621'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -1451,7 +1451,7 @@ class StoredProc:
         else:
             self.proc_return_table_type = matches.group(6)
         self.proc_before_return = matches.group(8)
-        self.proc_setof_return  = re.sub(r"\s+", " ", matches.group(9))
+        self.proc_setof_return  = (matches.group(9) if matches.group(9) else re.sub(r"\s+", " ", matches.group(9)))
         self.proc_return        = matches.group(10)
         self.proc_after_return  = matches.group(11)
 
