@@ -1,6 +1,7 @@
 map_out=[ { 'regex' : re.compile(r'\d{4}-[^S]*'), 'sub' : '' }
     , { 'regex' : re.compile(r'\s*\d{1,2}:\d{2}:\d{2}\s*\(.*'), 'sub' : '' }
-    , { 'regex' : re.compile(r'\d\.\d\.\d-\d{1,5}'), 'sub' : 'X.X.X-XXXXX' } ]
+    , { 'regex' : re.compile(r'\d\.\d\.\d-\d{1,5}'), 'sub' : 'X.X.X-XXXXX' }
+    , { 'regex' : re.compile(r' from 1 source\(s\)'), 'sub' : '' } ]
 
 test_cases = [
     test_case(
