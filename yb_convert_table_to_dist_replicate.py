@@ -86,10 +86,12 @@ ORDER BY LOWER(d.name), LOWER(s.name), LOWER(t.name);\n""".format(
 ----------------------
 -- Table: {table_path}, Storage: {table_mb}MB, Distribute Replicate Convertion
 ----------------------
+BEGIN;
 ALTER TABLE {table_path} RENAME TO {table_backup};
 {create_table_replicate};
 INSERT INTO {table_path} SELECT * FROM {table_backup_path};
-DROP TABLE {table_backup_path};\n""".format(
+DROP TABLE {table_backup_path};
+COMMIT;\n""".format(
                 table_path = table_path
                 , table_backup = table_backup
                 , table_backup_path = table_backup_path
