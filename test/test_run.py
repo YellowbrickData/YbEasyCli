@@ -55,6 +55,11 @@ class test_case:
         os.environ.pop('YBPASSWORD', None)
 
         if Common.is_windows:
+            # .py files can be associated with all kinds of applications
+            # (like MS VS Code or py.exe wrapper or something completely different).
+            # We, however, want our command-line python.exe, so it's much better
+            # to explicitly reuse the same python interpreter which is executing this script:
+            cmd = sys.executable + ' ' + cmd
             # in Windows the file argument @file_name needs to be placed in single quotes
             cmd = re.sub(r'(\s)(\@[^\s]*)', r"\1'\2'", cmd)
 
