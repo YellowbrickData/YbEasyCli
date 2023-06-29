@@ -153,6 +153,10 @@ Technical implementation details
 Revision history
 ================================================================================
 
+2023.06.23
+-------------------
+blocking_sessions_p.sql        : Added.
+
 2023.06.05
 -------------------
 backup_chains_p.sql            : Re-add to sysviews_create. 
