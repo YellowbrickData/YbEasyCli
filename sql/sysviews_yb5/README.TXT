@@ -155,7 +155,7 @@ Revision history
 
 2023.06.23
 -------------------
-blocking_sessions_p.sql        : Added.
+lock_p.sql                     : Added.
 
 2023.06.05
 -------------------

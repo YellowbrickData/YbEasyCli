@@ -1,5 +1,5 @@
 /* ****************************************************************************
-** blocking_sessions_p()
+** lock_p()
 **
 ** Return blocking sessions holding exclusive locks on tables.
 **
@@ -29,10 +29,10 @@
 /* ****************************************************************************
 ** Create a table to define the rowtype that will be returned by the procedure.
 */
-DROP TABLE IF EXISTS blocking_sessions_t CASCADE
+DROP TABLE IF EXISTS lock_t CASCADE
 ;
 
-CREATE TABLE blocking_sessions_t
+CREATE TABLE lock_t
    (
 table_id       BIGINT,
 database_name  VARCHAR(256),
@@ -61,8 +61,8 @@ b_sess_state   VARCHAR(256)
 /* ****************************************************************************
 ** Create the procedure.
 */
-CREATE OR REPLACE PROCEDURE blocking_sessions_p()
-   RETURNS SETOF blocking_sessions_t
+CREATE OR REPLACE PROCEDURE lock_p()
+   RETURNS SETOF lock_t
    LANGUAGE 'plpgsql'
    VOLATILE
    CALLED ON NULL INPUT
@@ -73,7 +73,7 @@ DECLARE
 
    _sql       TEXT         := '';
 
-   _fn_name   VARCHAR(256) := 'blocking_sessions_p';
+   _fn_name   VARCHAR(256) := 'lock_p';
    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
    _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;
 
@@ -131,14 +131,14 @@ $proc$
 ;
 
 
-COMMENT ON FUNCTION blocking_sessions_p() IS
+COMMENT ON FUNCTION lock_p() IS
 'Description:
 Return blocking sessions holding exclusive locks on tables.
 
 As of version 1 shows only table locks.
 
 Examples:
-  SELECT * FROM blocking_sessions_p();
+  SELECT * FROM lock_p();
 
 Arguments:
 . none
