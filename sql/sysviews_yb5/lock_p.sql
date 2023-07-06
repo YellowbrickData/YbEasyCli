@@ -61,7 +61,7 @@ b_sess_state   VARCHAR(256)
 /* ****************************************************************************
 ** Create the procedure.
 */
-CREATE OR REPLACE PROCEDURE lock_p()
+CREATE OR REPLACE PROCEDURE lock_p(_show_all BOOLEAN DEFAULT FALSE)
    RETURNS SETOF lock_t
    LANGUAGE 'plpgsql'
    VOLATILE
@@ -70,9 +70,7 @@ CREATE OR REPLACE PROCEDURE lock_p()
 AS
 $proc$
 DECLARE
-
    _sql       TEXT         := '';
-
    _fn_name   VARCHAR(256) := 'lock_p';
    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
    _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;
@@ -82,7 +80,7 @@ BEGIN
    _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
    EXECUTE _sql ;
 
-   _sql := '-- Get all blocking sessions:
+   _sql := $sql$-- Select locks with additional info (sessions, tables, etc)
 SELECT
     l.table_id
   , d.name::VARCHAR(256)                  AS database_name
@@ -95,29 +93,30 @@ SELECT
   , u1.name::VARCHAR(256)                 AS sess_user
   , rs.application_name                   AS sess_app
   , rs.client_ip_address                  AS sess_ip
-  , date_trunc(''second'', rs.start_time) AS sess_started
+  , date_trunc('second', rs.start_time)   AS sess_started
   , rs.state                              AS sess_state
 -- blocking session info
   , l.blocked_by_session_id::BIGINT       AS b_sess_id -- why oh why is it TEXT originally?
   , u2.name::VARCHAR(256)                 AS b_sess_user
   , bs.application_name                   AS b_sess_app
   , bs.client_ip_address                  AS b_sess_ip
-  , date_trunc(''second'', bs.start_time) AS b_sess_started
+  , date_trunc('second', bs.start_time)   AS b_sess_started
   , bs.state                              AS b_sess_state
 FROM sys.lock AS l
-  JOIN sys.session AS rs -- regular session
-    JOIN sys.user AS u1 ON u1.user_id = rs.user_id
-  USING (session_id)
-  JOIN sys.session AS bs -- blocking session
-    JOIN sys.user AS u2 ON u2.user_id = bs.user_id
-  ON bs.session_id = l.blocked_by_session_id
   JOIN sys.table AS t
     JOIN sys.database AS d USING (database_id)
     JOIN sys.schema   AS s USING (schema_id, database_id)
   USING (table_id)
-WHERE l.session_id != l.blocked_by_session_id
-  AND l.object_type = ''TABLE''
-ORDER BY l.session_id, l.table_id';
+  JOIN sys.session AS rs -- regular session
+    JOIN sys.user AS u1 ON u1.user_id = rs.user_id
+  USING (session_id)
+  LEFT JOIN sys.session AS bs -- blocking session
+    JOIN sys.user AS u2 ON u2.user_id = bs.user_id
+  ON bs.session_id = l.blocked_by_session_id
+WHERE TRUE $sql$
+  || IIF(_show_all,'',$sql$AND bs.session_id IS NOT NULL AND l.session_id != l.blocked_by_session_id$sql$)
+  || $sql$
+ORDER BY l.session_id, l.table_id$sql$;
 
    RETURN QUERY EXECUTE _sql;
 
@@ -131,11 +130,11 @@ $proc$
 ;
 
 
-COMMENT ON FUNCTION lock_p() IS
+COMMENT ON FUNCTION lock_p(BOOLEAN) IS
 'Description:
-Return blocking sessions holding exclusive locks on tables.
-
-As of version 1 shows only table locks.
+Shows database locks.
+By default returns blocking sessions holding exclusive locks on tables.
+To show all locks, pass TRUE as a parameter.
 
 Examples:
   SELECT * FROM lock_p();
