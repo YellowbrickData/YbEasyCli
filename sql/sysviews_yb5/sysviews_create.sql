@@ -61,6 +61,7 @@ SELECT LEFT( setting, 1 ) AS yb_major_ver FROM pg_settings WHERE name = 'yb_serv
 --\i  db_role_privs_p.sql
 \i  help_p.sql
 \i  load_p.sql
+\i  lock_p.sql
 \i  log_bulk_xfer_p.sql
 \i  log_query_p.sql
 \i  log_query_pivot_p.sql

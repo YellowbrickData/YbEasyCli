@@ -71,6 +71,7 @@ See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/5.2/adminis
 -   **[yb_query_to_stored_proc](./yb_query_to_stored_proc.py):** Create a stored procedure for the provided query with the query privileges of the definer/creator.
 -   **[yb_sys_query_to_user_table](./yb_sys_query_to_user_table.py):** Convert system query to user table.
 -   **[yb_sysprocs_all_user_objs](./yb_sysprocs_all_user_objs.py):** Report all user objects in all databases with owner and ACL details.
+-   **[yb_sysprocs_lock.py](./yb_sysprocs_lock.py):** Report all currently blocked/blocking sessions along with lock types and locked objects.
 -   **[yb_sysprocs_column_dstr](./yb_sysprocs_column_dstr.py):** Distribution of rows per distinct values for column grouped on a logarithmic scale.
 -   **[yb_sysprocs_column_stats](./yb_sysprocs_column_stats.py):** Table column metdata including estimates from statistics.
 -   **[yb_sysprocs_load](./yb_sysprocs_load.py):** Transformed subset of sys.load columns for active bulk loads.
