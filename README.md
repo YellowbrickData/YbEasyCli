@@ -44,7 +44,7 @@ See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/5.2/adminis
 -   **[yb_chunk_dml_by_integer_yyyymmdd](./yb_chunk_dml_by_integer_yyyymmdd.py):** Chunk DML by YYYYMMDD integer column.
 -   **[yb_chunk_dml_by_integer](./yb_chunk_dml_by_integer.py):** Chunk DML by INTEGER column.
 -   **[yb_chunk_optimal_rows](./yb_chunk_optimal_rows.py):** Determine the optimal number of rows per chunk for a table(experimental).
--   **[yb_convert_table_to_dist_replicate](./yb_convert_table_to_dist_replicate.py):** Convert small size tables from Hash and/or Random Distribution to Replicate Distribution.
+-   **[yb_convert_distribution](./yb_convert_table_to_distribution.py):** Convert tables to REPLICATE or RANDOM distribution based on storage size.
 -   **[yb_create_calendar_table](./yb_create_calendar_table.py):** Create a calendar dimension table.
 -   **[yb_create_dev_db](./yb_create_dev_db.py):** Create a new development DB based on an existing DB.
 -   **[yb_create_log_query_history](./yb_create_log_query_history.py):** Build/update long term history db table/views sourced from the sys.log_query view.
@@ -71,7 +71,6 @@ See the [Yellowbrick documentation](https://www.yellowbrick.com/docs/5.2/adminis
 -   **[yb_query_to_stored_proc](./yb_query_to_stored_proc.py):** Create a stored procedure for the provided query with the query privileges of the definer/creator.
 -   **[yb_sys_query_to_user_table](./yb_sys_query_to_user_table.py):** Convert system query to user table.
 -   **[yb_sysprocs_all_user_objs](./yb_sysprocs_all_user_objs.py):** Report all user objects in all databases with owner and ACL details.
--   **[yb_sysprocs_lock.py](./yb_sysprocs_lock.py):** Report all currently blocked/blocking sessions along with lock types and locked objects.
 -   **[yb_sysprocs_column_dstr](./yb_sysprocs_column_dstr.py):** Distribution of rows per distinct values for column grouped on a logarithmic scale.
 -   **[yb_sysprocs_column_stats](./yb_sysprocs_column_stats.py):** Table column metdata including estimates from statistics.
 -   **[yb_sysprocs_load](./yb_sysprocs_load.py):** Transformed subset of sys.load columns for active bulk loads.
