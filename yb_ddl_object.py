@@ -222,10 +222,10 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
                 ddl_schema = token[1].strip()
 
             #add schema and database to object name and quote name where needed
-            matches = re.match(r"\s*CREATE\s*([^\s]*)\s*([^\s(]*)(.*)"
+            matches = re.match(r"\s*CREATE\s+(.*?(TABLE|VIEW|SEQUENCE|PROCEDURE))\s+((\")?\b.+?\b(\")?)(.*)"
                 , line, re.MULTILINE)
             if matches:
-                tablepath = matches.group(2)
+                tablepath = matches.group(3)
                 if args.with_schema or args.with_db:
                     tablepath = (
                         ( args.new_schema_name
@@ -241,7 +241,7 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
                         + '.' + tablepath
                     )
                 tablepath = Common.quote_object_paths(tablepath)
-                line = 'CREATE %s %s%s' % (matches.group(1), tablepath, matches.group(3))
+                line = 'CREATE %s %s%s' % (matches.group(1), tablepath, matches.group(6))
 
             #change all data type key words to upper case 
             d_types = [
