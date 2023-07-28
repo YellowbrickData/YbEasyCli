@@ -111,7 +111,7 @@ ALTER TABLE {table_path} RENAME CONSTRAINT "{constraint_name}" TO "{constraint_n
 
             sql_query += """
 ----------------------
--- Table: {table_path}, Storage: {table_mb}MB, Distribute {distribute} Convertion
+-- Table: {table_path}, Storage: {table_mb}MB, Distribute {distribute} Conversion
 ----------------------
 BEGIN;{alter_constraints}
 ALTER TABLE {table_path} RENAME TO {table_backup};
