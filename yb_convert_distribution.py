@@ -101,11 +101,19 @@ ORDER BY LOWER(d.name), LOWER(s.name), LOWER(t.name);\n""".format(
             match = re.search(re_ddl, ddl, re.MULTILINE)
             create_table = match.group(1) + match.group(4) + 'DISTRIBUTE ' + self.args_handler.args.distribute + match.group(7);
 
+            matches = re.finditer(r"CONSTRAINT\s*\"([^\"]*)", create_table, re.MULTILINE)
+            alter_constraints = ''
+            for matchNum, match in enumerate(matches):
+                alter_constraints += """
+ALTER TABLE {table_path} RENAME CONSTRAINT "{constraint_name}" TO "{constraint_name}__old";""".format(
+                    table_path        = table_path
+                    , constraint_name = match.group(1))
+
             sql_query += """
 ----------------------
 -- Table: {table_path}, Storage: {table_mb}MB, Distribute {distribute} Convertion
 ----------------------
-BEGIN;
+BEGIN;{alter_constraints}
 ALTER TABLE {table_path} RENAME TO {table_backup};
 {create_table};
 INSERT INTO {table_path} SELECT * FROM {table_backup_path};
@@ -116,6 +124,7 @@ COMMIT;\n""".format(
                 , table_backup_path = table_backup_path
                 , table_mb          = table_mb
                 , create_table      = create_table
+                , alter_constraints = alter_constraints
                 , distribute        = self.args_handler.args.distribute)
 
         if self.args_handler.args.exec_conversion:
