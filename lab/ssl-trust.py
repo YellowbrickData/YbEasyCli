@@ -18,7 +18,7 @@ from getpass  import getpass
 from tempfile import mkdtemp
 from shutil   import rmtree
 
-__version__ = '1.0'
+__version__ = '1.1'
 
 def run_ybsql(envvars, params = ['-Aqt',], sql = 'select version()'):
 	env = os.environ.copy()
@@ -26,7 +26,7 @@ def run_ybsql(envvars, params = ['-Aqt',], sql = 'select version()'):
 	command = [r'ybsql'] + ['-d', 'yellowbrick'] + params
 	if sql:
 		command += ['-c', sql]
-	return subprocess.check_output(command, shell = True, env = env)
+	return subprocess.check_output(command, env = env)
 
 parser = argparse.ArgumentParser(prog = 'Yellowbrick Replication SSL Trust tool', description = 'Adds, revokes or checks SSL trust between source/target replication members.\nSource and target connection string format:\n\tusername[/password]@host[:port]', formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument('--version', action = 'version', version = '%(prog)s {v}'.format(v = __version__))
@@ -89,7 +89,6 @@ for k,v in clusters.items():
 					f.write(cert)
 	print('\tversion = {v:15s}, truststore has {n:3d} entries'.format(h = hostname, v = version, n = len(clusters[k]['trust'])))
 
-tmpdir = None
 # Display, create or revoke SSL trust
 for trust in ('source:target:system', 'target:source:ca'):
 	trustor, trustee, cert = trust.split(':')
@@ -103,16 +102,5 @@ for trust in ('source:target:system', 'target:source:ca'):
 		print('Revoking trust for {te} from {tr}...'.format(te = trustee, tr = trustor))
 		run_ybsql(clusters[trustor]['env'], sql = "revoke '{hash}' from ssl trust".format(hash = clusters[trustor]['trust'][cert_md5]['hash']))
 	if not trusted and args.create:
-		if not tmpdir:
-			tmpdir = mkdtemp()
-		certfile = os.path.join(tmpdir, trustee + '-' + cert + '.pem')
-		with open(certfile, 'w') as f:
-			f.write("import ssl trust from '{cert}'".format(cert = clusters[trustee]['ssl'][cert]))
 		print('Creating trust for {te} on {tr}...'.format(te = trustee, tr = trustor))
-		try:
-			run_ybsql(clusters[trustor]['env'], sql = None, params = ['-Aqt', '-f', certfile])
-		except subprocess.CalledProcessError:
-			break
-
-if tmpdir and os.path.isdir(tmpdir):
-	rmtree(tmpdir)
+		run_ybsql(clusters[trustor]['env'], sql = "import ssl trust from '{cert}'".format(cert = clusters[trustee]['ssl'][cert]))
