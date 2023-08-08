@@ -38,7 +38,7 @@ target.add_argument('-l', '--loopback', action = 'store_true', help = 'Create se
 
 parser.add_argument('-x', '--export'  , action = 'store_true', help = 'Export entire SSL truststore into PEM file')
 parser.add_argument('-r', '--revoke'  , action = 'store_true', help = 'Revoke mutual SSL trust between replication source and target appliances')
-parser.add_argument('-i', '--create'  , action = 'store_true', help = 'Create mutual SSL trust between replication source and target appliances')
+parser.add_argument('-c', '--create'  , action = 'store_true', help = 'Create mutual SSL trust between replication source and target appliances')
 parser.add_argument('-W', '--password', action = 'store_true', help = 'Force interactive password prompt')
 args = parser.parse_args()
 
