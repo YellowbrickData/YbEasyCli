@@ -153,6 +153,11 @@ Technical implementation details
 Revision history
 ================================================================================
 
+2023.07.17
+-------------------
+table_skew_p.sql               : Modified.
+table_skew_p2.sql              : Deprecated.
+
 2023.06.23
 -------------------
 lock_p.sql                     : Added.
