@@ -1,8 +1,8 @@
 #TODO sysprocs need many more test cases
 #   for regular user test cases the sysview procedures need to be installed
-map_out=[ { 'regex' : re.compile(r'\d{5}'), 'sub' : 'XXXXX' }
-    , { 'regex' : re.compile(r'\d{4}'), 'sub' : 'XXXX' }
-    , { 'regex' : re.compile(r'\d{3}'), 'sub' : 'XXX' } ]
+map_out=[{ 'regex' : re.compile(r'\d+'), 'sub' : 'X' }
+         , { 'regex' : re.compile(r' +'), 'sub' : ' ' }
+         , { 'regex' : re.compile(r'-+'), 'sub' : '-' }]
 
 test_cases = [
     test_case(
