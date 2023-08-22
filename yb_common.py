@@ -305,7 +305,7 @@ class Cmd:
         return "powershell -ExecutionPolicy ByPass -Noninteractive -NoLogo -NoProfile -File %s" % self.tmp_ps1_file
 
     def windows_post_cmd(self):
-        #clean up old tmp files 
+        #clean up old tmp files
         glob_str = self.tmp_ps1_file[0:(self.tmp_ps1_file.find(self.prefix) + len(self.prefix))] + '*'
         threshold_time = time.time() - (60*360)
         for tmp_ps1_old_file in glob(glob_str):
@@ -413,7 +413,7 @@ class ArgsHandler:
         :param description: Text to display before the argument help
         """
         description = self.config['description']
-        
+
         description_epilog = (
             '\n'
             '\noptional argument file/s:'
@@ -657,7 +657,7 @@ class ArgsHandler:
                     order_by_clause += Common.qa(token)
                     found_column = True
             self.args.report_order_by = order_by_clause
-    
+
     def args_process(self):
         """Process arguments.
 
@@ -1156,7 +1156,7 @@ class DBConnect:
                 elif self.env_pre[env_var]:
                     self.env_set_by[env_var] = 'e'
                 else:
-                    self.env_set_by[env_var] = 'd' 
+                    self.env_set_by[env_var] = 'd'
         else:
             #TODO either args or env should be defined otherwise throw an error
             None
@@ -1222,7 +1222,7 @@ class DBConnect:
         pwd = None
         if test_ybpassfile:
             ybpass_data = Common.read_file(ybpassfile, on_read_error_exit=False)
-            # regex parses ybpass file, it ignores lines that start with '#' and handles the '\:' and '\\' escape strings 
+            # regex parses ybpass file, it ignores lines that start with '#' and handles the '\:' and '\\' escape strings
             regex = r"^(?!#)(((\\:)|(\\\\)|[\x21-\x39]|[\x3b-\x5b]|[\x5d-\x7e])*):(\d*|\*):(((\\:)|(\\\\)|[\x21-\x39]|[\x3b-\x5b]|[\x5d-\x7e])*):(((\\:)|(\\\\)|[\x21-\x39]|[\x3b-\x5b]|[\x5d-\x7e])*):(((\\:)|(\\\\)|[\x20-\x39]|[\x3b-\x5b]|[\x5d-\x7e])*)$"
             matches = re.finditer(regex, ybpass_data, re.MULTILINE)
             for matchNum, match in enumerate(matches, start=1):
@@ -1238,7 +1238,7 @@ class DBConnect:
         for cred in ['dbuser', 'host', 'port', 'conn_db']:
             cred_val = env_ybpass[cred].replace('\\\\', '\\').replace('\\:', ':')
             if not(cred_val == '*' or cred_val == env[cred]):
-                return None                
+                return None
         return env_ybpass['pwd'].replace('\\\\', '\\').replace('\\:', ':')
 
     @staticmethod
@@ -1511,7 +1511,7 @@ class StoredProc:
         temp_clause = ' TEMP' if as_temp_table else ''
 
         self.create_new_table_sql = ('%sCREATE%s TABLE %s (%s)'
-            % ( ( ('DROP TABLE IF EXISTS %s;\n' % self.new_table_name) if drop_if_exists else '' )  
+            % ( ( ('DROP TABLE IF EXISTS %s;\n' % self.new_table_name) if drop_if_exists else '' )
                , temp_clause
                , self.new_table_name
                , matches.group(5)) )
@@ -1545,7 +1545,7 @@ class StoredProc:
         for arg in self.args:
             #print('arg: %s, dt: %s, dts: %s, default: %s' % (arg, arg_datatype, arg_datatype_size, default))
             if arg['name'] in input_args:
-                if arg['type'] == 'VARCHAR':
+                if arg['type'] in ('VARCHAR', 'CHAR'):
                     arg_type = ' %s%s' % (arg['type'], arg['type_size'])
                     arg_value = '$a$%s$a$' % input_args[arg['name']]
                 elif arg['type'] in ('BOOLEAN', 'BIGINT', 'INT', 'INTEGER', 'NUMERIC', 'SMALLINT'):
@@ -1672,7 +1672,7 @@ DECLARE
         elif self.proc_setof_return == 'QUERY EXECUTE':
             var_ret_rec = """_{new_table_name}_rec {new_table_name}%ROWTYPE;
     """.format(new_table_name=self.new_table_name)
-            insert_stmt = """FOR _{new_table_name}_rec IN EXECUTE( {proc_return} ) 
+            insert_stmt = """FOR _{new_table_name}_rec IN EXECUTE( {proc_return} )
     LOOP
         INSERT INTO {new_table_name} VALUES (_{new_table_name}_rec.*);
     END LOOP"""

@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023-08-17 - Updated version. Reworked table_skew_p procedure.
 ** . 2023-05-23 - Updated version.
 ** . 2023-04-10 - Updated version.
 ** . 2023-04-03 - Updated version.
@@ -60,7 +61,7 @@ AS
 $proc$
 DECLARE
 
-   _sql TEXT := $$SELECT '2023-06-23'::DATE, '5.2'::VARCHAR(24), '5.4'::VARCHAR(24) $$;
+   _sql TEXT := $$SELECT '2023-08-17'::DATE, '5.2'::VARCHAR(24), '5.4'::VARCHAR(24) $$;
     
 BEGIN  
 

@@ -105,7 +105,7 @@ class SPReportUtil(Util):
             if report_type == 'ctas':
                 result = self.db_conn.ybsql_query(self.get_create_table())
                 result.on_error_exit()
-                
+
             report = ''.join(report.splitlines(keepends=True)[1:]) #strip header from report
             cmd = ("""ybsql -A -q -t -v ON_ERROR_STOP=1 -X 'host=%s connect_timeout=10' -c "\copy %s FROM STDIN DELIMITER '|'" """
                 % (self.db_conn.env['host'], self.args_handler.args.report_dst_table) )
@@ -121,5 +121,5 @@ class SPReportUtil(Util):
             report = self.build_for_su(args, where_clause)
         else:
             report = self.build_for_non_su(args, where_clause)
-        
+
         return report
