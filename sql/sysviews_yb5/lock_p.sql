@@ -61,7 +61,7 @@ b_sess_state   VARCHAR(256)
 /* ****************************************************************************
 ** Create the procedure.
 */
-CREATE OR REPLACE PROCEDURE lock_p(_show_all BOOLEAN DEFAULT FALSE)
+CREATE OR REPLACE PROCEDURE lock_p(_all BOOLEAN DEFAULT FALSE)
    RETURNS SETOF lock_t
    LANGUAGE 'plpgsql'
    VOLATILE
@@ -114,7 +114,7 @@ FROM sys.lock AS l
     JOIN sys.user AS u2 ON u2.user_id = bs.user_id
   ON bs.session_id = l.blocked_by_session_id
 WHERE TRUE $sql$
-  || IIF(_show_all,'',$sql$AND bs.session_id IS NOT NULL AND l.session_id != l.blocked_by_session_id$sql$)
+  || IIF(_all,'',$sql$AND bs.session_id IS NOT NULL AND l.session_id != l.blocked_by_session_id$sql$)
   || $sql$
 ORDER BY l.session_id, l.table_id$sql$;
 

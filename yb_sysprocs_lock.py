@@ -22,8 +22,14 @@ class report_lock(SPReportUtil):
         , 'report_sp_location': 'sysviews'
         }
 
+    def additional_args(self):
+        args_optional_filter_grp = self.args_handler.args_parser.add_argument_group('arguments')
+        args_optional_filter_grp.add_argument("--all"
+            , action="store_true"
+            , help = "show all locks, including non-blocking ones")
+
     def execute(self):
-        return self.build({'_yb_util_filter' : self.db_filter_sql() })
+        return self.build({'_all' : self.args_handler.args.all })
 
 def main():
     print(report_lock().execute())
