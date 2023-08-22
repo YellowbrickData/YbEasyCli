@@ -7,7 +7,7 @@ class SPReportUtil(Util):
 
     def __init__(self, db_conn=None, args_handler=None, init_default=True, util_name=None, strip_warnings=[]):
         self.strip_warnings=strip_warnings
-        self.config['optional_args_single'] = []
+        #self.config['optional_args_single'] = [] # not sure why this is here, commenting out
         self.config['report_columns'] = 'get_post_db_conn'
 
         super(SPReportUtil, self).__init__(db_conn, args_handler, init_default, util_name)
