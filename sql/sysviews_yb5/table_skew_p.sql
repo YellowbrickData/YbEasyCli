@@ -99,6 +99,7 @@ BEGIN
 
 -- Step 1: materialize table storage info using database object filters.
 
+  DROP TABLE IF EXISTS pg_temp.tsinfo;
   CREATE TEMP TABLE tsinfo (
       table_id         BIGINT
     , database_name    VARCHAR(128)
