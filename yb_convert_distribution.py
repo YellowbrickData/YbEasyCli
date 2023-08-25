@@ -96,10 +96,10 @@ ORDER BY LOWER(d.name), LOWER(s.name), LOWER(t.name);\n""".format(
             table_backup_path = (table_path[:-1] + '__old"' if table_path[-1] == '"' else table_path + '__old')
             table_backup = table_backup_path.split('.')[2]
 
-            re_table = re.escape(table_path).replace('"', '\\"')
-            re_ddl = r"(CREATE\s+((\b[^(]*\b)*)\s+)(" + re_table + r"([^;]*))(DISTRIBUTE\s+ON\s+[^\)]*\)|DISTRIBUTE\s+RANDOM|DISTRIBUTE\s+ON\s+RANDOM|DISTRIBUTE\s+REPLICATE|DISTRIBUTE\s+ON\s+REPLICATE)([^;]*);"
+            re_table = re.escape(table_path).replace('"', '\"')
+            re_ddl = r"(CREATE\s+(\b[^(]*\b)\s+)(" + re_table + r"([^;]*))(DISTRIBUTE\s+ON\s+[^\)]*\)|DISTRIBUTE\s+RANDOM|DISTRIBUTE\s+ON\s+RANDOM|DISTRIBUTE\s+REPLICATE|DISTRIBUTE\s+ON\s+REPLICATE)([^;]*);"
             match = re.search(re_ddl, ddl, re.MULTILINE)
-            create_table = match.group(1) + match.group(4) + 'DISTRIBUTE ' + self.args_handler.args.distribute + match.group(7);
+            create_table = match.group(1) + match.group(3) + 'DISTRIBUTE ' + self.args_handler.args.distribute + match.group(6);
 
             matches = re.finditer(r"CONSTRAINT\s*\"([^\"]*)", create_table, re.MULTILINE)
             alter_constraints = ''
@@ -152,7 +152,7 @@ COMMIT;\n""".format(
 
 def main():
     ctdr = convert_table_to_dist_replicate()
-    
+
     print(ctdr.execute())
 
     exit(ctdr.cmd_result.exit_code)
