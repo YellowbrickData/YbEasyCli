@@ -1,5 +1,5 @@
 test_cases = [
-    test_case(cmd='yb_get_table_names.py @{argsdir}/db1 --schema_in dev'
+    test_case(cmd='yb_get_table_names.py @{argsdir}/db1 --database_in {db1} {db2} --schema_in dev'
         , exit_code=0
         , stdout="""{db1}.dev.a1_t
 {db1}.dev.b1_t
@@ -111,7 +111,7 @@ test_cases = [
 
     , test_case(
         cmd=(
-            "yb_get_table_names.py @{argsdir}/db1 --current_schema dev"
+            "yb_get_table_names.py @{argsdir}/db1 --database_in {db1} {db2} --current_schema dev"
             """ --schema_in dev Prod --table_in a1_t c1_t data_types_t --table_like '%%1%%' --owner_in no_such_user""")
         , exit_code=0
         , stdout=''

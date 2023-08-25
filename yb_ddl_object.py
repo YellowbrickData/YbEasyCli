@@ -222,10 +222,11 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
                 ddl_schema = token[1].strip()
 
             #add schema and database to object name and quote name where needed
-            matches = re.match(r"\s*CREATE\s+(.*?(TABLE|VIEW|SEQUENCE|PROCEDURE))\s+((\")?\b.+?\b(\")?)(.*)"
+            #matches = re.match(r"\s*CREATE\s+(.*?(TABLE|VIEW|SEQUENCE|PROCEDURE))\s+(\")?([^\s\"\(]+)(\")?(.*)"
+            matches = re.match(r"\s*CREATE\s+(.*?(TABLE|VIEW|SEQUENCE|PROCEDURE))\s+((\"([^\s\"]+)\")|([^\s\(]+))?(.*)"
                 , line, re.MULTILINE)
             if matches:
-                tablepath = matches.group(3)
+                tablepath = (matches.group(5) if matches.group(5) else matches.group(6))
                 if args.with_schema or args.with_db:
                     tablepath = (
                         ( args.new_schema_name
@@ -241,9 +242,9 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
                         + '.' + tablepath
                     )
                 tablepath = Common.quote_object_paths(tablepath)
-                line = 'CREATE %s %s%s' % (matches.group(1), tablepath, matches.group(6))
+                line = 'CREATE %s %s%s' % (matches.group(1), tablepath, matches.group(7))
 
-            #change all data type key words to upper case 
+            #change all data type key words to upper case
             d_types = [
                 'bigint', 'integer', 'smallint', 'numeric', 'real'
                 , 'double precision', 'uuid', 'character varying', 'character'
@@ -275,7 +276,7 @@ ORDER BY LOWER(schema), LOWER(stored_proc)
 def main(util_name):
     ddlo = ddl_object(util_name=util_name, init_default=False)
     ddlo.init(object_type=util_name[4:])
-    
+
     print(ddlo.execute())
 
     exit(ddlo.cmd_result.exit_code)

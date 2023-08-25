@@ -3,7 +3,7 @@ test_cases = [
         cmd="""yb_convert_distribution.py @{argsdir}/db1 --distribute REPLICATE --table_like '%b1%'"""
         , exit_code=0
         , stdout="""----------------------
--- Table: {db1}.dev.b1_t, Storage: 0MB, Distribute REPLICATE Convertion
+-- Table: {db1}.dev.b1_t, Storage: 0MB, Distribute REPLICATE Conversion
 ----------------------
 BEGIN;
 ALTER TABLE {db1}.dev.b1_t RENAME TO b1_t__old;
@@ -16,7 +16,7 @@ DROP TABLE {db1}.dev.b1_t__old;
 COMMIT;
 
 ----------------------
--- Table: {db1}."Prod".b1_t, Storage: 0MB, Distribute REPLICATE Convertion
+-- Table: {db1}."Prod".b1_t, Storage: 0MB, Distribute REPLICATE Conversion
 ----------------------
 BEGIN;
 ALTER TABLE {db1}."Prod".b1_t RENAME TO b1_t__old;
@@ -32,7 +32,7 @@ COMMIT;"""
         cmd="""yb_convert_distribution.py @{argsdir}/db1 --distribute RANDOM --min 0 --max 1000 --table_like '%b1%'"""
         , exit_code=0
         , stdout="""----------------------
--- Table: {db1}.dev.b1_t, Storage: 0MB, Distribute RANDOM Convertion
+-- Table: {db1}.dev.b1_t, Storage: 0MB, Distribute RANDOM Conversion
 ----------------------
 BEGIN;
 ALTER TABLE {db1}.dev.b1_t RENAME TO b1_t__old;
@@ -45,7 +45,7 @@ DROP TABLE {db1}.dev.b1_t__old;
 COMMIT;
 
 ----------------------
--- Table: {db1}."Prod".b1_t, Storage: 0MB, Distribute RANDOM Convertion
+-- Table: {db1}."Prod".b1_t, Storage: 0MB, Distribute RANDOM Conversion
 ----------------------
 BEGIN;
 ALTER TABLE {db1}."Prod".b1_t RENAME TO b1_t__old;

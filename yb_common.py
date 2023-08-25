@@ -39,7 +39,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20230706'
+    version = '20230825'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -1355,7 +1355,7 @@ WHERE rolname = CURRENT_USER""")
     ybsql_call_count = 0
 
     def ybsql_query(self, sql_statement
-        , options = '-A -q -t -v ON_ERROR_STOP=1 -X', stdin = None, strip_warnings=[]):
+        , options = '-A -q -t -v ON_ERROR_STOP=1 -X', stdin = None, strip_warnings=[], use_sql_file=False):
         """Run and evaluate a query using ybsql.
 
         :param sql_statement: The SQL command string
@@ -1372,6 +1372,18 @@ WHERE rolname = CURRENT_USER""")
         """
         self.ybsql_call_count += 1
         strip_warnings.extend(self.ybtool_stderr_strip_warnings)
+
+        # If the sql_statement requested to run is to large to be part of the command line
+        #   then it needs to be run from a file
+        use_sql_file = (use_sql_file or (len(sql_statement) > 64000))
+        if use_sql_file:
+            tmp_sql_fd, tmp_sql_path = tempfile.mkstemp(prefix=('YbEasyCli_%s_' % Common.util_name), suffix='.sql')
+            with os.fdopen(tmp_sql_fd, 'w') as tmp:
+                tmp.write(sql_statement)
+            ybsql_tmp_sql_path = tmp_sql_path
+            if Common.is_cygwin:
+                ybsql_tmp_sql_path = '%s%s' % (os.popen('cygpath -w /').read().strip(), tmp_sql_path)
+            sql_statement = "\\i %s" % ybsql_tmp_sql_path.replace('\\', '/')
 
         sql_statement = ("SET ybd_query_tags TO 'YbEasyCli:%s:ybsql(%d)';\n%s"
             % (Common.util_name, self.ybsql_call_count, sql_statement))
@@ -1399,6 +1411,9 @@ eof""".format(ybsql_cmd=ybsql_cmd)
         ybsql_cmd = ybsql_cmd % sql_statement
 
         cmd = self.ybtool_cmd(ybsql_cmd, stack_level=4, stdin=stdin, strip_warnings=strip_warnings)
+
+        if use_sql_file:
+            os.unlink(tmp_sql_path)
 
         return cmd
 
@@ -1584,10 +1599,10 @@ class StoredProc:
             stdout = cmd_result.stdout
             stdout_lines = []
             for line in cmd_result.stderr.split('\n'):
-                if line[0:20] == 'INFO:  >!>RETURN<!<:':
-                    return_value = line[20:].strip()
-                elif line[0:7] == 'INFO:  ':
-                    stdout_lines.append(line[7:])
+                if ('INFO:  >!>RETURN<!<:' in line):
+                    return_value = (line.split("INFO:  >!>RETURN<!<:", 1)[-1]).strip()
+                elif ("INFO:  " in line):
+                    stdout_lines.append(line.split("INFO:  ", 1)[-1])
                 else:
                     stdout_lines.append(line)
             stdout += '\n'.join(stdout_lines)
