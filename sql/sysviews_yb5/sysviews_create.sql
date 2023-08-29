@@ -77,6 +77,7 @@ SELECT LEFT( setting, 1 ) AS yb_major_ver FROM pg_settings WHERE name = 'yb_serv
 \i  query_steps_p.sql
 \i  rel_p.sql
 \i  rel_ddl_p.sql
+\i  replica_bulk_action_p.sql
 \i  rowstore_by_table_p.sql
 \i  rowstore_p.sql
 \i  schema_p.sql
