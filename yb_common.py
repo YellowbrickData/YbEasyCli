@@ -39,7 +39,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20230825'
+    version = '20230829'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -1569,6 +1569,9 @@ class StoredProc:
                 elif arg['type'] == 'DATE':
                     arg_type = ' %s' % arg['type']
                     arg_value = "'%s'::DATE" % input_args[arg['name']].strftime('%Y-%m-%d')
+                elif arg['type'] in ('FLOAT', 'DOUBLE'):
+                    arg_type = ' %s' % arg['type']
+                    arg_value = ("%.15f" % input_args[arg['name']])
                 elif arg['type'] == 'TIMESTAMP':
                     arg_type = ' %s' % arg['type']
                     #arg_value = "TO_TIMESTAMP('%s', 'YYYY-MM-DD HH24:MI:SS.US')" % input_args[arg['name']].strftime('%Y-%m-%d %H:%M:%S.%f')
