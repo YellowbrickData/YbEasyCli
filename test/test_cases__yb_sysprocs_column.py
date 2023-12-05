@@ -6,7 +6,7 @@ map_out=[{ 'regex' : re.compile(r'\d+'), 'sub' : 'X' }
 
 test_cases = [
     test_case(
-        cmd="""yb_sysprocs_column.py @{argsdir}/db1 --database_in {db1} {db2} --table_like '%C%'"""
+        cmd="""yb_sysprocs_column.py @{argsdir}/db1_su --database_in {db1} {db2} --table_like '%C%'"""
         , exit_code=0
         , stdout="""db         rel  rel     schema    rel       col  col     col     nullable    encrypted
 name        id  type    name      name       id  name    type

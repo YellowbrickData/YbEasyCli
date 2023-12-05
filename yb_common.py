@@ -21,10 +21,15 @@ import sys
 import tempfile
 import time
 import traceback
-from distutils.spawn import find_executable
 from datetime import datetime, date
 from glob import glob
 from tabulate import tabulate
+try:
+    from distutils.spawn import find_executable
+except ImportError:
+    # Fallback for Python 3.12 and later where distutils is removed
+    # Use shutil.which as a replacement
+    from shutil import which as find_executable
 
 def signal_handler(signal, frame):
     """
@@ -261,7 +266,7 @@ class Cmd:
                 % (Text.color('Executing', style='bold'), cmd_str))
 
         if escape_dollar and not(Common.is_windows):
-            cmd_str = cmd_str.replace('$','\$')
+            cmd_str = cmd_str.replace('$',r'\$')
 
         self.cmd_dtr = cmd_str
         self.start_time = datetime.now()
@@ -1205,7 +1210,7 @@ class DBConnect:
             ybpassfile = os.environ.get("YBPASSFILE")
             if not ybpassfile:
                 if Common.is_windows:
-                    ybpassfile = os.path.expandvars('%APPDATA%\yellowbrick\ybpass.conf')
+                    ybpassfile = os.path.expandvars(r'%APPDATA%\yellowbrick\ybpass.conf')
                     #ybpassfile = os.path.expandvars('%APPDATA%\postgres\pgpass.conf')
                 else:
                     ybpassfile = '%s/.ybpass' % os.path.expanduser('~')
@@ -1842,7 +1847,7 @@ FROM report_data {order_by}""".format(
             escape_str = '\\' if Common.is_windows else '\\\\'
             fieldsep_clause = "'%s%s'" % (escape_str, hex(ord(delimiter))[1:])
 
-            query = """
+            query = r"""
 \pset tuples_only off
 \pset footer off
 \pset fieldsep {fieldsep_clause}
@@ -2078,7 +2083,7 @@ ORDER BY
         return dbs
 
     def get_cluster_info(self, return_format='dict'):
-        sql_query = """
+        sql_query = r"""
 \pset tuples_only off
 \pset footer off
 WITH
@@ -2317,7 +2322,7 @@ if __name__ == "__main__":
     print('test_util.db_conn.database: %s' % test_util.db_conn.database)
     print('test_util.db_conn.schema: %s' % test_util.db_conn.schema)
     print('test_util.db_conn.ybdb: %s' % pprint.PrettyPrinter().pformat(test_util.db_conn.ybdb))
-    print('test_util.db_conn.env: %s' % re.sub("'pwd':\s*'.*", "'pwd': <Masked>", pprint.PrettyPrinter().pformat(test_util.db_conn.env)))
+    print('test_util.db_conn.env: %s' % re.sub(r"'pwd':\s*'.*", "'pwd': <Masked>", pprint.PrettyPrinter().pformat(test_util.db_conn.env)))
 
     # Print extended information on the environment running this program
     print('platform.platform(): %s' % platform.platform())

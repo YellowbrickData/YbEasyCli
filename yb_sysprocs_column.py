@@ -4,7 +4,7 @@ USAGE:
       yb_sysprocs_column.py [options]
 
 PURPOSE:
-      Cross-database column metadata for tables and views similar to \d
+      Cross-database column metadata for tables and views similar to \\d
 
 OPTIONS:
       See the command line help message for all options.
@@ -16,9 +16,9 @@ Output:
 from yb_sp_report_util import SPReportUtil
 
 class report_column(SPReportUtil):
-    """Cross-database column metadata for tables and views similar to \d."""
+    """Cross-database column metadata for tables and views similar to \\d."""
     config = {
-        'description': 'Cross-database column metadata for tables and views similar to \d.'
+        'description': 'Cross-database column metadata for tables and views similar to \\d.'
         , 'report_sp_location': 'sysviews'
         , 'report_default_order': 'db_name|schema_name|rel_name|col_name'
         , 'optional_args_multi': ['database', 'schema', 'table', 'column']
