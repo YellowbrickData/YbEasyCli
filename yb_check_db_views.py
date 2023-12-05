@@ -42,7 +42,7 @@ class check_db_views(Util):
             db_ct += 1
             cmd_results = StoredProc('yb_check_db_views_p', self.db_conn).call_proc_as_anonymous_block(
                 args = {'a_filter':self.db_filter_sql()}
-                , pre_sql = ('\c %s\n' % db))
+                , pre_sql = ('\\c %s\n' % db))
 
             broken_views = []
             if cmd_results.exit_code == 0:

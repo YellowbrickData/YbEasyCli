@@ -197,7 +197,7 @@ class execute_test_action:
         # the list of `test_case` objects into the local scope
         _ldict = locals()
 
-        matches = re.search('test_cases__(.*)\.py', test_case_file, re.DOTALL)
+        matches = re.search(r'test_cases__(.*)\.py', test_case_file, re.DOTALL)
         test_name = matches.group(1)
 
         exec(open(test_case_file, 'r').read()
@@ -334,7 +334,7 @@ class execute_test_action:
                 Common.error("'%s' is not found or not executable..."
                     % args.python_exe)
         else:
-            self.test_py_version = 3
+            self.test_py_version = sys.version_info[0]
 
         if not args.host and os.environ.get("YBHOST"):
             args.host = os.environ.get("YBHOST")

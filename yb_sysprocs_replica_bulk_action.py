@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_sysprocs_replica_bulk_action_p.py [options]
+      yb_sysprocs_replica_bulk_action.py [options]
 
 PURPOSE:
       Build SQL script to PAUSE, RESUME, or RESTART replicas.
