@@ -44,7 +44,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20231205'
+    version = '20231206'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -228,6 +228,12 @@ class Common:
                 tokens.append(token.strip())
 
         return tokens
+
+    @staticmethod
+    def os_path(path):
+        if Common.is_cygwin:
+            path = subprocess.check_output(["cygpath", "-w", path], universal_newlines=True).strip()
+        return path
 
 class Cmd:
     cmd_ct = 0
@@ -1740,6 +1746,9 @@ class Report:
         self.order_by       = order_by
         self.pre_sql        = pre_sql
         self.strip_warnings = strip_warnings
+
+        if (self.args_handler.args.report_order_by != ''):
+            self.order_by = self.args_handler.args.report_order_by
 
     @staticmethod
     def del_data_to_list_data(del_data, delimiter='|'):
