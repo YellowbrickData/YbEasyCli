@@ -35,5 +35,5 @@ sys
             """yb_sys_query_to_user_table.py @{argsdir}/db1 --query 'SELECT * FROM dev.data_types_t' --table 'schema' --create_table"""
         , exit_code=(0 if Common.is_windows else 1)
         , stdout="""-- Converting system query to user table."""
-        , stderr='yb_sys_query_to_user_table.py: ERROR:  table/s from column store databese are NOT permitted in the input query...')
+        , stderr='yb_sys_query_to_user_table.py: ERROR:  table/s from column store database are NOT permitted in the input query...')
 ]

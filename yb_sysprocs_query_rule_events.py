@@ -11,7 +11,7 @@ OPTIONS:
       (yb_sysprocs_query_rule_events.py --help)
 
 Output:
-      The report as a formatted table, pipe seperated value rows, or inserted into a database table.
+      The report as a formatted table, pipe separated value rows, or inserted into a database table.
 """
 import time
 from yb_common import Common
