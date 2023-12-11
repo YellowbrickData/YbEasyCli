@@ -299,9 +299,9 @@ Arguments:
                          without running into out of memory or spill issues
 . _from_date    (optl) - the date to start analyzing data on, defaults to 30 days before NOW
 . _days         (optl) - the number of days of data to analyze, defaults to 30 days
-. _days_of_week (optl) - days of the week to report on as a string of 0 to 6 numbers comma seperated, like
+. _days_of_week (optl) - days of the week to report on as a string of 0 to 6 numbers comma separated, like
                          '1,2,3,4,5', where 0 is Sunday, 1 is Monday, ..., 6 is Sunday, defaults to all days
-. _hours_of_day (optl) - hours of the day to report on as a string of 0 to 23 numbers comma seperated, like
+. _hours_of_day (optl) - hours of the day to report on as a string of 0 to 23 numbers comma separated, like
                         '9,10,11', defaults to all hours
 Revision:
 . 2023-01-20 - Yellowbrick Technical Support 

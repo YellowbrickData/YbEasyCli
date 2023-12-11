@@ -11,7 +11,7 @@ OPTIONS:
       (yb_sysprocs_table_constraints.py --help)
 
 Output:
-      The report as a formatted table, pipe seperated value rows, or inserted into a database table.
+      The report as a formatted table, pipe separated value rows, or inserted into a database table.
 """
 from yb_sp_report_util import SPReportUtil
 

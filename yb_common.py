@@ -44,7 +44,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20231206'
+    version = '20231208'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
