@@ -18,7 +18,7 @@ from getpass  import getpass
 from tempfile import mkdtemp
 from shutil   import rmtree
 
-__version__ = '1.1'
+__version__ = '1.2'
 
 def run_ybsql(envvars, params = ['-Aqt',], sql = 'select version()'):
 	env = os.environ.copy()
@@ -28,25 +28,34 @@ def run_ybsql(envvars, params = ['-Aqt',], sql = 'select version()'):
 		command += ['-c', sql]
 	return subprocess.check_output(command, env = env)
 
-parser = argparse.ArgumentParser(prog = 'Yellowbrick Replication SSL Trust tool', description = 'Adds, revokes or checks SSL trust between source/target replication members.\nSource and target connection string format:\n\tusername[/password]@host[:port]', formatter_class=argparse.RawTextHelpFormatter)
+parser = argparse.ArgumentParser(prog = 'Yellowbrick Replication SSL Trust tool', description = 'Adds, revokes or checks SSL trust between source/target replication members.', formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument('--version', action = 'version', version = '%(prog)s {v}'.format(v = __version__))
-parser.add_argument('-s', '--source', required = True, help = 'Replication source appliance connection string')
+parser.add_argument('-s', '--source-host'    , required = True, help = 'Replication source appliance hostname or IP')
+parser.add_argument(      '--source-user'    , required = True)
+parser.add_argument(      '--source-password')
+parser.add_argument(      '--source-port', default = '5432')
 
 target = parser.add_mutually_exclusive_group(required = True)
-target.add_argument('-t', '--target', help = 'Replication target appliance connection string')
-target.add_argument('-l', '--loopback', action = 'store_true', help = 'Create self-trust for loopback replication, only the source connection have to be specified')
+target.add_argument('-t', '--target-host', help = 'Replication target appliance hostname or IP')
+target.add_argument('-l', '--loopback', action = 'store_true', help = 'Create self-trust for loopback replication, only the source connection has to be specified')
 
-parser.add_argument('-x', '--export'  , action = 'store_true', help = 'Export entire SSL truststore into PEM file')
-parser.add_argument('-r', '--revoke'  , action = 'store_true', help = 'Revoke mutual SSL trust between replication source and target appliances')
-parser.add_argument('-c', '--create'  , action = 'store_true', help = 'Create mutual SSL trust between replication source and target appliances')
-parser.add_argument('-W', '--password', action = 'store_true', help = 'Force interactive password prompt')
+parser.add_argument(      '--target-user')
+parser.add_argument(      '--target-password')
+parser.add_argument(      '--target-port', default = '5432')
+parser.add_argument('-W', '--ask-password', action = 'store_true', help = 'Force interactive password prompt')
+
+actions = parser.add_argument_group('Actions')
+actions.add_argument('-v', '--verify', action = 'store_true', help = 'Verify mutual SSL trust between replication source and target appliances', default = True)
+actions.add_argument('-c', '--create', action = 'store_true', help = 'Create mutual SSL trust between replication source and target appliances')
+actions.add_argument('-r', '--revoke', action = 'store_true', help = 'Revoke mutual SSL trust between replication source and target appliances')
+actions.add_argument('-x', '--export', action = 'store_true', help = 'Export entire SSL truststore into PEM file')
 args = parser.parse_args()
 
 if args.loopback:
-	args.target = args.source
+	args.target_host = args.source_host
+if not args.target_user    : args.target_user     = args.source_user
+if not args.target_password: args.target_password = args.source_password
 
-# YB appliance connection string format: username/password@host:port (port and password are optional, either YBPASSWORD envvar or .ybpass entry work fine)
-rx = re.compile(r'(?P<YBUSER>\S+?)(?:/(?P<YBPASSWORD>.+))?@(?P<YBHOST>\S+)(?::(?P<YBPORT>\d+))?')
 pk = 'password typed in'
 clusters = {
 	'source': {'env': {}, 'ssl': {'ca'    : None}, 'trust': {}, pk: False, },
@@ -55,22 +64,19 @@ clusters = {
 # NOTE: a PEM file could contain multiple certificates (the whole chain of trust for example), but only the first one gets ingested by 'import ssl trust' command, which makes sense as we don't need the entire chain of trust, the leaf certificate is enough for this use case.
 # NOTE: below I'm extracting only the base64-encoded part of the first certificate (leaf) to calculate MD5 hash
 formalize = lambda x: re.search('-+BEGIN CERTIFICATE-+([^-]+)-+END CERTIFICATE-+',re.sub('[\r\n]','',x)).group(1)
-md5 = lambda x: hashlib.md5(x.encode()).hexdigest()
+md5       = lambda x: hashlib.md5(x.encode()).hexdigest()
 for cluster in clusters.keys():
-	matches = rx.match(vars(args)[cluster])
-	if matches:
-		clusters[cluster]['env'] = {k:v for k,v in matches.groupdict().items() if v}
-	else:
-		print("Couldn't parse the {cluster} connection string".format(cluster = cluster))
-		exit(1)
+	for arg, var in [(vars(args)[f'{cluster}_{key}'], f'YB{key.upper()}') for key in ('host', 'user', 'password', 'port', )]:
+		if arg:
+			clusters[cluster]['env'][var] = arg
 
 passvar = 'YBPASSWORD'
-if passvar in os.environ and not args.password and (passvar not in clusters['source']['env'] or passvar not in clusters['target']['env']):
+if passvar in os.environ and not args.ask_password and (passvar not in clusters['source']['env'] or passvar not in clusters['target']['env']):
 	print('{var} envronment variable detected'.format(var = passvar))
 # Import System cert, CA cert and SSL trust store contents from source/target
 for k,v in clusters.items():
 	print('Checking {cluster} ({host}) ...'.format(cluster = k, host = v["env"]["YBHOST"]))
-	if args.password and not v[pk]: # forced password entry is requested and no password manually entered yet
+	if args.ask_password and not v[pk]: # forced password entry is requested and no password manually entered yet
 		v['env'][passvar] = getpass('Enter password for "{user}" user: '.format(cluster = v['env']['YBHOST'], user = v['env']['YBUSER']))
 		clusters[k][pk] = True
 	hostname, version = v['env']['YBHOST'], run_ybsql(v['env']).decode().strip().split()[-1]
