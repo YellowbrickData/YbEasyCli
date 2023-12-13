@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2023.12.12 - Fix for schema join bug.
 ** . 2021.12.09 - ybCliUtils inclusion.
 ** . 2020.06.15 - Yellowbrick Technical Support 
 ** . 2020.02.09 - Yellowbrick Technical Support 
@@ -70,11 +71,7 @@ DECLARE
   
 BEGIN  
 
-   /* Txn read_only to protect against potential SQL injection attacks on sp that take args
-   SET TRANSACTION       READ ONLY;
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ;    
+   EXECUTE 'SET ybd_query_tags  TO ''' || _tags || '''';
 
    _sql := 'SELECT
       NVL(d.name,''yellowbrick'')::VARCHAR(128)                      AS db_name
@@ -85,20 +82,18 @@ BEGIN
     , ROUND( SUM( r.used_bytes )      / 1024.0^2,2 )::NUMERIC(12,2)  AS used_mb
     , SUM( r.files_used )                                            AS files
     , ROUND( SUM(files_used * file_size) / 1024.0^2 )::NUMERIC(12,0) AS file_mb       
-   FROM yb_yrs_tables()      r
-      LEFT JOIN sys.table    t  ON r.table_id    = t.table_id
-      JOIN sys.schema        s  ON t.schema_id   = s.schema_id
-      LEFT JOIN sys.database d  ON t.database_id = d.database_id
+   FROM yb_yrs_tables()      AS r
+      LEFT JOIN sys.table    AS t  ON r.table_id    = t.table_id
+      JOIN sys.schema        AS s  ON t.database_id = s.database_id AND t.schema_id = s.schema_id
+      LEFT JOIN sys.database AS d  ON t.database_id = d.database_id
    GROUP BY r.table_id, d.name, s.name, t.name, r.file_limit, r.file_size   
    ORDER BY db_name, schema_name, table_name
    ';
 
    RETURN QUERY EXECUTE _sql; 
 
-   /* Reset ybd_query_tags back to its previous value
-   */
-   _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ; 
+   -- Reset ybd_query_tags back to its previous value
+   EXECUTE 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
    
 END;   
 $proc$ 
@@ -106,12 +101,12 @@ $proc$
 
 
 COMMENT ON FUNCTION rowstore_by_table_p() IS 
-'Description:
+$cmnt$Description:
 Size of rowstore data in user tables across all databases.
   
 Examples:
-  SELECT * FROM rowstore_by_table_p() 
-  SELECT * FROM rowstore_by_table_p() ORDER BY total_size DESC LIMIT 30;
+  SELECT * FROM rowstore_by_table_p();
+  SELECT * FROM rowstore_by_table_p() ORDER BY used_mb DESC LIMIT 30;
   
 Arguments:
 . none
@@ -121,6 +116,6 @@ Notes:
 . The columnstore storage space is not included in these numbers.
 
 Version:
-. 2021.12.09 - Yellowbrick Technical Support 
-'
+. 2023.12.12 - Yellowbrick Technical Support
+$cmnt$
 ;
