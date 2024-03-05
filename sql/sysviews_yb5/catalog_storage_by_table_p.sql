@@ -146,6 +146,7 @@ BEGIN
                 AND nspname NOT IN ( ''information_schema'')                
             ) pc
         )     a
+      WHERE ' || _yb_util_filter || '
       ORDER BY
         total_bytes DESC 
       ';

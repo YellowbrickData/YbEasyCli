@@ -105,16 +105,16 @@ BEGIN
     , RIGHT( '...' || RIGHT( backup_session_key, 8 ), 64 )::VARCHAR (256)            AS backup_session_key
    FROM sys.replica             AS r
       JOIN sys.database         AS d
-   USING( database_id )
+         USING( database_id )
       JOIN replica_status_union AS rs
-   USING( replica_id )
+         USING( replica_id )
    WHERE  start_time    >= $$ || quote_literal( _from_ts ) || $$::TIMESTAMP
       AND start_time    <= $$ || quote_literal( _to_ts   ) || $$::TIMESTAMP
       AND $$ || _yb_util_filter || $$
    ORDER BY active DESC, start_time DESC, db_name
    $$;
 
-   -- RAISE INFO '_sql: %', _sql
+   -- RAISE INFO '_sql: %', _sql;
    RETURN QUERY EXECUTE _sql;
 
    -- Reset ybd_query_tags back to its previous value
