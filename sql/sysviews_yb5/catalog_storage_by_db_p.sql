@@ -84,7 +84,8 @@ BEGIN
       database_id AS db_id
     , name        AS db_name 
    FROM sys.database 
-   WHERE name ILIKE ' || quote_literal( _db_ilike ) || ' 
+   WHERE name ILIKE ' || quote_literal( _db_ilike ) || '
+     AND  ' || _yb_util_filter || ' 
    ORDER BY name
    ';      
    

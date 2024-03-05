@@ -101,6 +101,7 @@ SELECT LEFT( setting, 1 ) AS yb_major_ver FROM pg_settings WHERE name = 'yb_serv
 \i  view_validate_p.sql            
 \i  wlm_active_profile_p.sql
 \i  wlm_active_rule_p.sql
+\i  wlm_profile_default_p.sql
 \i  wlm_profile_rule_p.sql
 \i  wlm_profile_sql_p.sql
 \i  wlm_state_p.sql

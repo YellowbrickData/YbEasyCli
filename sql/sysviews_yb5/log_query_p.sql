@@ -162,8 +162,8 @@ BEGIN
    , ROUND( (wait_run_io_ms               ) / 1000.0, 2 )::DECIMAL(19, 1)     AS io_wt_sec   
    , ROUND( run_ms                          / 1000.0, 2 )::DECIMAL(19,1)      AS run_sec
    , ROUND( total_ms                        / 1000.0, 2 )::DECIMAL(19,1)      AS tot_sec
-   , CEIL( memory_bytes_max                / 1024.0^2, 2 )::DECIMAL(19,0)     AS max_mb
-   , CEIL( io_spill_space_bytes_max        / 1024.0^2, 2 )::DECIMAL(19,0)     AS spill_mb   
+   , CEIL( memory_bytes_max                / 1024.0^2 )::DECIMAL(19,0)     AS max_mb
+   , CEIL( io_spill_space_bytes_max        / 1024.0^2 )::DECIMAL(19,0)     AS spill_mb   
    , REGEXP_REPLACE( SUBSTR( query_text, 1,' || _query_chars ||' ), ''(^\s+|\r\s*|\n\s*|\t\s*)'', '' '')::VARCHAR(60000)
                                                                               AS query_text
    FROM
