@@ -25,7 +25,7 @@ DROP TABLE IF EXISTS wlm_profile_sql_t CASCADE
 
 CREATE TABLE wlm_profile_sql_t
    (
-      code VARCHAR (60000)
+      code VARCHAR (61000)
    )
 ;
 
@@ -46,6 +46,7 @@ DECLARE
    _pools        TEXT    := '';
    _pools_js     TEXT    := 'profile = [];';
    _rec          RECORD;
+   _code_line    INT     := 1;
    
    _fn_name   VARCHAR(256) := 'wlm_profile_sql_p';
    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
@@ -59,12 +60,12 @@ BEGIN
    EXECUTE _sql ; 
 
    DROP TABLE IF EXISTS profile_code;
-   CREATE TEMP TABLE profile_code (code VARCHAR (60000));
+   CREATE TEMP TABLE profile_code (code VARCHAR (61000));
 
    ---------------------------------------------------------
    -- BUILDING beginning of PLPGSQL script
    ---------------------------------------------------------
-   INSERT INTO profile_code VALUES (REPLACE(REPLACE($PLPGSQL$
+   INSERT INTO profile_code VALUES (REPLACE(REPLACE('--' || LPAD(CAST(_code_line AS TEXT), 5, '0') || $PLPGSQL$
 DO $code$
 DECLARE
     ---------------------------------------------------------------------------------
@@ -86,15 +87,15 @@ DECLARE
     v_wlm_rec           RECORD;
     v_snippet_rec       RECORD;
     v_wlm_entry         INTEGER := 0;
-    v_code              VARCHAR(60000);
-    v_pools_js          VARCHAR(60000);
+    v_code              VARCHAR(61000);
+    v_pools_js          VARCHAR(61000);
 	v_is_active_profile BOOLEAN;
 BEGIN
     DROP TABLE IF EXISTS wlm_code;
-    CREATE TEMP TABLE wlm_code (wlm_entry INTEGER, code VARCHAR(60000));
+    CREATE TEMP TABLE wlm_code (wlm_entry INTEGER, code VARCHAR(61000));
 
     DROP TABLE IF EXISTS wlm_snippet;
-    CREATE TEMP TABLE wlm_snippet (alias VARCHAR(128), sub_order INTEGER, code VARCHAR(60000));
+    CREATE TEMP TABLE wlm_snippet (alias VARCHAR(128), sub_order INTEGER, code VARCHAR(61000));
 
     SELECT name = v_profile_name INTO v_is_active_profile FROM sys.wlm_active_profile WHERE active;
 
@@ -138,8 +139,8 @@ $str$, '{profile_name}', _profile_name);
    ---------------------------------------------------------
    -- BUILDING profile into PLPGSQL script
    ---------------------------------------------------------
-      UPDATE profile_code SET code = code || 
-         REPLACE(REPLACE($PLPGSQL$
+   _code_line := _code_line + 1;
+   INSERT INTO profile_code VALUES (REPLACE(REPLACE('--' || LPAD(CAST(_code_line AS TEXT), 5, '0') || $PLPGSQL$
 ----------------------- Start Profile ------------------------------
 -- Profile: {profile_name} 
 --------------------------------------------------------------------
@@ -158,7 +159,7 @@ $WLM_PROFILE$);
 ----------------------- End Profile   ------------------------------
 $PLPGSQL$
          , '{default_pool}', _rec.default_pool)
-         , _profile_name, '{profile_name}');
+         , _profile_name, '{profile_name}'));
 
    ---------------------------------------------------------
    -- pools query
@@ -305,9 +306,12 @@ $PLPGSQL$
     VALUES ('{pools_js}', 1, v_pools_js);$PGPSQL$
        , _profile_name, '{profile_name}');
 
-   UPDATE profile_code SET code = code || _pools_detail;
-   UPDATE profile_code SET code = code || _pools_js;
-   UPDATE profile_code SET code = code || _pools;
+   _code_line := _code_line + 1;
+   INSERT INTO profile_code VALUES ('--' || LPAD(CAST(_code_line AS TEXT), 5, '0') || _pools_detail);
+   _code_line := _code_line + 1;
+   INSERT INTO profile_code VALUES ('--' || LPAD(CAST(_code_line AS TEXT), 5, '0') || _pools_js);
+   _code_line := _code_line + 1;
+   INSERT INTO profile_code VALUES ('--' || LPAD(CAST(_code_line AS TEXT), 5, '0') || _pools);
 
    ---------------------------------------------------------
    -- rules query
@@ -344,8 +348,8 @@ $str$, '{profile_name}', _profile_name);
    --RAISE INFO '_sql: %', _sql; --DEGUG
    FOR _rec IN EXECUTE( _sql )
    LOOP
-      UPDATE profile_code SET code = code ||
-         REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE($PLPGSQL$
+      _code_line := _code_line + 1;
+      INSERT INTO profile_code VALUES (REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE('--' || LPAD(CAST(_code_line AS TEXT), 5, '0') || $PLPGSQL$
 ----------------------- Start Rule {rule_ct} -----------------------
 -- Superuser: {superuser}, Type: {rule_type}, Order: {order} 
 --------------------------------------------------------------------
@@ -370,13 +374,14 @@ $PLPGSQL$
          , '{rule_name}', _rec.rule_name), '{rule_type}', _rec.rule_type)
          , '{order}', _rec."order"), '{enabled}', _rec.enabled), '{superuser}', _rec.superuser)
          , '{expression}', _rec.expression), '{rule_ct}', _rec.rule_ct)
-         , _profile_name, '{profile_name}');
+         , _profile_name, '{profile_name}'));
    END LOOP;
 
    ---------------------------------------------------------
    -- BUILDING end of PLPGSQL script
    ---------------------------------------------------------
-   UPDATE profile_code SET code = code || $PLPGSQL$
+   _code_line := _code_line + 1;
+   INSERT INTO profile_code VALUES ('--' || LPAD(CAST(_code_line AS TEXT), 5, '0') || $PLPGSQL$
     ---------------------------------------------------------
     -- BUILDING profile
     ---------------------------------------------------------
@@ -401,10 +406,10 @@ $PLPGSQL$
     END IF;
 
 END $code$;
-$PLPGSQL$;
+$PLPGSQL$);
 
 
-   RETURN QUERY EXECUTE $$SELECT code FROM profile_code$$;
+   RETURN QUERY EXECUTE $$SELECT code FROM profile_code ORDER BY code$$;
 
    /* Reset ybd_query_tags back to its previous value
    */
@@ -416,7 +421,7 @@ $proc$
 ;
 
 
-COMMENT ON FUNCTION wlm_profile_rule_p( _profile_name VARCHAR ) IS 
+COMMENT ON FUNCTION wlm_profile_sql_p( _profile_name VARCHAR ) IS 
 $str$Description:
 Returns SQL(PLPGSQL script) to create a WLM profile.
   
