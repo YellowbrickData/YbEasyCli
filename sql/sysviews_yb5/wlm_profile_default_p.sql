@@ -854,8 +854,8 @@ function main() {
     && w.errorRecoverable
     && memoryError.indexOf(String(w.errorCode)) >= 0) {
 
-    log.info('Restart query: {} that failed in "{}" pool due to errorCode: {}', w.execId, w.resourcePool, w.errorCode);
-    log.info('    errorMessage: ' + w.errorMessage);    
+    log.info('Restart query: ' + w.execId + ' that failed in "' + w.resourcePool + '" pool due to errorCode: ' + w.errorCode);
+    log.info('----errorMessage: ' + w.errorMessage);    
 
     w.restartInResourcePool(p.large);
   }
