@@ -114,6 +114,7 @@ BEGIN
      )
    SELECT   *
    FROM     all_chains
+   WHERE ' || _yb_util_filter || '
    ORDER BY 1, 2, 6
    ';
 

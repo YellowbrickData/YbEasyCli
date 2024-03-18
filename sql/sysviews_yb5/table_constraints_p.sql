@@ -89,7 +89,7 @@ BEGIN
          AND ' || _yb_util_filter || '
       ORDER BY name
    ';
-      
+
    -- RAISE info '_sql = %', _sql;
 
    /* Iterate over each db and get the relation metadata including schema 

@@ -19,6 +19,7 @@ class report_load(SPReportUtil):
     """Issue the ybsql commands used to create the column distribution report."""
     config = {
         'description': 'Transformed subset of sys.load columns for active bulk loads.'
+        , 'optional_args_single': []
         , 'report_sp_location': 'sysviews'
         , 'report_default_order': 'start_time' }
 
