@@ -7,7 +7,7 @@
 **   See COMMENT ON FUNCTION text further below.
 **
 ** (c) 2018 Yellowbrick Data Corporation.
-** . This script is provided free of charge by Yellowbrick Data Corporation as a 
+** . This script is provided free of charge by Yellowbrick Data Corporation as a
 **   convenience to its customers.
 ** . This script is provided "AS-IS" with no warranty whatsoever.
 ** . The customer accepts all risk in connection with the use of this script, and
@@ -33,11 +33,11 @@ CREATE TABLE wlm_profile_sql_t
 ** Create the procedure.
 */
 CREATE PROCEDURE wlm_profile_sql_p( _profile_name VARCHAR DEFAULT '' )
-RETURNS SETOF wlm_profile_sql_t 
+RETURNS SETOF wlm_profile_sql_t
    LANGUAGE 'plpgsql'
    VOLATILE
    SECURITY DEFINER
-AS 
+AS
 $proc$
 DECLARE
 
@@ -47,17 +47,17 @@ DECLARE
    _pools_js     TEXT    := 'profile = [];';
    _rec          RECORD;
    _code_line    INT     := 1;
-   
+
    _fn_name   VARCHAR(256) := 'wlm_profile_sql_p';
    _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
-   _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;   
-    
+   _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;
+
 BEGIN
    /* Txn read_only to protect against potential SQL injection attacks on sp that take args
    SET TRANSACTION       READ ONLY;
    */
    _sql := 'SET ybd_query_tags  TO ''' || _tags || '''';
-   EXECUTE _sql ; 
+   EXECUTE _sql ;
 
    DROP TABLE IF EXISTS profile_code;
    CREATE TEMP TABLE profile_code (code VARCHAR (61000));
@@ -89,15 +89,16 @@ DECLARE
     v_wlm_entry         INTEGER := 0;
     v_code              VARCHAR(61000);
     v_pools_js          VARCHAR(61000);
-	v_is_active_profile BOOLEAN;
+    v_is_active_profile BOOLEAN;
+    v_version           INTEGER;
+    v_sql               TEXT := FORMAT('ALTER WLM PROFILE %I ACTIVATE 10 WITHOUT CANCEL', v_profile_name);
+    v_cluster           TEXT;
 BEGIN
     DROP TABLE IF EXISTS wlm_code;
     CREATE TEMP TABLE wlm_code (wlm_entry INTEGER, code VARCHAR(61000));
 
     DROP TABLE IF EXISTS wlm_snippet;
     CREATE TEMP TABLE wlm_snippet (alias VARCHAR(128), sub_order INTEGER, code VARCHAR(61000));
-
-    SELECT name = v_profile_name INTO v_is_active_profile FROM sys.wlm_active_profile WHERE active;
 
     INSERT INTO wlm_snippet (alias, sub_order, code)
     VALUES
@@ -142,8 +143,10 @@ $str$, '{profile_name}', _profile_name);
    _code_line := _code_line + 1;
    INSERT INTO profile_code VALUES (REPLACE(REPLACE('--' || LPAD(CAST(_code_line AS TEXT), 5, '0') || $PLPGSQL$
 ----------------------- Start Profile ------------------------------
--- Profile: {profile_name} 
+-- Profile: {profile_name}
 --------------------------------------------------------------------
+    -- NOTE: unlike 5.x, 6.x won't allow deleting a profile if it's being used on any of compute clusters,
+    --        so the following code will fail on evaluated execution later, and this is what we want.
     IF v_drop_old_profile_if_exists
     THEN
         v_wlm_entry := v_wlm_entry + 1;
@@ -240,7 +243,7 @@ SELECT
         , '        '
         , '->' || RPAD(FORMAT(ROUND(temp_min_slots_query_GB, 1), '0.0'), 6, ' '))
     || LPAD(ROUND((100 * temp_worker_GB) / total_temp_worker_GB), 4) AS pool_details
-FROM 
+FROM
     DATA CROSS JOIN data_sum
 ORDER BY profile_name, name
 $str$, '{profile_name}', _profile_name);
@@ -260,7 +263,7 @@ $str$, '{profile_name}', _profile_name);
          _pools := _pools || CHR(10) ||
             REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE($PLPGSQL$
 ----------------------- Start Pool ---------------------------------
--- Pool: {name} 
+-- Pool: {name}
 --------------------------------------------------------------------
     v_wlm_entry := v_wlm_entry + 1;
     INSERT INTO wlm_code VALUES (v_wlm_entry, $WLM_POOL$
@@ -351,7 +354,7 @@ $str$, '{profile_name}', _profile_name);
       _code_line := _code_line + 1;
       INSERT INTO profile_code VALUES (REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE('--' || LPAD(CAST(_code_line AS TEXT), 5, '0') || $PLPGSQL$
 ----------------------- Start Rule {rule_ct} -----------------------
--- Superuser: {superuser}, Type: {rule_type}, Order: {order} 
+-- Superuser: {superuser}, Type: {rule_type}, Order: {order}
 --------------------------------------------------------------------
     v_wlm_entry := v_wlm_entry + 1;
     INSERT INTO wlm_code VALUES (v_wlm_entry, $WLM_RULE$
@@ -389,20 +392,35 @@ $PLPGSQL$
     LOOP
         v_code := v_wlm_rec.code;
 
-	    FOR v_snippet_rec IN SELECT alias, code FROM wlm_snippet ORDER BY sub_order
-	    LOOP
-		    v_code := REPLACE(v_code, v_snippet_rec.alias, v_snippet_rec.code);
-	    END LOOP;
+        FOR v_snippet_rec IN SELECT alias, code FROM wlm_snippet ORDER BY sub_order
+        LOOP
+            v_code := REPLACE(v_code, v_snippet_rec.alias, v_snippet_rec.code);
+        END LOOP;
 
         --RAISE INFO '%', v_code; --DEBUG
-	    EXECUTE v_code;
+        EXECUTE v_code;
     END LOOP;
 
     COMMIT;
 
+    SELECT substring(VERSION() FROM 'version\s(\d)\.')::INTEGER INTO v_version;
+    IF v_version >= 6 THEN
+        SELECT COUNT(*) > 0 FROM sys.cluster INTO v_is_active_profile WHERE active_wlm_profile_name = v_profile_name AND state = 'RUNNING';
+    ELSE
+        SELECT name = v_profile_name INTO v_is_active_profile FROM sys.wlm_active_profile WHERE active;
+    END IF;
+
     IF v_activate_new_profile OR v_is_active_profile
     THEN
-        EXECUTE FORMAT('ALTER WLM PROFILE "%s" ACTIVATE 10 WITHOUT CANCEL', v_profile_name);
+        IF v_version >= 6 THEN
+        -- NOTE: TBD, as implementing this is not trivial - the profile needs to be activated on specific cluster(s),
+        --       so they need to be passed as parameter(s), plus it needs to be replaced and re-activated on any cluster
+        --       that is using the profile currently (so all those clusters need to be switched to the default profile
+        --       temporarily before replacing, as the active profile cannot be dropped).
+            RAISE WARNING 'Auto-activating is currently implemented only for Yellowbrick versions < 6.x';
+        ELSE
+            EXECUTE v_sql;
+        END IF;
     END IF;
 
 END $code$;
@@ -414,25 +432,25 @@ $PLPGSQL$);
    /* Reset ybd_query_tags back to its previous value
    */
    _sql := 'SET ybd_query_tags  TO ''' || _prev_tags || '''';
-   EXECUTE _sql ;   
+   EXECUTE _sql ;
 
-END;   
-$proc$ 
+END;
+$proc$
 ;
 
 
 COMMENT ON FUNCTION wlm_profile_sql_p( _profile_name VARCHAR ) IS 
 $str$Description:
 Returns SQL(PLPGSQL script) to create a WLM profile.
-  
-Examples:
-  SELECT * FROM wlm_profile_sql_p(); 
-  SELECT * FROM wlm_profile_sql_p( 'my_profile' );  
 
-Arguments: 
+Examples:
+  SELECT * FROM wlm_profile_sql_p();
+  SELECT * FROM wlm_profile_sql_p( 'my_profile' );
+
+Arguments:
 . _profile_name - VARCHAR - profile to report on
 
 Version:
-. 2023.03.19 - Yellowbrick Technical Support 
+. 2023.03.19 - Yellowbrick Technical Support
 $str$
 ;
