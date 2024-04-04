@@ -1738,7 +1738,7 @@ DECLARE
         return(self.new_table_name, anonymous_block)
 
 class Report:
-    def __init__(self, args_handler, db_conn, columns, query, order_by='', pre_sql='', strip_warnings=[]):
+    def __init__(self, args_handler, db_conn, columns=[], query='', order_by='', pre_sql='', strip_warnings=[]):
         self.args_handler   = args_handler
         self.db_conn        = db_conn
         self.columns        = columns
@@ -1747,7 +1747,7 @@ class Report:
         self.pre_sql        = pre_sql
         self.strip_warnings = strip_warnings
 
-        if (self.args_handler.args.report_order_by != ''):
+        if hasattr(self.args_handler.args, 'report_order_by') and (self.args_handler.args.report_order_by != ''):
             self.order_by = self.args_handler.args.report_order_by
 
     @staticmethod
