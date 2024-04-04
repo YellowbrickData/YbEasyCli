@@ -18,7 +18,7 @@ from getpass  import getpass
 from tempfile import mkdtemp
 from shutil   import rmtree
 
-__version__ = '1.2'
+__version__ = '1.3'
 
 def run_ybsql(envvars, params = ['-Aqt',], sql = 'select version()'):
 	env = os.environ.copy()
@@ -66,7 +66,7 @@ clusters = {
 formalize = lambda x: re.search('-+BEGIN CERTIFICATE-+([^-]+)-+END CERTIFICATE-+',re.sub('[\r\n]','',x)).group(1)
 md5       = lambda x: hashlib.md5(x.encode()).hexdigest()
 for cluster in clusters.keys():
-	for arg, var in [(vars(args)[f'{cluster}_{key}'], f'YB{key.upper()}') for key in ('host', 'user', 'password', 'port', )]:
+	for arg, var in [(vars(args)[cluster+'_'+key], 'YB'+key.upper()) for key in ('host', 'user', 'password', 'port', )]:
 		if arg:
 			clusters[cluster]['env'][var] = arg
 
@@ -83,7 +83,9 @@ for k,v in clusters.items():
 	for cert in v['ssl']:
 		clusters[k]['ssl'][cert] = run_ybsql(v['env'], sql = 'show ssl {cert}'.format(cert = cert)).decode().strip()
 		if args.export:
-			with open('{cluster}-{host}-{cert}.pem'.format(cluster = k, host = hostname, cert = cert), 'w') as f:
+			export_file = '{cluster}-{host}-{cert}.pem'.format(cluster = k, host = hostname, cert = cert)
+			print('Exporting {c} certificate to {f}'.format(c = cert.upper(), f = export_file))
+			with open(export_file, 'w') as f:
 				f.write(clusters[k]['ssl'][cert])
 	trust_store = run_ybsql(v['env'], params = ['-F', '\x1F', '-R', '\x1E', '-Aqt'], sql = 'show ssl trust').decode().strip()
 	if trust_store:
@@ -91,7 +93,9 @@ for k,v in clusters.items():
 			ybhash, details, cert = [x.strip() for x in line.split('\x1F')]
 			clusters[k]['trust'][md5(formalize(cert))] = {'hash': ybhash, 'details': details, 'cert': cert}
 			if args.export:
-				with open('{cluster}-{host}-truststore-{n}.pem'.format(cluster = k, host = hostname, n = n), 'w') as f:
+				export_file = '{cluster}-{host}-truststore-{h}-{n:03d}.pem'.format(cluster = k, host = hostname, h = ybhash, n = n)
+				print('Exporting trust store item {n:03d} ({h}) to {f}'.format(n = n, h = ybhash, f = export_file))
+				with open(export_file, 'w') as f:
 					f.write(cert)
 	print('\tversion = {v:15s}, truststore has {n:3d} entries'.format(h = hostname, v = version, n = len(clusters[k]['trust'])))
 
@@ -105,8 +109,8 @@ for trust in ('source:target:system', 'target:source:ca'):
 	trusted = cert_md5 in clusters[trustor]['trust']
 	print(msg.format(r = '\033[92malready has\033[0m ' if trusted else '\033[91mdoesn\'t have\033[0m'))
 	if trusted and args.revoke:
-		print('Revoking trust for {te} from {tr}...'.format(te = trustee, tr = trustor))
+		print('\033[96mRevoking\033[0m trust for {te} from {tr}...'.format(te = trustee, tr = trustor))
 		run_ybsql(clusters[trustor]['env'], sql = "revoke '{hash}' from ssl trust".format(hash = clusters[trustor]['trust'][cert_md5]['hash']))
 	if not trusted and args.create:
-		print('Creating trust for {te} on {tr}...'.format(te = trustee, tr = trustor))
+		print('\033[96mCreating\033[0m trust for {te} on {tr}...'.format(te = trustee, tr = trustor))
 		run_ybsql(clusters[trustor]['env'], sql = "import ssl trust from '{cert}'".format(cert = clusters[trustee]['ssl'][cert]))
