@@ -44,7 +44,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20240305'
+    version = '20240405'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -1281,8 +1281,8 @@ class DBConnect:
     def verify(self):
         cmd_results = self.ybsql_query(
             """SELECT
-    CURRENT_DATABASE() AS db
-    , CURRENT_SCHEMA AS schema
+    CURRENT_DATABASE()        AS db
+    , CURRENT_SCHEMA          AS schema
     , (SELECT encoding FROM sys.database WHERE name = CURRENT_DATABASE()) AS server_encoding
     , SPLIT_PART(VERSION(), ' ', 4) AS version
     , SPLIT_PART(version, '-', 1) AS version_number
@@ -1294,6 +1294,7 @@ class DBConnect:
     , rolcreaterole OR is_super_user AS has_create_user
     , rolcreatedb OR is_super_user   AS has_create_db
     , CURRENT_USER                   AS user
+    , EXTRACT(EPOCH FROM NOW())      AS at
 FROM pg_catalog.pg_roles
 WHERE rolname = CURRENT_USER""")
 
@@ -1330,6 +1331,7 @@ WHERE rolname = CURRENT_USER""")
             , 'has_create_user': (True if db_info[10].strip() == 't' else False)
             , 'has_create_db': (True if db_info[11].strip() == 't' else False)
             , 'user': db_info[12].strip()
+            , 'at': db_info[13].strip()
             , 'host': self.env['host']
             , 'database_encoding': db_info[2] }
 

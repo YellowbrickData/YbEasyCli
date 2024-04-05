@@ -36,12 +36,13 @@ class get_foreign_key(Util):
             output_columns = 'alter_query'
             order_by_columns = '1'
         else:
-            output_columns = """database
+            output_columns = """TO_TIMESTAMP({at}) AS at
+    , database
     , foreign_key_schema, foreign_key_table, foreign_key_column
     , primary_key_schema, primary_key_table, primary_key_column
     , owner
-    , alter_query"""
-            order_by_columns = '1, 2, 3, 4, 5, 6, 7'
+    , alter_query""".format(at=self.db_conn.ybdb['at'])
+            order_by_columns = '1, 2, 3, 4, 5, 6, 7, 8'
 
         query_template="""
 \\c {{db}}
