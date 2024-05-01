@@ -846,17 +846,23 @@ $JS$// Rule: poolRestartOnError
 //         that ran in a non-large pool with a memory error
 //
 function main() {
-  var memoryError = ['53200', 'EEOOM', 'KE002', 'KE029', 'KE032', 'YB004', 'YB005', 'YB006'];
+  var memoryError = [
+    'KE041'                                                                  // from tech support team and global_restartErrorCodes rule
+    , '53200', 'EEOOM', 'KE002', 'KE029', 'KE032', 'YB004', 'YB005', 'YB006' // from tech support team
+    , 'KE038', 'KE039', 'P0004', 'WM001', 'WM002', 'WM003', 'YB044'          // from global_restartErrorCodes rule
+  ];
 
   pSet();
 
   if (w.resourcePool != p.large
-    && w.errorRecoverable
+    //&& w.errorRecoverable //commented out do to global_restartErrorCodes rule
     && memoryError.indexOf(String(w.errorCode)) >= 0) {
 
-    log.info('Restart query: ' + w.execId + ' that failed in "' + w.resourcePool + '" pool due to errorCode: ' + w.errorCode);
-    log.info('----errorMessage: ' + w.errorMessage);    
+    log.info('Restart query: ' + w.execId + ' that failed in "' + w.resourcePool + '"');
+    log.info('--    errorCode: ' + w.errorCode);
+    log.info('--    errorMessage: ' + w.errorMessage);    
 
+    w.errorRecoverable = true; //added do to global_restartErrorCodes rule
     w.restartInResourcePool(p.large);
   }
 }
@@ -901,8 +907,7 @@ function main() {
     if (w.resourcePool != p.small && w.memoryRequiredMB > currPool.memSlotMib ) {
         // Determine how many "slots" from the pool are needed to satisfy w.memoryRequiredMB
         var slots = Math.min(maxSlotsAllowed, (Math.ceil(w.memoryRequiredMB/currPool.memSlotMib)));
-        if (slots > 1) log.warn('Query {} has been granted {} slots in the "{}" pool'
-            , w.execId, slots, w.resourcePool);
+        if (slots > 1) log.warn('Query ' + w.execId + ' has been granted ' + slots + ' slots in the "' + w.resourcePool + '" pool');
 
         var memMB   = slots * currPool.memSlotMib;
         var spillMB = slots * currPool.spillSlotMib;
