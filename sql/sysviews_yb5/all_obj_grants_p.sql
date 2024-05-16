@@ -2,12 +2,12 @@
 ** all_obj_grants_p()
 **
 ** Grants on user objects across all databases with owner detail.
+**
 ** Includes: databases, schemas, tables, views, sequences, stored procedures
 **          ,columns, roles, and keys.
 ** Excludes: system tables/views and triggers.
 **           superuser implicit grants
 **           owner implicit grants
-**           nested role membership
 **
 ** Usage:
 **   See COMMENT ON FUNCTION statement after CREATE PROCEDURE.
@@ -66,13 +66,15 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
-** 2023.12.21 - Fix multiple grant permission matches.
+** 2024.05.16 - Updates to help text. (REK)
+** 2024.02.20 - Add user/role filter. (KC)
+** 2023.12.21 - Fix multiple grant permission matches. (REK)
 **              Added missing 'b' ACL key.
 **              Formatting and comment changes.
-** 2023.12.19 - Rename to all_obj_grants_p
+** 2023.12.19 - Rename to all_obj_grants_p (REK)
 **              Fix minor perms issues for DATABASE and SCHEMA.
-** 2023.12.13 - Fix for DFLTACL -> UNKNOWN. (Yellowbrick TS) 
-** 2023.11.06 - Initial draft version. (Yellowbrick TS) 
+** 2023.12.13 - Fix for DFLTACL -> UNKNOWN. (REK) 
+** 2023.11.06 - Initial version. (REK) 
 */
 
 /* ****************************************************************************
@@ -91,7 +93,7 @@
 **  kick    | PROCEDURE | public      | test_sbtxn_p                  | yellowbrick |                     |                     |          |              |            |        |                  |                 |          |           |   |       |        |                  |         |   |   |   |   |               |                 |             |   |   |        |         |
 **  kick    | SCHEMA    | public      | public                        | ybdadmin    | ybdadmin            | ybdadmin            | ybdadmin | UC           |            |        |                  |                 |          |           |   | USAGE | CREATE |                  |         |   |   |   |   |               |                 |             |   |   |        |         |
 **  kick    | SCHEMA    | public      | public                        | ybdadmin    | public              | public              | ybdadmin | UC           |            |        |                  |                 |          |           |   | USAGE | CREATE |                  |         |   |   |   |   |               |                 |             |   |   |        |         |
-**  kick    | SCHEMA    | schema2     | schema2                       | yellowbrick |                     |                     |          |              |            |        |                  |                 |          |           |   |       |        |                  |         |   |   |   |   |               |                 |             |   |   |        |         |
+**  kick    | SCHEMA    | schema2     | schema2                       | yellowbrick |      	                |                     |          |              |            |        |                  |                 |          |           |   |       |        |                  |         |   |   |   |   |               |                 |             |   |   |        |         |
 **  kick    | TABLE     | public      | Foo                           | kick        |                     |                     |          |              |            |        |                  |                 |          |           |   |       |        |                  |         |   |   |   |   |               |                 |             |   |   |        |         |
 **  kick    | TABLE     | public      | a                             | kick        |                     |                     |          |              |            |        |                  |                 |          |           |   |       |        |                  |         |   |   |   |   |               |                 |             |   |   |        |         |
 */
@@ -143,10 +145,13 @@ CREATE TABLE         all_obj_grants_t
 ** Create the procedure.
 */
 CREATE OR REPLACE PROCEDURE all_obj_grants_p(
-     _db_ilike       VARCHAR DEFAULT '%'
-   , _schema_ilike   VARCHAR DEFAULT '%'
-   , _obj_ilike      VARCHAR DEFAULT '%'
-   , _yb_util_filter VARCHAR DEFAULT 'TRUE' )
+      _db_ilike       VARCHAR DEFAULT '%'
+    , _schema_ilike   VARCHAR DEFAULT '%'
+    , _obj_ilike      VARCHAR DEFAULT '%'
+    , _role_name      VARCHAR DEFAULT NULL
+    , _show_sql       INTEGER DEFAULT 0
+    , _yb_util_filter VARCHAR DEFAULT 'TRUE' 
+   )
    RETURNS SETOF all_obj_grants_t
    LANGUAGE 'plpgsql'
    VOLATILE
@@ -160,11 +165,16 @@ DECLARE
    _db_id               BIGINT;
    _db_list_sql         TEXT;
    _db_name             VARCHAR(128);
+   _db_rec              RECORD;
    _pred                TEXT;   
    _ret_sql             TEXT;
+   _rol_inlist          TEXT;
+   _rol_inlist_pred     TEXT         := '';
+   _rol_found_name      TEXT;
+   _roles_found         INTEGER;
+   _role_sql            TEXT;
    _sql                 TEXT;
    
-   _db_rec              RECORD;
    _fn_name             VARCHAR(256) := 'all_obj_grants_p';
    _prev_tags           VARCHAR(256) := current_setting('ybd_query_tags');
    _tags                VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END 
@@ -173,23 +183,59 @@ DECLARE
 
 BEGIN
  
-   --EXECUTE 'SET ybd_query_tags  TO ' || quote_literal( _tags );
+   EXECUTE 'SET ybd_query_tags  TO ' || quote_literal( _tags );
    --PERFORM sql_inject_check_p('_yb_util_filter', _yb_util_filter);
+
+   -- If a user/role name match was specified, find all the roles he is a member of.
+   IF _role_name IS NOT NULL 
+   THEN 
+      --check that the user/role name is valid/found
+      _role_sql := 'SELECT rolname 
+      FROM pg_roles
+      WHERE rolname =  ' || quote_literal( _role_name ) 
+      ;
+      
+      IF ( _show_sql > 1 ) THEN RAISE INFO '_role_sql = %', _role_sql; END IF;
+      EXECUTE _role_sql INTO _rol_found_name;
+      GET DIAGNOSTICS _roles_found = ROW_COUNT; 
+
+      IF _roles_found = 0 
+      THEN
+         RAISE EXCEPTION 'role_name % not found', _role_name
+         USING HINT = 'Please check the qualifying user/role name.';
+      END IF;
+      
+      -- Query to retrieve all roles the user/role is a member of 
+      _role_sql := 'WITH all_user_roles AS
+         (  SELECT oid AS rolid, rolname
+            FROM pg_roles
+            WHERE pg_has_role(' || quote_literal(_rol_found_name) || ', rolid, ''member'')
+         )   
+         SELECT STRING_AGG(quote_literal(rolname), '','') AS role_list 
+         FROM all_user_roles'
+         ;
+         
+      IF ( _show_sql > 1 ) THEN RAISE INFO '_role_sql = %', _role_sql; END IF;
+      EXECUTE _role_sql INTO _rol_inlist;
+      _rol_inlist_pred = 'AND grantee IN ( ' || _rol_inlist || ')';	
+
+   END IF;
    
    -- TODO update this so nulls are accounted for if ilike %
-   _pred := '      db_name    ILIKE ' || quote_literal( _db_ilike     ) || '
-            AND (schema_name  ILIKE ' || quote_literal( _schema_ilike ) || ' OR schema_name IS NULL)
-            AND (    obj_name ILIKE ' || quote_literal( _obj_ilike    ) || '
-                  OR obj_name ILIKE ' || '''' || _obj_ilike || '.%'''   || '
-                )
+   _pred := ' db_name      ILIKE ' || quote_literal( _db_ilike     ) || '
+         AND (schema_name  ILIKE ' || quote_literal( _schema_ilike ) || ' OR schema_name IS NULL)
+         AND (    obj_name ILIKE ' || quote_literal( _obj_ilike    ) || '
+               OR obj_name ILIKE ' || '''' || _obj_ilike || '.%'''   || '
+             )
    ';
-      
+   
    -- Query for the databases to iterate over
    _db_list_sql = 'SELECT 
       database_id AS db_id, name AS db_name 
    FROM sys.database 
    WHERE db_name ILIKE ' || quote_literal( _db_ilike ) || ' ORDER BY name' ;
-   -- RAISE info '_db_list_sql = %', _db_list_sql;
+   
+   IF ( _show_sql > 1 ) THEN RAISE INFO '_db_list_sql = %', _db_list_sql; END IF;
 
    /* Iterate over each db and get the relation metadata including schema 
    */
@@ -384,7 +430,7 @@ BEGIN
          , schema_name::VARCHAR(128)                                                               AS schema_name
          , obj_name::VARCHAR(128)                                                                  AS obj_name
          , owner_name::VARCHAR (128)                                                               AS owner_name 
-         , IIF(SUBSTR(acl,1,1) = ''='', ''public'', (SPLIT_PART(acl, ''='', 1)))::VARCHAR (128)    AS user_or_role
+		   , IIF(SUBSTR(acl,1,1) = ''='', ''public'', (SPLIT_PART(acl, ''='', 1)))::VARCHAR (128)    AS user_or_role
          , IIF(SUBSTR(acl,1,1) = ''='', ''public'', (SPLIT_PART(acl, ''='', 1)))::VARCHAR (128)    AS grantee   
          , SPLIT_PART(acl, ''/'', 2)::VARCHAR (128)                                                AS grantor     
          , SPLIT_PART(SPLIT_PART(acl, ''/'', 1), ''='', 2)::VARCHAR (1024)                         AS granted   
@@ -518,11 +564,13 @@ BEGIN
       )
       SELECT * 
       FROM obj_grants
+	  WHERE TRUE 
+      ' || _rol_inlist_pred || '
       ORDER BY obj_type, schema_name, obj_name 
       '
       ;
 
-      --RAISE INFO '_curr_db_sql=%', _curr_db_sql;
+      IF ( _show_sql > 1 ) THEN RAISE INFO '_curr_db_sql = %', _curr_db_sql; END IF;
       RETURN QUERY EXECUTE _curr_db_sql;
       
 
@@ -535,7 +583,7 @@ END;
 $proc$
 ;
 
-COMMENT ON FUNCTION all_obj_grants_p(VARCHAR, VARCHAR, VARCHAR, VARCHAR) IS 
+COMMENT ON FUNCTION all_obj_grants_p(VARCHAR, VARCHAR, VARCHAR, VARCHAR, INTEGER, VARCHAR) IS 
 $cmnt$Description:
 All user objects in all databases with owner and ACL detail. 
 
@@ -546,11 +594,16 @@ explicit granted table and view columns, and global system grants.
 Examples:
   SELECT * FROM all_obj_grants_p() 
   SELECT * FROM all_obj_grants_p('%prod%', 's%') WHERE obj_type = 'SCHEMA'  
+  SELECT * FROM all_obj_grants_p('kick%', _role_name:='kick', _show_sql:=2 ) LIMIT 100;  
   
 Arguments:
 . _db_ilike       VARCHAR (optl)  - An ILIKE pattern for the database name. Default is '%'.
 . _schema_ilike   VARCHAR (optl)  - An ILIKE pattern for the schema   name. Default is '%'.
 . _obj_ilike      VARCHAR (optl)  - An ILIKE pattern for the object   name. Default is '%'.
+. _role_name      VARCHAR (optl)  - User or role to match. If specified, also includes all
+                                    roles the specified user/role has been granted.
+                                    NULL which means all users/roles.       Default is NULL. 
+. _show_sql       INTEGER (optl)  - Show the executed SQL if value > 0.     Default is 0                                        
 . _yb_util_filter VARCHAR (intrn) - Used by YbEasyCli.
 
 Note:
@@ -560,16 +613,7 @@ Note:
 . There is no exposed "SYSTEM" object with ACLs. Use has_system_function().
 
 Version:
-. 2023.12.21 - Yellowbrick Technical Support
+. 2024.05.16 - Yellowbrick Technical Support
 $cmnt$
 ;
 
-\timing on
--- -----------------------------------------------------------------------------
-SELECT * FROM all_obj_grants_p('kick'                  ) LIMIT 40;
-\q
-SELECT * FROM all_obj_grants_p('kick', 'public', 'foo%');
-SELECT * FROM all_obj_grants_p('kick', 'public', 'c%'  );
-SELECT * FROM all_obj_grants_p('%'                     ) WHERE obj_type = 'DFLTACL' LIMIT 40;
-SELECT * FROM all_obj_grants_p('aci%');
-SELECT '~~~~~~~~~~~~~~~~~~~~~~~~~~~~DONE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
