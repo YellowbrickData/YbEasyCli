@@ -21,7 +21,7 @@ class report_backup_chains(SPReportUtil):
         , 'report_sp_location': 'sysviews'
         , 'optional_args_multi': ['database', 'chain_name']
         , 'optional_args_single': []
-        , 'db_filter_args': {'database':'database_name', 'chain_name':'chain_name'} }
+        , 'db_filter_args': {'database':'datname', 'chain_name':'chain_name'} }
 
     def additional_args(self):
         args_optional_filter_grp = self.args_handler.args_parser.add_argument_group('arguments')
