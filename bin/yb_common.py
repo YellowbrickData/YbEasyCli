@@ -44,7 +44,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20240405'
+    version = '20240521'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -1454,7 +1454,7 @@ class StoredProc:
 
     @staticmethod
     def proc_file(proc_name):
-        return Common.util_dir_path + ('/sql/%s.sql' % proc_name)
+        return Common.util_dir_path + ('/../sql/%s.sql' % proc_name)
 
     @staticmethod
     def proc_file_exists(proc_name):

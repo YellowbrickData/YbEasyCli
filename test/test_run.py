@@ -7,7 +7,7 @@ import glob
 path = os.path.dirname(sys.argv[0])
 if len(path) == 0:
     path = '.'
-sys.path.append('%s/../' % path)
+sys.path.append('%s/../bin/' % path)
 
 try:
     import configparser                  # for python3
@@ -46,7 +46,7 @@ class test_case:
         :param args: An instance of the `args` class
         :case the ordinal of the test case in a list of test cases
         """
-        cmd = '%s/../%s' % (path, self.cmd)
+        cmd = '%s/../bin/%s' % (path, self.cmd)
         if args.python_exe:
             cmd = '%s %s' % (args.python_exe, cmd)
 
