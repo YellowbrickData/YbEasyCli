@@ -126,7 +126,7 @@ SELECT * FROM {new_table_name} ORDER BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,1
         else:
             dbv = self.db_conn.ybdb['version_major']
 
-        xlsx_template = ('%s/sql/sysviews_yb%d/log_query_pivot_v%d.xlsx' %
+        xlsx_template = ('%s/../sql/sysviews_yb%d/log_query_pivot_v%d.xlsx' %
             (Common.util_dir_path, dbv, dbv) )
         filename = '%s.xlsx' % self.pivot_name
         shutil.copyfile(xlsx_template, filename)
