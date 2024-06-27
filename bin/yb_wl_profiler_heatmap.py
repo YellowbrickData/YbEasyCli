@@ -111,7 +111,7 @@ class wl_profiler(Util):
             shutil.unpack_archive('../%s' % self.csv_zip_file, '.', 'zip')
 
     def complete_db_conn(self):
-        if not self.db_conn.ybdb['is_super_user']:
+        if not self.db_conn.ybdb['is_super_user'] and self.db_conn.ybdb['version_major'] != 6:
             self.args_handler.args_parser.error("--dbuser '%s' must be a db super user..." % self.db_conn.ybdb['user'])
 
         non_su_sql = "SELECT COUNT(*) FROM sys.user WHERE name = '%s' AND NOT superuser;" % self.args_handler.args.non_su
@@ -134,7 +134,7 @@ class wl_profiler(Util):
             sql_scripts.append('step0_wl_profiler_drop_objects.sql')
 
         for script in sql_scripts:
-            filename = ('%s/sql/wl_profiler_yb%d/%s' %
+            filename = ('%s/../sql/wl_profiler_yb%d/%s' %
                 (Common.util_dir_path, self.wlp_version, script) )
             print('--executing: %s' % filename)
             sql = open(filename).read().replace('sys.log_query', self.args_handler.args.source_table)
@@ -149,7 +149,7 @@ class wl_profiler(Util):
             print('--created Zip file: %s.zip' % self.profile_name)
 
     def build_heatmap(self):
-        xlsm_template = ('%s/sql/wl_profiler_yb%d/wl_profile.xlsm' %
+        xlsm_template = ('%s/../sql/wl_profiler_yb%d/wl_profile.xlsm' %
                 (Common.util_dir_path, self.wlp_version) )
         self.filename = '%s.xlsm' % self.profile_name
         print('--creating Excel file: %s' % self.filename)
