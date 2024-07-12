@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_sysprocs_log_query_pivot.py [options]
+      yb_sysprocs_log_query_pivot.py [options] 
 
 PURPOSE:
       Queries for the last week aggregated by hour for use in WLM pivot table analysis.
