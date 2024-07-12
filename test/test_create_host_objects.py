@@ -8,7 +8,7 @@ import getpass
 path = os.path.dirname(__file__)
 if len(path) == 0:
     path = '.'
-sys.path.append('%s/../' % path)
+sys.path.append('%s/../bin/' % path)
 
 try:
     import configparser                  # for python3

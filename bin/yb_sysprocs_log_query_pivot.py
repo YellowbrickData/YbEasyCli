@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 USAGE:
-      yb_sysprocs_log_query_pivot.py [options]
+      yb_sysprocs_log_query_pivot.py [options] 
 
 PURPOSE:
       Queries for the last week aggregated by hour for use in WLM pivot table analysis.
@@ -138,9 +138,9 @@ SELECT * FROM {new_table_name} ORDER BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,1
         import xlwings
         xl_already_running = len(xlwings.apps) > 0
         wb = xlwings.Book(filename)
-        sheet = wb.sheets['WLM_PivotData']
+        sheet = wb.sheets['PivotData']
 
-        sheet.range('A2:AG10000').delete()
+        sheet.range('A2:BE10000').delete()
 
         # appending to spreadsheet in 10000 row batches
         # 1 large append would fail
@@ -165,13 +165,28 @@ SELECT * FROM {new_table_name} ORDER BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,1
             sheet.range(insertCell).value = rows
 
 
-        if Common.is_windows:
-            #wb.api.active_sheet.refresh_all(wb.api)
-            sheet = wb.sheets['WLM_PivotTable']
-            sheet.activate()
-            wb.api.ActiveSheet.PivotTables('WorkloadPivot').RefreshTable()
-        else:
-            wb.api.active_sheet.refresh_all(wb.api)
+        #if Common.is_windows:
+        if True:
+            sheets_pivot_tables = [
+                ('Performance_PivotTable', 'WorkloadPivot')
+                , ('WLM_PivotTable', 'PivotTable1')
+            ]
+
+            # Loop through each sheet and pivot table
+            for sheet_name, pivot_table_name in sheets_pivot_tables:
+                sheet = wb.sheets[sheet_name]
+                sheet.activate()
+                pivot_table = wb.api.ActiveSheet.PivotTables(pivot_table_name)
+
+                # Loop through all the pivot fields and select "All" for each filter
+                for field in pivot_table.PivotFields():
+                    if field.Orientation in [3, 4, 5]:  # 3: xlPageField, 4: xlRowField, 5: xlColumnField
+                        field.ClearAllFilters()         # Clear any existing filters
+                        field.CurrentPage = '(All)'     # Set the filter to "All"
+
+                pivot_table.RefreshTable()
+        #else:
+        #    wb.api.active_sheet.refresh_all(wb.api)
 
         wb.save()
         
@@ -186,7 +201,9 @@ SELECT * FROM {new_table_name} ORDER BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,1
 
     def execute(self):
         if self.step1:
-            if not self.db_conn.ybdb['is_super_user']:
+            # YB CN does support a SU.  So the SU check does not make sense for YB6.
+            #     For CN use a same user with full sys.log_query privilege for both SU and non-SU user 
+            if not self.db_conn.ybdb['is_super_user'] and self.db_conn.ybdb['version_major'] != 6:
                   self.args_handler.args_parser.error("--dbuser '%s' must be a db super user..." % self.db_conn.ybdb['user'])
 
             non_su_sql = "SELECT COUNT(*) FROM sys.user WHERE name = '%s' AND NOT superuser;" % self.args_handler.args.non_su

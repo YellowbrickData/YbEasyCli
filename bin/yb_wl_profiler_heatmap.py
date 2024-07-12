@@ -111,6 +111,8 @@ class wl_profiler(Util):
             shutil.unpack_archive('../%s' % self.csv_zip_file, '.', 'zip')
 
     def complete_db_conn(self):
+        # YB CN does support a SU.  So the SU check does not make sense for YB6.
+        #     For CN use a same user with full sys.log_query privilege for both SU and non-SU user 
         if not self.db_conn.ybdb['is_super_user'] and self.db_conn.ybdb['version_major'] != 6:
             self.args_handler.args_parser.error("--dbuser '%s' must be a db super user..." % self.db_conn.ybdb['user'])
 
