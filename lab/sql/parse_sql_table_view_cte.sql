@@ -136,7 +136,7 @@ DISTRIBUTE ON (query_id)
             END IF;
             --
             -- Append character to result if not in a comment
-            RAISE INFO '%', ch;
+            --RAISE INFO '%', ch;
             IF NOT in_single_line_comment AND NOT in_multi_line_comment THEN
                 result := result || ch;
             END IF;
@@ -213,7 +213,7 @@ DISTRIBUTE ON (query_id)
         END LOOP;
         --
         match := REGEXP_REPLACE(match, '(.*)(WITH\s*([^\s]+)\s+AS\s*\[p\d+\].*)', '\3', 'i');
-        RAISE INFO '----5----: %', match;
+        --RAISE INFO '----5----: %', match;
         INSERT INTO parse_tmp_t (string_id, type, step, id, string) 
         VALUES (rec.string_id, 'cte_name', 'none', index, match);
         --
@@ -247,15 +247,15 @@ DISTRIBUTE ON (query_id)
         WHERE type = 'from_clause'
         ORDER BY string_id
     LOOP
-        RAISE INFO '-------------2--------------';
+        --RAISE INFO '-------------2--------------';
         clause := rec.string;
-        RAISE INFO 'clause(%)', clause;
+        --RAISE INFO 'clause(%)', clause;
         --
         -- Loop to extract tables/views after each 'JOIN'
         LOOP
-            RAISE INFO '-------------3--------------';
+            --RAISE INFO '-------------3--------------';
             match := REGEXP_REPLACE(clause, '.*\s+JOIN\s+([^\s]+).*', '\1', 'i');
-            RAISE INFO 'match(%)', match;
+            --RAISE INFO 'match(%)', match;
             --
             -- Exit the loop if no more 'JOIN' keywords are found
             --IF NOT FOUND THEN
@@ -269,19 +269,19 @@ DISTRIBUTE ON (query_id)
             --
             -- Remove the processed 'JOIN' table/view from from_clause
             clause := REGEXP_REPLACE(clause, '(.*)(\sJOIN\s+[^\s]+.*)', '\1', 'i');
-            RAISE INFO 'clause(%)', clause;
+            --RAISE INFO 'clause(%)', clause;
         END LOOP;
         --
         -- Extract tables/views in the classic comma-separated format
         LOOP
-            RAISE INFO '-------------4--------------';
-            RAISE INFO 'clause(%)', clause;
+            --RAISE INFO '-------------4--------------';
+            --RAISE INFO 'clause(%)', clause;
             match := REGEXP_REPLACE(clause, '(.*,)?\s*([^\s]+).*', '\2', 'i');
             --SELECT REGEXP_REPLACE(c, '(.*,)?\s*([^\s]+).*', '\2', 'i')
             --INTO match
             --FROM (SELECT clause AS c) AS t
             --WHERE c ~* '\s*([^\s]+)';
-            RAISE INFO 'match(%)', match;
+            --RAISE INFO 'match(%)', match;
             --
             -- Exit the loop if no more tables/views are found
             --IF NOT FOUND THEN
