@@ -57,7 +57,7 @@ class report_log_query_slot_usage(SPReportUtil):
 
         self.report_header = ('--report from: %s, to: %s' % (
             self.args_handler.args.from_date.strftime("%Y-%m-%d"),
-            min((self.args_handler.args.from_date + timedelta(self.args_handler.args.days - 1)).date(), today).strftime("%Y-%m-%d") ) )
+            min((self.args_handler.args.from_date + timedelta(self.args_handler.args.days - 1)), today).strftime("%Y-%m-%d") ) )
 
         #self.report_header = ('--report from: %s, to: %s' % (
         #    self.args_handler.args.from_date.strftime("%Y-%m-%d")
