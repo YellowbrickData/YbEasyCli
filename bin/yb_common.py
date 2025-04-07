@@ -44,7 +44,7 @@ class Common:
     Grouping of attributes in methods commonly use in ybutils
     """
 
-    version = '20231208'
+    version = '20240822'
     verbose = 0
 
     util_dir_path = os.path.dirname(os.path.realpath(sys.argv[0]))
@@ -1281,8 +1281,8 @@ class DBConnect:
     def verify(self):
         cmd_results = self.ybsql_query(
             """SELECT
-    CURRENT_DATABASE() AS db
-    , CURRENT_SCHEMA AS schema
+    CURRENT_DATABASE()        AS db
+    , CURRENT_SCHEMA          AS schema
     , (SELECT encoding FROM sys.database WHERE name = CURRENT_DATABASE()) AS server_encoding
     , SPLIT_PART(VERSION(), ' ', 4) AS version
     , SPLIT_PART(version, '-', 1) AS version_number
@@ -1294,6 +1294,7 @@ class DBConnect:
     , rolcreaterole OR is_super_user AS has_create_user
     , rolcreatedb OR is_super_user   AS has_create_db
     , CURRENT_USER                   AS user
+    , EXTRACT(EPOCH FROM NOW())      AS at
 FROM pg_catalog.pg_roles
 WHERE rolname = CURRENT_USER""")
 
@@ -1330,6 +1331,7 @@ WHERE rolname = CURRENT_USER""")
             , 'has_create_user': (True if db_info[10].strip() == 't' else False)
             , 'has_create_db': (True if db_info[11].strip() == 't' else False)
             , 'user': db_info[12].strip()
+            , 'at': db_info[13].strip()
             , 'host': self.env['host']
             , 'database_encoding': db_info[2] }
 
@@ -1452,7 +1454,7 @@ class StoredProc:
 
     @staticmethod
     def proc_file(proc_name):
-        return Common.util_dir_path + ('/sql/%s.sql' % proc_name)
+        return Common.util_dir_path + ('/../sql/%s.sql' % proc_name)
 
     @staticmethod
     def proc_file_exists(proc_name):
@@ -1738,7 +1740,7 @@ DECLARE
         return(self.new_table_name, anonymous_block)
 
 class Report:
-    def __init__(self, args_handler, db_conn, columns, query, order_by='', pre_sql='', strip_warnings=[]):
+    def __init__(self, args_handler, db_conn, columns=[], query='', order_by='', pre_sql='', strip_warnings=[]):
         self.args_handler   = args_handler
         self.db_conn        = db_conn
         self.columns        = columns
@@ -1747,7 +1749,7 @@ class Report:
         self.pre_sql        = pre_sql
         self.strip_warnings = strip_warnings
 
-        if (self.args_handler.args.report_order_by != ''):
+        if hasattr(self.args_handler.args, 'report_order_by') and (self.args_handler.args.report_order_by != ''):
             self.order_by = self.args_handler.args.report_order_by
 
     @staticmethod

@@ -104,9 +104,10 @@ BEGIN
     _sql := REPLACE($$CREATE TEMP TABLE sys_log_query_{ts} AS
         SELECT
             pool_id, query_id
-            , submit_time, done_time
+            , submit_time::TIMESTAMP AS submit_time
+            , done_time::TIMESTAMP   AS done_time
             , client_ms, run_ms
-            , (done_time - ((INTERVAL '1 USECONDS')
+            , (done_time::TIMESTAMP - ((INTERVAL '1 USECONDS')
                * ((NVL(client_ms, 0.0) /* + wait_client_ms*/) * 1000)
                ) ) AS adj_done_time
             , (adj_done_time - ((INTERVAL '1 USECONDS')
@@ -120,6 +121,7 @@ BEGIN
             pool_id IS NOT NULL AND TRIM(pool_id) <> ''
         DISTRIBUTE RANDOM
         SORT ON (submit_time) $$, '{ts}', _ts);
+    --RAISE INFO '_sql 1: %' , _sql; --DEBUG
     EXECUTE _sql;
     --
     EXECUTE 'ALTER TABLE sys_log_query_' || _ts || ' OWNER TO ' || _non_su;
@@ -144,10 +146,12 @@ BEGIN
         ORDER BY 1
         DISTRIBUTE REPLICATE
         SORT ON (cnt)$$, '{ts}', _ts);
+    --RAISE INFO '_total_secs: %' , _total_secs; --DEBUG
+    --RAISE INFO '_sql 2: %' , _sql; --DEBUG
     EXECUTE _sql USING _total_secs;
     --
     _sql := '';
-    IF _days_of_week IS NOT NULL AND _days_of_week != ''THEN
+    IF _days_of_week IS NOT NULL AND _days_of_week != '' THEN
         _sql := _sql || $$ AND EXTRACT('DOW' FROM sec_ts) IN ($$ || _days_of_week || ')';
     END IF;
     IF _hours_of_day IS NOT NULL AND _hours_of_day != '' THEN
@@ -172,10 +176,13 @@ BEGIN
         )
         SELECT sec_ts, sec_epoch, sec_epoch_date, sec_epoch_hr, sec_date, sec_hr, sec_mi
         FROM secs
-        WHERE TRUE{where_clause}
+        WHERE sec_ts < (SELECT MAX(done_time::TIMESTAMP) FROM sys.log_query)
+            {where_clause}
         ORDER BY 1
         DISTRIBUTE ON (sec_epoch_hr)
         SORT ON (sec_ts)$$, '{ts}', _ts), '{where_clause}', _sql);
+    --RAISE INFO '_start_date: %' , _start_date; --DEBUG
+    --RAISE INFO '_sql 3: %' , _sql; --DEBUG
     EXECUTE _sql USING _start_date;
     --
     EXECUTE REPLACE('SELECT COUNT(*) FROM secs_{ts}', '{ts}', _ts) INTO _total_secs;
@@ -200,6 +207,7 @@ BEGIN
         SELECT * FROM q
         DISTRIBUTE ON (epoch_hr)
         SORT ON (adj_submit_time)$$, '{ts}', _ts);
+    --RAISE INFO '_sql 4: %' , _sql; --DEBUG
     EXECUTE _sql;
     --
     _sql := REPLACE($$CREATE TEMP TABLE q_sec_{ts} AS
@@ -212,6 +220,7 @@ BEGIN
                 AND s.sec_epoch BETWEEN q_hr.adj_submit_epoch AND q_hr.adj_done_epoch 
         DISTRIBUTE ON (epoch_hr)
         SORT ON (sec_ts)$$, '{ts}', _ts);
+    --RAISE INFO '_sql 5: %' , _sql; --DEBUG
     EXECUTE _sql;
     --
     _sql := REPLACE($$CREATE TEMP TABLE pool_per_sec_{ts} AS
@@ -223,11 +232,14 @@ BEGIN
     GROUP BY 1, 2
     DISTRIBUTE REPLICATE
     SORT ON (sec_ts) $$, '{ts}', _ts);
+    --RAISE INFO '_sql 6: %' , _sql; --DEBUG
     EXECUTE _sql;
     --
-    EXECUTE REPLACE($$CREATE TEMP TABLE wlm_acts_{ts}
+    _sql :=  REPLACE($$CREATE TEMP TABLE wlm_acts_{ts}
     AS SELECT NULL::VARCHAR AS pool_id, NULL::TIMESTAMP AS act_start, NULL::TIMESTAMP AS act_end, NULL::BIGINT AS slots
     WHERE FALSE DISTRIBUTE REPLICATE$$, '{ts}', _ts);
+    --RAISE INFO '_sql 7: %' , _sql; --DEBUG
+    EXECUTE _sql;
     --
     FOR _rec IN
         SELECT
@@ -241,6 +253,8 @@ BEGIN
     LOOP
         _sql := REPLACE($$INSERT INTO wlm_acts_{ts}
         VALUES ($1, $2, $3, $4)$$, '{ts}', _ts);
+        --RAISE INFO '_rec.pool_id: %, _rec.act_start: %, _rec.act_end: %, _rec.slots: %' , _rec.pool_id::VARCHAR, _rec.act_start, _rec.act_end, _rec.slots; --DEBUG
+        --RAISE INFO '_sql 8: %' , _sql; --DEBUG
         EXECUTE _sql USING _rec.pool_id::VARCHAR, _rec.act_start, _rec.act_end, _rec.slots;
     END LOOP;
     --
@@ -250,6 +264,7 @@ BEGIN
     WHERE ps.pool_id = act.pool_id
         AND ps.sec_ts BETWEEN act.act_start AND act.act_end
         AND ps.slots > act.slots$$, '{ts}', _ts);
+    --RAISE INFO '_sql 9: %' , _sql; --DEBUG
     EXECUTE _sql;
     --
     _sql := REPLACE($$CREATE TEMP TABLE log_query_slot_usage_{ts} AS
@@ -276,6 +291,8 @@ BEGIN
         GROUP BY pool_id
     UNION all
         SELECT * FROM sm$$, '{ts}', _ts);
+    --RAISE INFO '_total_secs: %' , _total_secs; --DEBUG
+    --RAISE INFO '_sql 10: %' , _sql; --DEBUG
     EXECUTE _sql USING _total_secs;
     --
     RESET SESSION AUTHORIZATION;

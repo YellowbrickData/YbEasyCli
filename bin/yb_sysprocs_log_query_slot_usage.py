@@ -14,7 +14,7 @@ Output:
       The report as a formatted table, pipe separated value rows, or inserted into a database table.
 """
 
-from datetime import date, timedelta
+from datetime import datetime, date, timedelta
 from yb_common import ArgDate, ArgIntRange
 from yb_sp_report_util import SPReportUtil
 
@@ -53,9 +53,15 @@ class report_log_query_slot_usage(SPReportUtil):
         if not self.args_handler.args.from_date:
             self.args_handler.args.from_date = date.today() - (timedelta(self.args_handler.args.days - 1))
 
+        today = datetime.today().date()
+
         self.report_header = ('--report from: %s, to: %s' % (
-            self.args_handler.args.from_date.strftime("%Y-%m-%d")
-            , (self.args_handler.args.from_date + timedelta(self.args_handler.args.days - 1)).strftime("%Y-%m-%d") ) )
+            self.args_handler.args.from_date.strftime("%Y-%m-%d"),
+            min((self.args_handler.args.from_date + timedelta(self.args_handler.args.days - 1)), today).strftime("%Y-%m-%d") ) )
+
+        #self.report_header = ('--report from: %s, to: %s' % (
+        #    self.args_handler.args.from_date.strftime("%Y-%m-%d")
+        #    , (self.args_handler.args.from_date + timedelta(self.args_handler.args.days - 1)).strftime("%Y-%m-%d") ) )
 
         if self.args_handler.args.days_of_week:
             self.report_header += ('\n--days of the week: %s' % ', '.join(self.args_handler.args.days_of_week)) 

@@ -14,6 +14,7 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2024.02.13 - fixes to work with Python wrapper. 
 ** . 2022.12.02 - added additional columns. 
 **                      db, schema, and table ilike args
 ** . 2022.06.06 - ybCliUtils inclusion. 
@@ -38,10 +39,11 @@ CREATE TABLE           rel_ddl_t (line varchar(64000))
 /* ****************************************************************************
 ** Create the procedure.
 */
-CREATE PROCEDURE rel_ddl_p(  _db_ilike       VARCHAR DEFAULT '%'
-                           , _schema_ilike   VARCHAR DEFAULT '%'
-                           , _table_ilike    VARCHAR DEFAULT '%'
-                           , _yb_util_filter VARCHAR DEFAULT 'TRUE' 
+CREATE OR REPLACE PROCEDURE rel_ddl_p(
+                             _db_ilike       VARCHAR(1024) DEFAULT '%'
+                           , _schema_ilike   VARCHAR(1024) DEFAULT '%'
+                           , _table_ilike    VARCHAR(1024) DEFAULT '%'
+                           , _yb_util_filter VARCHAR(1024) DEFAULT 'TRUE' 
                           )
    RETURNS SETOF rel_ddl_t 
    LANGUAGE 'plpgsql' 
@@ -52,9 +54,9 @@ AS
 $proc$
 DECLARE
 
-   _ts           TIMESTAMP := now();
-   _delim        CHAR( 1 ) := ' ';
-   _rows         INTEGER   := 0;
+   _row          INTEGER   := 0;
+   _row_data     TEXT;
+   _row_rec      RECORD;
 
    _db_sql       TEXT := '';
    _db_rec       RECORD;
@@ -65,25 +67,22 @@ DECLARE
    _rel_rec      RECORD;
       
    _cols_sql     TEXT      := '';
-   _col_info_sql TEXT      := '';   
-   _col_rec      RECORD;
-   _col_info_rec column_t%rowtype;
-   
 
-   _pred         TEXT := '';
    _sql          TEXT := '';
 
    _fn_name   VARCHAR(256) := 'rel_ddl_p';
-   _prev_tags VARCHAR(256) := current_setting('ybd_query_tags');
-   _tags      VARCHAR(256) := CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name;   
-     
+   _prev_tags VARCHAR(256) := SUBSTR(current_setting('ybd_query_tags'), 1, 256);
+   _tags      VARCHAR(256) := SUBSTR(CASE WHEN _prev_tags = '' THEN '' ELSE _prev_tags || ':' END || 'sysviews:' || _fn_name, 1, 256);
+
    _ret_rec rel_ddl_t%ROWTYPE;   
   
-BEGIN  
+BEGIN 
 
    -- Append sysviews:proc_name to ybd_query_tags
-   EXECUTE 'SET ybd_query_tags  TO ''' || _tags || '''';  
+   EXECUTE 'SET ybd_query_tags  TO ''' || _tags || '''';
    PERFORM sql_inject_check_p('_yb_util_filter', _yb_util_filter);
+
+   CREATE TEMP TABLE rel_ddl_report (line VARCHAR(64000)) ON COMMIT DROP;
 
    /* ****************************************************************************
    ** Iterate over each db and get the relation metadata
@@ -106,13 +105,13 @@ BEGIN
       --RAISE INFO '_db_id=%, _db_name=%',_db_id, _db_name ;
       /* Currently we are querying only for user tables so using sys.table.
       */
-            
+
       _rel_sql := 'WITH 
       relations AS
       (
          SELECT
            database_id                                                   AS db_id
-         , table_id                                                      AS table_id           
+         , table_id                                                      AS table_id  
          , schema_id                                                     AS schema_id     
          , name                                                          AS table_name
          , owner_id                                                      AS owner_id   
@@ -137,8 +136,9 @@ BEGIN
       
       , schemas AS
       (  SELECT 
-            oid::BIGINT           AS oid
-          , nspname::VARCHAR(128) AS nspname
+            oid::BIGINT                         AS oid
+          , nspname::VARCHAR(128)               AS nspname
+          , ' || quote_literal( _db_name ) || ' AS database_name
          FROM ' || quote_ident(_db_name) || '.pg_catalog.pg_namespace
          WHERE nspname ILIKE ' || quote_literal( _schema_ilike ) || '
       )   
@@ -170,10 +170,11 @@ BEGIN
          JOIN owners      o ON r.owner_id  = o.owner_id
       WHERE 
          r.db_id = ' || _db_id  || '
+         AND ' || _yb_util_filter || '
       ';
   
       --RAISE INFO '_rel_sql = %', _rel_sql;
-      
+
       /* ****************************************************************************
        * All user columns in qualifying user relations (tables only at this point) 
        * in the selected db. i.e.
@@ -189,11 +190,13 @@ BEGIN
        *  6616019 |     2 | deterministic   | aes_256_ofb          |         4400 |          2200 | key_abcd
        * (1 row)
        */
-       
+
       FOR _rel_rec IN EXECUTE _rel_sql 
       LOOP
 
-         RETURN QUERY  EXECUTE $$SELECT ('CREATE TABLE $$ || _rel_rec.qtn || CHR(10) || $$(')::VARCHAR(64000) $$;
+         _row := _row + 1;
+         _row_data := '--Table: ' || LPAD(_row::TEXT, 10, '0') || CHR(10) || 'CREATE TABLE ' || _rel_rec.qtn || CHR(10);
+         _row_data := _row_data || '(' || CHR(10);
          
          _cols_sql := 'SELECT
          (   CASE WHEN c.column_id = 1     THEN ''   ''           ELSE '' , '' END  
@@ -201,7 +204,7 @@ BEGIN
           || '' '' || UPPER( c.type )
           || CASE WHEN c.nullable = ''f''  THEN '' NOT NULL''     ELSE ''''    END 
           || CASE WHEN e.cenum IS NOT NULL THEN '' -- Encrypted'' ELSE ''''    END  
-         )::VARCHAR(64000)                                                         AS delim  
+         )::VARCHAR(64000)                                                         AS col_def  
          FROM ' || quote_ident( _db_name ) || '.sys.column                    AS c
          LEFT OUTER JOIN 
             ' || quote_ident( _db_name ) || '.pg_catalog.pg_column_encryption AS e   
@@ -212,27 +215,32 @@ BEGIN
          ';
 
          --RAISE INFO '_cols_sql = %', _cols_sql ;
-         RETURN QUERY  EXECUTE ( _cols_sql );
-         
-         RETURN QUERY  EXECUTE $$SELECT (')')::VARCHAR(64000)$$;
-         
+         FOR _row_rec IN EXECUTE _cols_sql
+         LOOP
+             _row_data := _row_data || _row_rec.col_def || CHR(10);
+         END LOOP;
+     
+         _row_data := _row_data || ')' || CHR(10);
+
          /* ****************************************************************************
          ** Table attributes
          */
          
-         RETURN QUERY  EXECUTE  'SELECT ' || quote_literal( _rel_rec.distribution)     || '::VARCHAR(64000)';
+         _row_data := _row_data || _rel_rec.distribution || CHR(10);
          
-         IF ( _rel_rec.sort_or_clstr_on IS NOT NULL ) THEN 
-            RETURN QUERY  EXECUTE  'SELECT ' || quote_literal( _rel_rec.sort_or_clstr_on) || '::VARCHAR(64000)';   
+         IF ( _rel_rec.sort_or_clstr_on IS NOT NULL AND LENGTH(_rel_rec.sort_or_clstr_on) > 0 ) THEN 
+            _row_data := _row_data || _rel_rec.sort_or_clstr_on || CHR(10);
          END IF;
          
-         IF ( _rel_rec.prnt_on IS NOT NULL ) THEN 
-            RETURN QUERY  EXECUTE  'SELECT ' || quote_literal( _rel_rec.prnt_on) || '::VARCHAR(64000)';   
+         IF ( _rel_rec.prnt_on IS NOT NULL AND LENGTH(_rel_rec.prnt_on) > 0 ) THEN 
+            _row_data := _row_data || _rel_rec.prnt_on || CHR(10);
          END IF;
     
          -- ending semicolon
-         RETURN QUERY  EXECUTE  'SELECT ' || quote_literal( ';')     || '::VARCHAR(64000)';
-         
+         _row_data := _row_data || ';' || CHR(10);
+
+         INSERT INTO rel_ddl_report VALUES (_row_data);
+
 /*       -- *************************************************************************   
          -- Constraints if not minimal mode.
          --
@@ -254,11 +262,13 @@ BEGIN
          -- Set permissions if not minimal mode.   
       
 */ 
-         
+
       END LOOP;
 
    END LOOP;
 
+   _sql := 'SELECT line FROM rel_ddl_report ORDER BY line';
+   RETURN QUERY EXECUTE _sql;
 END; 
 $proc$
 ;

@@ -56,7 +56,7 @@ ORDER BY session_duration DESC
             % Text.color(self.stored_proc, style='bold'))
 
         stored_proc_template_file = ('%s/%s'
-            % (Common.util_dir_path, 'sql/yb_query_to_stored_proc_template_1_p.sql'))
+            % (Common.util_dir_path, '../sql/yb_query_to_stored_proc_template_1_p.sql'))
         stored_proc_template = Common.read_file(stored_proc_template_file)
 
         self.cmd_results = StoredProc('yb_query_to_stored_proc_p', self.db_conn).call_proc_as_anonymous_block(

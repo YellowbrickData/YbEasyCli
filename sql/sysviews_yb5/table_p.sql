@@ -84,7 +84,7 @@ BEGIN
    
    PERFORM sql_inject_check_p('_yb_util_filter', _yb_util_filter);  
 
-   _pred := 'WHERE  '
+   _pred := ''
    || '     db_name     ILIKE ' || quote_literal( _db_ilike ) 
    || ' AND schema_name ILIKE ' || quote_literal( _schema_ilike )
    || ' AND table_name  ILIKE ' || quote_literal( _table_ilike  ) 
@@ -153,7 +153,8 @@ BEGIN
    JOIN sys.database  d ON r.database_id = d.database_id
    JOIN sys.schema    s ON r.database_id = s.database_id AND r.schema_id = s.schema_id
    LEFT JOIN owners   o ON r.owner_id    = o.owner_id
-   ' || _pred || '
+   WHERE ' || _pred || '
+     AND ' || _yb_util_filter || '
    ORDER BY db_name, schema_name, table_name
    ';
    
