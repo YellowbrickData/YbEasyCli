@@ -1,4 +1,8 @@
 #!/bin/sh
+# NOTE:
+# - This script is provided free of charge by Yellowbrick Data Corporation as a convenience to its customers.
+# - This script is provided "AS-IS" with no warranty whatsoever.
+# - The customer accepts all risk in connection with the use of this script, and Yellowbrick Data Corporation shall have no liability whatsoever.
 DCSDB=/mnt/ybdata/ybdb/ybconfig.db
 DCSAPP=io.yellowbrick.dcs.phcerts
 PHPEM=/tmp/phcerts.pem
