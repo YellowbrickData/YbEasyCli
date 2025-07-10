@@ -18,17 +18,21 @@ from getpass  import getpass
 from tempfile import mkdtemp
 from shutil   import rmtree
 
-__version__ = '1.3'
+__toolname__ = 'Yellowbrick replication SSL trust tool'
+__version__ = '1.4'
 
 def run_ybsql(envvars, params = ['-Aqt',], sql = 'select version()'):
 	env = os.environ.copy()
 	env.update(envvars)
-	command = [r'ybsql'] + ['-d', 'yellowbrick'] + params
+	command = [r'ybsql'] + ['-w', '-d', 'yellowbrick'] + params
 	if sql:
 		command += ['-c', sql]
-	return subprocess.check_output(command, env = env)
+	try:
+		return subprocess.check_output(command, env = env)
+	except subprocess.CalledProcessError as e:
+		exit(1)
 
-parser = argparse.ArgumentParser(prog = 'Yellowbrick Replication SSL Trust tool', description = 'Adds, revokes or checks SSL trust between source/target replication members.', formatter_class=argparse.RawTextHelpFormatter)
+parser = argparse.ArgumentParser(prog = __toolname__, description = 'Adds, revokes or checks SSL trust between source/target replication members.', formatter_class=argparse.RawTextHelpFormatter)
 parser.add_argument('--version', action = 'version', version = '%(prog)s {v}'.format(v = __version__))
 parser.add_argument('-s', '--source-host'    , required = True, help = 'Replication source appliance hostname or IP')
 parser.add_argument(      '--source-user'    , required = True)
@@ -50,6 +54,8 @@ actions.add_argument('-c', '--create', action = 'store_true', help = 'Create mut
 actions.add_argument('-r', '--revoke', action = 'store_true', help = 'Revoke mutual SSL trust between replication source and target appliances')
 actions.add_argument('-x', '--export', action = 'store_true', help = 'Export entire SSL truststore into PEM file')
 args = parser.parse_args()
+
+print(f'{__toolname__} {__version__}')
 
 if args.loopback:
 	args.target_host = args.source_host
