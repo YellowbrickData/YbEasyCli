@@ -1,4 +1,5 @@
 #!/bin/sh
+export YBDATABASE=yellowbrick
 if [ "$1" == "pre" ] ; then
 	echo "-- Doing pre-maintenance steps"
 	AUTOVACUUM='ALTER SYSTEM SET autovacuum TO off'
@@ -20,6 +21,6 @@ ybsql -Xqte<<SQL
 ${AUTOVACUUM};
 SELECT pg_reload_conf();
 -- The \c is necessary so the updated conf value shows
-\c 
+\c
 SHOW autovacuum;
 SQL

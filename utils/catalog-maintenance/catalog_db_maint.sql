@@ -28,3 +28,4 @@ VACUUM FULL pg_catalog.pg_description;
 VACUUM FULL pg_catalog.pg_rewrite;
 VACUUM FULL pg_catalog.pg_statistic;
 VACUUM FULL pg_catalog.pg_type;
+VACUUM FULL pg_catalog.pg_namespace;

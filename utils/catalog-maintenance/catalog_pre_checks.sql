@@ -10,6 +10,8 @@
 -- 2024-10-04 - Send backup chain summary to console, full output to file.
 -- 2024-09-03
 
+\c yellowbrick
+
 \pset pager off
 \echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
