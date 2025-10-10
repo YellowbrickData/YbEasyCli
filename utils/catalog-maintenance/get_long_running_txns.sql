@@ -12,10 +12,10 @@ SELECT
 	, application_name
 	, client_addr
 	, state
-	, date_trunc('seconds', state_change) AS state_change
-	, date_trunc('seconds', last_statement) AS last_statement
 	, date_trunc('seconds', backend_start) AS backend_start
-	, now() - backend_start AS backend_age
+	, date_trunc('seconds', now() - backend_start)  AS backend_age
+	, date_trunc('seconds', now() - xact_start)     AS txn_age
+	, date_trunc('seconds', now() - state_change)   AS state_changed
+	, date_trunc('seconds', now() - last_statement) AS last_stmt_age
 FROM pg_stat_activity
-WHERE state != 'idle'
-	AND state_change < now() - interval '1 MINUTE'
+WHERE xact_start < now() - interval '1 MINUTE';

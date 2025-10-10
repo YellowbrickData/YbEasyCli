@@ -1,4 +1,6 @@
 #!/bin/bash
+export YBDATABASE=yellowbrick
+
 MAJOR_VER=$(ybsql -XAqt -c "select substring(version() from 'version (\d+)\.') as major_ver")
 [ $? -ne 0 ] && { echo "ERROR: couldn't get version information, exiting" ; exit 1 ; }
 

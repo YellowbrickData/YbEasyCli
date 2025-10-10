@@ -6,9 +6,9 @@
 # If not running from the manager node, the YBHOST, YBUSER, and YBPASSWORD
 # environment variables must be set.
 #
-
+export YBDATABASE=yellowbrick
 # Generate four catalog maintenance scripts for all user databases
-ybsql -Xq -d yellowbrick -f gen_catalog_dbs_maint.sql
+ybsql -Xq -f gen_catalog_dbs_maint.sql
 if [ "$1" = "+global" ] ; then
 	echo '-- Will also start global catalog maintenance as Job 0'
 	cp catalog_yb_maint.sql catalog_dbs_maint_0.out.sql
@@ -21,7 +21,7 @@ fi
 echo "-- $(date '+%Y-%m-%d %T') -------------------------------------------------------------------"
 for i in $(seq ${START_JOB} 4) ; do
 	echo -n "-- Starting job ${i}: catalog_dbs_maint_${i}.out.sql ... "
-	ybsql -Xqt -d yellowbrick -f catalog_dbs_maint_${i}.out.sql -o catalog_dbs_maint_${i}.out.log &
+	ybsql -Xqt -f catalog_dbs_maint_${i}.out.sql -o catalog_dbs_maint_${i}.out.log &
 	PIDS[${i}]=$!
 	echo "PID = $!"
 done
@@ -36,7 +36,7 @@ while true ; do
 	echo "waking up @ $(date '+%Y-%m-%d %T'), active job(s) = ${#PIDS[@]} (${!PIDS[@]})"
 	for JOB in ${!FINISHED[@]} ; do echo -e "-- Job $JOB (PID=${FINISHED[$JOB]}) has \e[96mfinished\e[0m" ; done
 	[ ${#PIDS[@]} -eq 0 ] && break
-	ybsql -Xq -d yellowbrick<<SQL | sed -e 's/[\x5B]/[91m/' -e 's/[\x5C]/[92m/' -e 's/[\x5A]/[0m/'
+	ybsql -Xq <<SQL | sed -e 's/[\x5B]/[91m/' -e 's/[\x5C]/[92m/' -e 's/[\x5A]/[0m/'
 SELECT split_part(application_name,'-',3) AS job, date_trunc('seconds', now() - last_statement) AS age
 	, pid AS pg_pid, session_id, query_id, datname, "query", backend_xid
 	, CASE WHEN waiting THEN 'YES' ELSE NULL END::VARCHAR(3) AS wait, state
