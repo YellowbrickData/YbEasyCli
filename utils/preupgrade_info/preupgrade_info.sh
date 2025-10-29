@@ -1,17 +1,21 @@
 # pre_uprade_info.sh
 #
-# Collect appliance information needed for before YB upgrade.
+# Collect appliance state information needed for before YB upgrade.
 #
 # Inputs:
 #   none
 #
 # Outputs:
 # . Console output is tee'd to ouput file
+# . Many checks create output files in the background.
+# . All output files are gziped into tarball at end.
 #
 # Prerequisites:
 #   Run from the manager node as ybdadmin user.
 #
 # History:
+# . 2025.10.28 19:30 (rek) - Add catalog extended ascii check check.
+#                            Add txn_wraparound_check.
 # . 2025.04.07 19:30 (rek) - Addition of print_property_append and dump status.
 #                            Added backup chain detail extract.
 # . 2025.03.28 10:40 (rek) - Additional refactoring.
@@ -37,11 +41,11 @@
 # READONLY VARIABLES
 ###############################################################################
 
-readonly script_version='2025.04.07'
+readonly script_version='2025.10.28'
 readonly script_file_name="$(echo $(basename $0))"
 readonly script_name="$(echo $(basename $0) | cut -f1 -d'.' )"
 readonly pg_hba_path="/mnt/ybdata/ybd/postgresql/build/db/data/pg_hba.conf"
-readonly prop_name_width=26
+readonly prop_name_width=28
 readonly min_horizon_age=30
 readonly ybsql_cmd="ybsql -d yellowbrick -P footer=off "
 readonly ybsql_qat="${ybsql_cmd} -qAt "
@@ -147,7 +151,7 @@ function print_property_append()
   local _limit="$2"
   local _pad_char='.'
 
-  printf "${_val}"'; '
+  printf " ${_val}"';'
 }
 
 function info_message()
@@ -304,6 +308,7 @@ function get_manager_ips()
 
 
 function get_yb_version()
+#------------------------------------------------------------------------------
 { 
   local _sql='SELECT version()'
   local _ver="$( ${ybsql_qat} -c "${_sql}" | awk '{print $NF}')"
@@ -312,6 +317,7 @@ function get_yb_version()
 
 
 function get_kernel_version()
+#------------------------------------------------------------------------------
 {
   local _kernel_version="$( uname -a | awk '{print $3}' )"
   print_property 'kernel_version' "${_kernel_version}"
@@ -319,6 +325,7 @@ function get_kernel_version()
 
 
 function get_char_mode()
+#------------------------------------------------------------------------------
 { # Not in pg_settings unless has been overridden
   local _sql='SHOW pg_char_compatibility_mode'
   local _mode="$( ${ybsql_qat} -c "${_sql}" | awk '{print $NF}')"
@@ -327,6 +334,7 @@ function get_char_mode()
 
 
 function get_replicated_dbs()
+#------------------------------------------------------------------------------
 {
   local num_rplctd_dbs="$(  ${ybsql_qat} -c 'SELECT COUNT(*) FROM sys.replica')"
   local num_rplc_paused="$( ${ybsql_qat} -c 'SELECT COUNT(*) FROM sys.replica WHERE status=$$PAUSED$$')"
@@ -336,6 +344,7 @@ function get_replicated_dbs()
 
 
 function get_ldap_status()
+#------------------------------------------------------------------------------
 {
   local _sql="SELECT COUNT(*) FROM sys.config WHERE key = 'factory.pidList' AND value like '%ldap%'"
   local _ldap_enabled=$( ${ybsql_qat} -c "${_sql}" )
@@ -344,6 +353,7 @@ function get_ldap_status()
 
 
 function get_kerberos_status()
+#------------------------------------------------------------------------------
 {
   local _kerberos_enabled="$(sudo grep -P -i -c '^hostssl.*\s*gss\s*' ${pg_hba_path})"
   print_property 'kerberos_enabled' "${_kerberos_enabled}"
@@ -351,6 +361,7 @@ function get_kerberos_status()
 
 
 function get_protegrity_status()
+#------------------------------------------------------------------------------
 { # If protegrity is enabled it shows up in in the addons line:
   #Add-ons : Protegrity: Installed: YES - Version: 9.1.0.0.43 - Enabled: YES - Manager Running: OK - Blade Running: OK
   local _protegrity_addon="$( grep 'Protegrity' ybcli_status_system.out )"
@@ -361,6 +372,7 @@ function get_protegrity_status()
 
 
 function get_encryption_status()
+#------------------------------------------------------------------------------
 {
   local _encryption_status="$( grep -c 'Encryption.*Ready' ybcli_status_system.out )"
   print_property 'encryption_status' "${_encryption_status}"
@@ -368,6 +380,7 @@ function get_encryption_status()
 
 
 function get_heartbeat_status()
+#------------------------------------------------------------------------------
 { # default heartbeat is 15 secs
   local _heartbeat_secs="$(grep -i 'workerMIATime' /mnt/ybdata/ybd/lime/build/conf/lime.properties \
                          | cut -d '=' -f 2 )"
@@ -452,6 +465,7 @@ function get_database_smry()
 
   
 function get_bmc_ips()
+#------------------------------------------------------------------------------
 {
   local _bmc_local_ip=""
   local _bmc_remote_ip=""
@@ -464,18 +478,22 @@ function get_bmc_ips()
 
 
 function get_catalog_size()
+#------------------------------------------------------------------------------
 {
   local _catalog_size="$( grep 'Catalog' ybcli_status_storage.out | cut -d ':' -f 2 )"
   print_property 'catalog_size' "${_catalog_size}"  
 }
 
+
 function get_backup_chain_smry()
+#------------------------------------------------------------------------------
 { 
   while IFS= read -r line
   do
     [[ -n "${line}" ]] && print_property 'backup_chains_age_gt_30' "${line}"
   done < aged_backup_chains_smry.sql.out
 }
+
 
 function get_pg_custom_settings()
 #------------------------------------------------------------------------------
@@ -496,6 +514,7 @@ function get_pg_custom_settings()
     print_property 'pg_custom_sys_setting' "${line}"
   done < pg_custom_sys_settings.out
 
+  print_property 'pg_custom_user_settings' '(running)'
   dump_ybsql "pg_custom_user_settings.sql"
   while IFS= read -r line
   do
@@ -504,6 +523,47 @@ function get_pg_custom_settings()
   
 }
 
+
+function check_extended_ascii()
+#------------------------------------------------------------------------------
+{
+  local _utf8_extd_ascii_db_fails=-1
+  local _shared_extd_ascii_db_fails=-1
+  
+  ./check_extended_ascii.sh > check_utf8_extended_ascii.out
+  _utf8_extd_ascii_db_fails=$?
+  print_property 'utf8_extd_ascii_db_fails' "${_utf8_extd_ascii_db_fails}"  
+  
+  ./check_extended_ascii.sh "shared" > check_shared_extended_ascii.out
+  _shared_extd_ascii_db_fails=$?
+  print_property 'shared_extd_ascii_db_fails' "${_shared_extd_ascii_db_fails}"  
+}
+
+
+
+function get_txn_wraparound_state()
+#------------------------------------------------------------------------------
+{
+  local _healthy_dbs=-1
+  local _unhealthy_dbs=-1
+  local _outfile=db_txn_id_wraparound_check.out
+
+  print_property 'txn_wraparound_check' '(running)'
+  dbs=$(ybsql -qAt -d yellowbrick -c "SELECT name FROM sys.database WHERE name != 'yellowbrick' ORDER BY name")
+
+  echo "" > ${_outfile}
+  for db in ${dbs}
+  do 
+    print_property_append '.'
+    ybsql -d "${db}" -f db_txn_id_wraparound_check.sql >> ${_outfile}
+  done
+
+  _healthy_dbs=$(grep 'IS healthy' ${_outfile} | wc -l )
+  print_property 'txn_wraparound_healthy_dbs'   "${_healthy_dbs}"  
+  
+  _unhealthy_dbs=$(grep 'NOT healthy' ${_outfile} | wc -l )
+  print_property 'txn_wraparound_unhealthy_dbs' "${_unhealthy_dbs}"  
+}
 
 ###############################################################################
 # MAIN
@@ -516,7 +576,7 @@ function main()
   [[ $? -ne 0 ]] && die '"pg_hba.conf" not found. Must be run from the manager node as "ybdadmin".' 1
 
 
-  print_property "${script_file_name}" "${script_version}"
+  print_property "${script_file_name} version" "${script_version}"
   
 
   # Dump ybcli and SQL output used by later functions
@@ -542,7 +602,7 @@ function main()
   
   # Manager node status and health
   print_section 'manager node status' 
-  # get_manger_uptimes
+  #get_manger_uptimes
   get_manager_drive_wear
   
   # Database status
@@ -555,17 +615,28 @@ function main()
   #get_orphan_backup_deps
   #get_data_skew
   
+  #  Database custom settings
   print_section 'database custom settings'
   get_pg_custom_settings
+  
+  # Database status
+  print_section 'database metrics'
+  get_catalog_size
+  
+  # Catalog health checks
+  print_section 'catalog health checks'
+  check_extended_ascii
+  get_txn_wraparound_state
   
   # Done
   print_section 'DONE' 
   mkdir -p ${outdir} > /dev/null
   [[ $? -ne 0 ]] && die "Failed to create out directory ${outdir}. Exiting." 1
   mv *.out ${outdir}/
+  mv *.out.*gz ${outdir}/  
   tar -czf ${outdir}.tgz ${outdir}
   print_property 'generated_zip_file' "${outdir}.tgz"
-
+  echo ""
 }
 
 
