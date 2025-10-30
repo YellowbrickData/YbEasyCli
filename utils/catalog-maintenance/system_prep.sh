@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 export YBDATABASE=yellowbrick
 if [ "$1" == "pre" ] ; then
 	echo "-- Doing pre-maintenance steps"
