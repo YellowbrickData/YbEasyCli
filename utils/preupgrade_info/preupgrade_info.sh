@@ -14,6 +14,9 @@
 #   Run from the manager node as ybdadmin user.
 #
 # History:
+# . 2025.12.09 11:45 (rek) - Added orphan_snapshot_smry check.
+#                            Minor output organization refactoring.
+#                            Minor change to output for runnins sql files.
 # . 2025.10.28 19:30 (rek) - Add catalog extended ascii check check.
 #                            Add txn_wraparound_check.
 # . 2025.04.07 19:30 (rek) - Addition of print_property_append and dump status.
@@ -25,23 +28,23 @@
 #
 # TODO:
 # . ybcli and ybsql file dump indicator
-# . Explicity collect backup chain detail
-# . Make aged backup chain ui more user friendly
+# . Add compression ratio and disk storage to database metrics
+# . Make backup chain and orphan snapshot smry have 0 row for no data.
 # . Make non-verbose mode that only shows summary of changed props
 # . Add functions for:
 #   . get_manger_uptimes
 #   . get_max_worker_space_used
 #   . get_temp_space
-#   . get_orphan_snapshot_deps
 #   . get_data_skew
 #   . help|usage
+# . Cleanup output dir "move" logic
 
 
 ###############################################################################
 # READONLY VARIABLES
 ###############################################################################
 
-readonly script_version='2025.10.28'
+readonly script_version='2025.12.09.1245'
 readonly script_file_name="$(echo $(basename $0))"
 readonly script_name="$(echo $(basename $0) | cut -f1 -d'.' )"
 readonly pg_hba_path="/mnt/ybdata/ybd/postgresql/build/db/data/pg_hba.conf"
@@ -139,19 +142,21 @@ function print_property_append()
 #------------------------------------------------------------------------------
 # Append text to the current formatted property name line.
 # Args: 
-#   $1 _prop - The string to append to the property line.
+#   $1 _val   - The string to append to the property line.
+#   $2 _delim - delimiter (terminator) after string.
+#               Use "!" for no delimiter
 # Uses:
-#   prop_name_width - global readonly variable for width of prop/section name field.
+#   none.
 # Outputs:
 #   Formatted property name its value to std out.
-#   TODO: Warnng message if threshold is exceeded
 #------------------------------------------------------------------------------
 {
   local _val="$1"
-  local _limit="$2"
-  local _pad_char='.'
+  local _delim="${2:-; }"
 
-  printf " ${_val}"';'
+  printf "${_val}"
+  [[ ${_delim} != "!" ]] && printf "${_delim}"
+
 }
 
 function info_message()
@@ -209,7 +214,7 @@ function dump_ybcli_all()
 #------------------------------------------------------------------------------
 { 
   info_message "Dumping ybcli output to file. This will take multiple minutes"
-  print_property 'ybcli_dumps' '(running)'
+  print_property 'ybcli_dumps' '(running) '
   dump_ybcli_cmd 'config network bmc local get'
   dump_ybcli_cmd 'config network bmc remote get'
   dump_ybcli_cmd 'health network'
@@ -236,10 +241,11 @@ function dump_ybsql()
   local _outfile="${_fname}.out"
 
   info_message "Writing '${ybsql_cmd} ${_opts} -f ${_fname}' to '${_outfile}'"
+  print_property_append "${_fname}" "!"
   ${ybsql_cmd} ${_opts} -f ${_fname}  > ${_outfile}
-  print_property_append "${_fname}"
-
+  print_property_append ".out"
 }
+
 
 function dump_ybsql_all()
 #------------------------------------------------------------------------------
@@ -254,14 +260,15 @@ function dump_ybsql_all()
 #------------------------------------------------------------------------------
 { 
   info_message "Dumping db metric qery output to file."
-  print_property 'ybsql_dumps' '(running)'
+  print_property 'ybsql_dumps' '(running) '
+  
   dump_ybsql 'sys_database_smry.sql' '-x -t'
   
-  # We do want headers and dividers for this query
   dump_ybsql aged_backup_chains_smry.sql '-v min_horizon_age=30'
+  dump_ybsql aged_backup_chains.sql      '-v min_horizon_age=30'
   
-  # We do want headers and dividers for this query
-  dump_ybsql aged_backup_chains.sql '-v min_horizon_age=30'
+  dump_ybsql orphan_snapshot_smry.sql
+  dump_ybsql orphan_snapshots.sql 
 }
 
 
@@ -495,6 +502,17 @@ function get_backup_chain_smry()
 }
 
 
+function get_orphan_snapshot_smry()
+#------------------------------------------------------------------------------
+{ 
+  while IFS= read -r line
+  do
+    [[ -n "${line}" ]] && print_property 'orphan_snapshot_smry' "${line}"
+  done < orphan_snapshot_smry.sql.out
+}
+
+  
+
 function get_pg_custom_settings()
 #------------------------------------------------------------------------------
 # Print out system settings from postgresql.auto.conf file and pg_settings view.
@@ -514,7 +532,7 @@ function get_pg_custom_settings()
     print_property 'pg_custom_sys_setting' "${line}"
   done < pg_custom_sys_settings.out
 
-  print_property 'pg_custom_user_settings' '(running)'
+  print_property 'pg_custom_user_settings' '(running) '
   dump_ybsql "pg_custom_user_settings.sql"
   while IFS= read -r line
   do
@@ -548,7 +566,7 @@ function get_txn_wraparound_state()
   local _unhealthy_dbs=-1
   local _outfile=db_txn_id_wraparound_check.out
 
-  print_property 'txn_wraparound_check' '(running)'
+  print_property 'txn_wraparound_check' '(running) '
   dbs=$(ybsql -qAt -d yellowbrick -c "SELECT name FROM sys.database WHERE name != 'yellowbrick' ORDER BY name")
 
   echo "" > ${_outfile}
@@ -564,6 +582,7 @@ function get_txn_wraparound_state()
   _unhealthy_dbs=$(grep 'NOT healthy' ${_outfile} | wc -l )
   print_property 'txn_wraparound_unhealthy_dbs' "${_unhealthy_dbs}"  
 }
+
 
 ###############################################################################
 # MAIN
@@ -605,35 +624,35 @@ function main()
   #get_manger_uptimes
   get_manager_drive_wear
   
-  # Database status
+  # Database metrics
   print_section 'database metrics'
   get_catalog_size
   get_database_smry
+  #get_worker_space_used
+  #get_data_skew
+    
+  # Backup Chain, Snapshot, and Replication status
+  print_section 'bar status'
   get_replicated_dbs
   get_backup_chain_smry
-  #get_worker_space_used
-  #get_orphan_backup_deps
-  #get_data_skew
-  
-  #  Database custom settings
-  print_section 'database custom settings'
-  get_pg_custom_settings
-  
-  # Database status
-  print_section 'database metrics'
-  get_catalog_size
+  get_orphan_snapshot_smry
   
   # Catalog health checks
   print_section 'catalog health checks'
   check_extended_ascii
   get_txn_wraparound_state
   
+  #  Database custom settings
+  print_section 'database custom settings'
+  get_pg_custom_settings
+
+  
   # Done
   print_section 'DONE' 
   mkdir -p ${outdir} > /dev/null
   [[ $? -ne 0 ]] && die "Failed to create out directory ${outdir}. Exiting." 1
   mv *.out ${outdir}/
-  mv *.out.*gz ${outdir}/  
+  mv *.out.*gz ${outdir}/  2>/dev/null
   tar -czf ${outdir}.tgz ${outdir}
   print_property 'generated_zip_file' "${outdir}.tgz"
   echo ""
