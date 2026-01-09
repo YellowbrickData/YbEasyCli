@@ -91,7 +91,7 @@ done
 EXT_ASCII_DBS_FOUND=$(find . -type f -name extascii-\*.txt | wc -l)
 if [ $EXT_ASCII_DBS_FOUND -gt 0 ] ; then
   echo -e "\033[91mWARN\033[0m: extended ascii found in some system tables"
-  tar acvf ext_ascii_out.tar.gz extascii-*.txt
+  tar acvf ext_ascii.out.tar.gz extascii-*.txt
   rm extascii-*.txt
 else
   echo -e "\033[92mGOOD\033[0m: no extended ascii found in the system tables"
