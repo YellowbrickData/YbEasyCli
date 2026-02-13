@@ -48,12 +48,10 @@ do
 
   # db_clean_name replaces non-word chars with an "_" to prevent problem bash file names
   dbs_sql="SELECT name, REGEXP_REPLACE(name, '[^a-zA-Z0-9_]', '_', 'g') AS db_clean_name FROM sys.database order by 1"
-  ybsql -XAqt -c "${dbs_sql}"  while IFS='|' read db db_clean_name
+  ybsql -d yellowbrick -XAqt -c "${dbs_sql}" | while IFS='|' read db db_clean_name
   do
-    # This handles
-            
     # db_char_tbl_cols_smry is a special case becuase it is only summary data 
-    # All the output should be a single file genereated by the script.
+    # All the output is a single file genereated by the script.
     if [ "${db_check_type}" == "db_char_tbl_cols_smry" ]
     then
       outfile="${outdir}/${db_check_type}.out"
@@ -75,7 +73,7 @@ do
                "${db_name}" "${char_tables}" "${char_cols}" \
                > ${outfile}
              
-      done < <(ybsql -d "${db}" -qAtXf "${db_check_type}.sql")
+      done < <(ybsql -d "${db}" -qAtX -f "${db_check_type}.sql")
       
       echo "num_dbs=${num_dbs}, num_dbs_w_chars=${num_dbs_w_chars} "\
          ", num_char_tables=${num_char_tables}, num_char_cols=${num_char_cols}" \
@@ -104,7 +102,6 @@ do
     fi
   
   done 
-  
   echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 done
 

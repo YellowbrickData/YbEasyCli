@@ -17,6 +17,8 @@
 #   Run from the manager node as ybdadmin user.
 #
 # Revision History:
+# . 2026.02.13 11:00 (rek) - Add get_net_interface_smry
+# . 2026.02.11 12:15 (rek) - Separate yb_version and yb_server_version.
 # . 2026.02.05 12:15 (rek) - Use "server_version" for yb version.
 #                            Fixed manager uptime.
 #                            Fixed remote manager NVME wear.
@@ -58,7 +60,7 @@
 # READONLY VARIABLES
 ###############################################################################
 
-readonly script_version='2026.02.05.1215'
+readonly script_version='2026.02.13.1100'
 readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly script_file_name="$(echo $(basename $0))"
 readonly script_name="$(echo $(basename $0) | cut -f1 -d'.' )"
@@ -66,7 +68,7 @@ readonly pg_hba_path="/mnt/ybdata/ybd/postgresql/build/db/data/pg_hba.conf"
 readonly prop_name_width=28
 readonly min_horizon_age=30
 readonly ybsql_cmd="ybsql -d yellowbrick -P footer=off "
-readonly ybsql_qat="${ybsql_cmd} -qAt "
+readonly ybsql_qat="${ybsql_cmd} -qAtX "
 readonly outdir="./output/${script_name}_"$( date +"%Y%m%d_%H%M" )
 readonly outfile="${outdir}/${script_name}.out"
 readonly log_level=0
@@ -372,6 +374,10 @@ function get_yb_version()
 { 
   local _sql='show yb_server_version'
   local _ver="$( ${ybsql_qat} -c "${_sql}" )"
+  print_property 'yb_server_version' "${_ver}"
+  
+ _sql='SELECT version()'
+  _ver="$( ${ybsql_qat} -c "${_sql}" )"
   print_property 'yb_version' "${_ver}"
 }
 
@@ -514,7 +520,7 @@ function get_manager_drive_wear()
 }
 
 
-function get_worker_ssd_smry()
+function get_net_interface_smry()
 #------------------------------------------------------------------------------
 # Print drive storage key metrics; min size, max usage, spill, etc..
 # Args: 
@@ -526,10 +532,16 @@ function get_worker_ssd_smry()
 #     , etc..
 #------------------------------------------------------------------------------
 {
+  ifconfig 2>/dev/null \
+  | grep -P '^\w+[:] |RX errors|TX errors'  \
+  | cut -d ':' -f 1 \
+  | paste - - - \
+  >  net_interface_smry.out
+  
   while IFS= read -r line
   do
-    [[ -n "${line}" ]] && print_property 'worker_ssd_smry' "${line}"
-  done < worker_ssd_smry.sql.out
+    [[ -n "${line}" ]] && print_property 'net_interface_smry' "${line}"
+  done < net_interface_smry.out
 }
 
 
@@ -565,6 +577,25 @@ function get_database_smry()
     _val=$(trim_string ${_val})
     print_property "${_prop}"    "${_val}"
   done < sys_database_smry.sql.out
+}
+
+
+function get_worker_ssd_smry()
+#------------------------------------------------------------------------------
+# Print drive storage key metrics; min size, max usage, spill, etc..
+# Args: 
+#   none
+# Inputs:
+#   ybsql_sys_database_smry.out file must already have been created.
+# Outputs:
+#   There are 15 metrics including data size and storage, db, and table counts
+#     , etc..
+#------------------------------------------------------------------------------
+{
+  while IFS= read -r line
+  do
+    [[ -n "${line}" ]] && print_property 'worker_ssd_smry' "${line}"
+  done < worker_ssd_smry.sql.out
 }
 
 
@@ -784,6 +815,7 @@ function main()
   print_section 'manager node status' 
   get_manger_uptime
   get_manager_drive_wear
+  get_net_interface_smry
   
   # Database metrics
   print_section 'database metrics'
@@ -817,6 +849,7 @@ function main()
   get_worker_ssd_state_smry
   
   # Done
+  rm -f delete.me
   print_section 'DONE' 
   print_property 'zipping_directory'   "${outdir}"  
   mv *.out ${outdir}/
