@@ -1,6 +1,9 @@
 # pre_uprade_info.sh
 #
-# Collect appliance state information needed for before YB upgrade.
+# Collect appliance state|health information needed for before YB upgrade.
+#
+# This utility is essentially an abbreviated health check with additional 
+# appliance info so useful outside of the context of just upgrades.
 #
 # Inputs:
 #   none
@@ -13,12 +16,25 @@
 # Prerequisites:
 #   Run from the manager node as ybdadmin user.
 #
-# History:
+# Revision History:
+# . 2026.02.13 11:00 (rek) - Add get_net_interface_smry
+# . 2026.02.11 12:15 (rek) - Separate yb_version and yb_server_version.
+# . 2026.02.05 12:15 (rek) - Use "server_version" for yb version.
+#                            Fixed manager uptime.
+#                            Fixed remote manager NVME wear.
+# . 2026.02.03 21:10 (rek) - Added yrs_file_type_smry
+#                            Added worker section with worker_ssd_state_smry
+#                            Minor refactoring to move functions and addl comments. (IN PROCESS)
+#                            Added CHAR column checks (IN PROCESS).
+#                            Can now use SQL files from other dirs
+# . 2026.01.20 10:30 (rek) - Output now goes to separate output directory.
+# . 2026.01.18 11:05 (rek) - Added manager uptime check.
+#                            Updated check_extended_ascii.sh utf8 regex.
 # . 2025.12.09 11:45 (rek) - Added orphan_snapshot_smry check.
 #                            Minor output organization refactoring.
 #                            Minor change to output for runnins sql files.
-# . 2025.10.28 19:30 (rek) - Add catalog extended ascii check check.
-#                            Add txn_wraparound_check.
+# . 2025.10.28 19:30 (rek) - Added catalog extended ascii check check.
+#                            Added txn_wraparound_check.
 # . 2025.04.07 19:30 (rek) - Addition of print_property_append and dump status.
 #                            Added backup chain detail extract.
 # . 2025.03.28 10:40 (rek) - Additional refactoring.
@@ -27,39 +43,44 @@
 # . 2025.03.12 11:40 (rek) - Initial script_version
 #
 # TODO:
-# . ybcli and ybsql file dump indicator
-# . Add compression ratio and disk storage to database metrics
+# . Explicitly flag when diff sized worker storage.
+# . Add database uptime
+# . Add worker mem & chassis info.
+# . Add compression ratio and disk storage to database metrics.
 # . Make backup chain and orphan snapshot smry have 0 row for no data.
-# . Make non-verbose mode that only shows summary of changed props
-# . Add functions for:
-#   . get_manger_uptimes
-#   . get_max_worker_space_used
-#   . get_temp_space
-#   . get_data_skew
-#   . help|usage
+# . Make non-verbose mode that only shows summary of changed props.
+# . Add get_data_skew
+# . Add help|usage
+# . `cd` to `output` directory before `gzip`
 # . Cleanup output dir "move" logic
+# . Refactor to write directly output directory instead of move at end.
 
 
 ###############################################################################
 # READONLY VARIABLES
 ###############################################################################
 
-readonly script_version='2025.12.09.1245'
+readonly script_version='2026.02.13.1100'
+readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly script_file_name="$(echo $(basename $0))"
 readonly script_name="$(echo $(basename $0) | cut -f1 -d'.' )"
 readonly pg_hba_path="/mnt/ybdata/ybd/postgresql/build/db/data/pg_hba.conf"
 readonly prop_name_width=28
 readonly min_horizon_age=30
 readonly ybsql_cmd="ybsql -d yellowbrick -P footer=off "
-readonly ybsql_qat="${ybsql_cmd} -qAt "
-readonly outdir="${script_name}_"$( date +"%Y%m%d_%H%M" )
-readonly outfile="${script_name}.out"
+readonly ybsql_qat="${ybsql_cmd} -qAtX "
+readonly outdir="./output/${script_name}_"$( date +"%Y%m%d_%H%M" )
+readonly outfile="${outdir}/${script_name}.out"
 readonly log_level=0
 
 
 ###############################################################################
 # FUNCTIONS
 ###############################################################################
+
+#-------------------------------------------------------------------------------
+# COMMON
+#-------------------------------------------------------------------------------
 
 function die() 
 #------------------------------------------------------------------------------
@@ -175,6 +196,10 @@ function info_message()
 }
 
 
+#-------------------------------------------------------------------------------
+# YBCLI_INFO
+#-------------------------------------------------------------------------------
+
 function dump_ybcli_cmd()
 #------------------------------------------------------------------------------
 # Runs ybcli command and dumps output to file.
@@ -221,14 +246,18 @@ function dump_ybcli_all()
   dump_ybcli_cmd 'health storage'
   dump_ybcli_cmd 'status storage'
   dump_ybcli_cmd 'status system'
+  dump_ybcli_cmd 'manager status all'
 }
 
+#-------------------------------------------------------------------------------
+# YBSQL_QUERIES
+#-------------------------------------------------------------------------------
 
 function dump_ybsql()
 #------------------------------------------------------------------------------
 # Runs a SQL file using ybcli and dumps the output to file.
 # Args: 
-#   $1 _fname - The SQL file name
+#   $1 _fname - The SQL file name (may include path)
 #   $2 _opts  - Additional ybsql options. i.e. -x, -v var=val, etc... 
 #               Do not use double-quotes within args.
 # Outputs:
@@ -236,13 +265,14 @@ function dump_ybsql()
 #   Info message printed to stderr.
 #------------------------------------------------------------------------------
 {
-  local _fname="$1"
+  local _sql_file="$1"
   local _opts="$2"
+  local _fname="$(echo $(basename ${1}))"
   local _outfile="${_fname}.out"
 
-  info_message "Writing '${ybsql_cmd} ${_opts} -f ${_fname}' to '${_outfile}'"
+  info_message "Writing '${ybsql_cmd} ${_opts} -f ${_sql_file}' to '${_outfile}'"
   print_property_append "${_fname}" "!"
-  ${ybsql_cmd} ${_opts} -f ${_fname}  > ${_outfile}
+  ${ybsql_cmd} ${_opts} -f ${_sql_file}  > ${_outfile}
   print_property_append ".out"
 }
 
@@ -262,15 +292,27 @@ function dump_ybsql_all()
   info_message "Dumping db metric qery output to file."
   print_property 'ybsql_dumps' '(running) '
   
-  dump_ybsql 'sys_database_smry.sql' '-x -t'
+  dump_ybsql sys_database_smry.sql       '-x -t'
   
   dump_ybsql aged_backup_chains_smry.sql '-v min_horizon_age=30'
   dump_ybsql aged_backup_chains.sql      '-v min_horizon_age=30'
   
   dump_ybsql orphan_snapshot_smry.sql
   dump_ybsql orphan_snapshots.sql 
+  
+  dump_ybsql pg_custom_user_settings.sql
+  
+  dump_ybsql worker_ssd_smry.sql
+  dump_ybsql worker_ssd_state_smry.sql
+  
+  dump_ybsql ../yrs/yrs_file_type_smry.sql
+  
 }
 
+
+#-------------------------------------------------------------------------------
+# MANAGER_NODE_CONFIG
+#-------------------------------------------------------------------------------
 
 function get_manager_ips()
 #------------------------------------------------------------------------------
@@ -313,12 +355,29 @@ function get_manager_ips()
   print_property 'remote_mgr_ip' "${_remote_ip}"
 }
 
+  
+function get_bmc_ips()
+#------------------------------------------------------------------------------
+{
+  local _bmc_local_ip=""
+  local _bmc_remote_ip=""
+  
+  _bmc_local_ip="$(  grep 'IP address' ybcli_config_network_bmc_local_get.out  | tr -d ' ' | cut -d ':' -f  2 )"
+  print_property 'bmc_local_ip' "${_bmc_local_ip}"
+  _bmc_remote_ip="$( grep 'IP address' ybcli_config_network_bmc_remote_get.out | tr -d ' ' | cut -d ':' -f  2 )"
+  print_property 'bmc_remote_ip' "${_bmc_remote_ip}"
+}
+
 
 function get_yb_version()
 #------------------------------------------------------------------------------
 { 
-  local _sql='SELECT version()'
-  local _ver="$( ${ybsql_qat} -c "${_sql}" | awk '{print $NF}')"
+  local _sql='show yb_server_version'
+  local _ver="$( ${ybsql_qat} -c "${_sql}" )"
+  print_property 'yb_server_version' "${_ver}"
+  
+ _sql='SELECT version()'
+  _ver="$( ${ybsql_qat} -c "${_sql}" )"
   print_property 'yb_version' "${_ver}"
 }
 
@@ -331,22 +390,16 @@ function get_kernel_version()
 }
 
 
+#-------------------------------------------------------------------------------
+# DATABASE_CONFIGURATION
+#-------------------------------------------------------------------------------
+
 function get_char_mode()
 #------------------------------------------------------------------------------
 { # Not in pg_settings unless has been overridden
   local _sql='SHOW pg_char_compatibility_mode'
   local _mode="$( ${ybsql_qat} -c "${_sql}" | awk '{print $NF}')"
   print_property 'pg_char_compatibility_mode' "${_mode}"
-}
-
-
-function get_replicated_dbs()
-#------------------------------------------------------------------------------
-{
-  local num_rplctd_dbs="$(  ${ybsql_qat} -c 'SELECT COUNT(*) FROM sys.replica')"
-  local num_rplc_paused="$( ${ybsql_qat} -c 'SELECT COUNT(*) FROM sys.replica WHERE status=$$PAUSED$$')"
-  print_property 'replicated_dbs'  "${num_rplctd_dbs}"
-  print_property 'replicas_paused' "${num_rplc_paused}"
 }
 
 
@@ -377,7 +430,6 @@ function get_protegrity_status()
   print_property 'protegrity_status' "${_protegrity_status}"
 }
 
-
 function get_encryption_status()
 #------------------------------------------------------------------------------
 {
@@ -392,6 +444,26 @@ function get_heartbeat_status()
   local _heartbeat_secs="$(grep -i 'workerMIATime' /mnt/ybdata/ybd/lime/build/conf/lime.properties \
                          | cut -d '=' -f 2 )"
   print_property 'heartbeat_secs' "${_heartbeat_secs} (default=15)"
+}
+
+
+#-------------------------------------------------------------------------------
+# MANAGER_NODE_STATUS
+#-------------------------------------------------------------------------------
+
+function get_manger_uptime()
+#------------------------------------------------------------------------------
+# Print manager node uptime
+# Args: 
+#   none
+# Inputs:
+#   ybcli_manager_status_all.out file must already have been created.
+# Outputs:
+#   The uptime for both of the manager nodes.
+#------------------------------------------------------------------------------
+{
+  local _mgr_uptime="$( grep 'Uptime' ybcli_manager_status_all.out | awk -F ' : ' '{print $2}' | paste - - )"
+  print_property 'mgr_uptime' "${_mgr_uptime}"
 }
 
 
@@ -439,12 +511,49 @@ function get_manager_drive_wear()
   
   
   _mgr_remote_nvme_life_used=$(grep -Pzo '^Remote.*\n(?s:.)*' ybcli_health_storage.out \
-  | grep -P 'sd[a-d].*life used' \
+  | grep -P 'nvme.*life used' \
   | awk '{print $3, $7 }' \
   | sort \
   | paste -sd ','
   )
   print_property 'mgr_remote_nvme_life_used'   "${_mgr_remote_nvme_life_used}"
+}
+
+
+function get_net_interface_smry()
+#------------------------------------------------------------------------------
+# Print drive storage key metrics; min size, max usage, spill, etc..
+# Args: 
+#   none
+# Inputs:
+#   ybsql_sys_database_smry.out file must already have been created.
+# Outputs:
+#   There are 15 metrics including data size and storage, db, and table counts
+#     , etc..
+#------------------------------------------------------------------------------
+{
+  ifconfig 2>/dev/null \
+  | grep -P '^\w+[:] |RX errors|TX errors'  \
+  | cut -d ':' -f 1 \
+  | paste - - - \
+  >  net_interface_smry.out
+  
+  while IFS= read -r line
+  do
+    [[ -n "${line}" ]] && print_property 'net_interface_smry' "${line}"
+  done < net_interface_smry.out
+}
+
+
+#-------------------------------------------------------------------------------
+# DATABASE_METRICS
+#-------------------------------------------------------------------------------
+
+function get_catalog_size()
+#------------------------------------------------------------------------------
+{
+  local _catalog_size="$( grep 'Catalog' ybcli_status_storage.out | cut -d ':' -f 2 )"
+  print_property 'catalog_size' "${_catalog_size}"  
 }
 
 
@@ -470,27 +579,53 @@ function get_database_smry()
   done < sys_database_smry.sql.out
 }
 
-  
-function get_bmc_ips()
+
+function get_worker_ssd_smry()
+#------------------------------------------------------------------------------
+# Print drive storage key metrics; min size, max usage, spill, etc..
+# Args: 
+#   none
+# Inputs:
+#   ybsql_sys_database_smry.out file must already have been created.
+# Outputs:
+#   There are 15 metrics including data size and storage, db, and table counts
+#     , etc..
 #------------------------------------------------------------------------------
 {
-  local _bmc_local_ip=""
-  local _bmc_remote_ip=""
-  
-  _bmc_local_ip="$(  grep 'IP address' ybcli_config_network_bmc_local_get.out  | tr -d ' ' | cut -d ':' -f  2 )"
-  print_property 'bmc_local_ip' "${_bmc_local_ip}"
-  _bmc_remote_ip="$( grep 'IP address' ybcli_config_network_bmc_remote_get.out | tr -d ' ' | cut -d ':' -f  2 )"
-  print_property 'bmc_remote_ip' "${_bmc_remote_ip}"
+  while IFS= read -r line
+  do
+    [[ -n "${line}" ]] && print_property 'worker_ssd_smry' "${line}"
+  done < worker_ssd_smry.sql.out
 }
 
 
-function get_catalog_size()
+function get_char_cols_smry()
 #------------------------------------------------------------------------------
-{
-  local _catalog_size="$( grep 'Catalog' ybcli_status_storage.out | cut -d ':' -f 2 )"
-  print_property 'catalog_size' "${_catalog_size}"  
+# Print out database summary statistics genrated from sys.database.
+# Args: 
+#   none
+# Inputs:
+#   ybsql_sys_database_smry.out file must already have been created.
+# Outputs:
+#   There are 15 metrics including data size and storage, db, and table counts
+#     , etc..
+#------------------------------------------------------------------------------
+{ local _outdir="${outdir}/char_cols"
+  local _outfile="${outdir}/db_char_cols.sh.out"
+  
+  ./db_char_cols.sh "${_outdir}" > "${outdir}/db_char_cols.sh.out"
+  
+  # db_char_cols.sh produces multiple output files. We only care about db_char_tbl_cols_smry_aggr right now.
+  while IFS= read -r line
+  do
+    [[ -n "${line}" ]] && print_property 'db_char_cols_smry_aggr' "${line}"
+  done < ${_outdir}/db_char_tbl_cols_smry_aggr.out
 }
 
+
+#-------------------------------------------------------------------------------
+# BAR_STATUS
+#-------------------------------------------------------------------------------
 
 function get_backup_chain_smry()
 #------------------------------------------------------------------------------
@@ -511,7 +646,20 @@ function get_orphan_snapshot_smry()
   done < orphan_snapshot_smry.sql.out
 }
 
-  
+
+function get_replicated_dbs()
+#------------------------------------------------------------------------------
+{
+  local num_rplctd_dbs="$(  ${ybsql_qat} -c 'SELECT COUNT(*) FROM sys.replica')"
+  local num_rplc_paused="$( ${ybsql_qat} -c 'SELECT COUNT(*) FROM sys.replica WHERE status=$$PAUSED$$')"
+  print_property 'replicated_dbs'  "${num_rplctd_dbs}"
+  print_property 'replicas_paused' "${num_rplc_paused}"
+}
+
+
+#-------------------------------------------------------------------------------
+# DATABASE_CUSTOM_SETTINGS
+#-------------------------------------------------------------------------------
 
 function get_pg_custom_settings()
 #------------------------------------------------------------------------------
@@ -533,7 +681,6 @@ function get_pg_custom_settings()
   done < pg_custom_sys_settings.out
 
   print_property 'pg_custom_user_settings' '(running) '
-  dump_ybsql "pg_custom_user_settings.sql"
   while IFS= read -r line
   do
     print_property 'pg_custom_user_setting' "${line}"
@@ -541,6 +688,10 @@ function get_pg_custom_settings()
   
 }
 
+
+#-------------------------------------------------------------------------------
+# CATALOG_HEALTH_CHECKS
+#-------------------------------------------------------------------------------
 
 function check_extended_ascii()
 #------------------------------------------------------------------------------
@@ -556,7 +707,6 @@ function check_extended_ascii()
   _shared_extd_ascii_db_fails=$?
   print_property 'shared_extd_ascii_db_fails' "${_shared_extd_ascii_db_fails}"  
 }
-
 
 
 function get_txn_wraparound_state()
@@ -584,23 +734,64 @@ function get_txn_wraparound_state()
 }
 
 
+#-------------------------------------------------------------------------------
+# YRS_STATE
+#-------------------------------------------------------------------------------
+
+function get_yrs_file_type_smry()
+#------------------------------------------------------------------------------
+{ 
+  while IFS= read -r line
+  do
+    [[ -n "${line}" ]] && print_property 'yrs_file_type_smry' "${line}"
+  done < yrs_file_type_smry.sql.out
+}
+
+
+#-------------------------------------------------------------------------------
+# WORKER_STATE
+#-------------------------------------------------------------------------------
+
+function get_worker_ssd_state_smry()
+#------------------------------------------------------------------------------
+# Print worker ssd health metrics
+# Args: 
+#   none
+# Inputs:
+#   worker_ssd_state_smry.sql.out file must already have been created.
+# Outputs:
+#   There are 15 metrics including data size and storage, db, and table counts
+#     , etc..
+#------------------------------------------------------------------------------
+{
+  while IFS= read -r line
+  do
+    [[ -n "${line}" ]] && print_property 'worker_ssd_smry' "${line}"
+  done < worker_ssd_state_smry.sql.out
+}
+
+
 ###############################################################################
 # MAIN
 ###############################################################################
 function main()
 {
-
   # Must be run from the manager node as ybdadmin user.
   sudo ls -1 ${pg_hba_path} > /dev/null
   [[ $? -ne 0 ]] && die '"pg_hba.conf" not found. Must be run from the manager node as "ybdadmin".' 1
 
-
+  print_section "${script_name}"
+  print_property "start_time" $( date +"%Y.%m.%d_%H%M" )
   print_property "${script_file_name} version" "${script_version}"
+  print_property "script_dir" "${script_dir}"
+  print_property "outdir" "${outdir}"
   
 
-  # Dump ybcli and SQL output used by later functions
+  # Dump ybcli output used by later functions
   print_section 'ybcli_info' 
   dump_ybcli_all
+  
+  # Dump SQL output used by later functions
   print_section 'ybsql_queries' 
   dump_ybsql_all
 
@@ -611,6 +802,7 @@ function main()
   get_yb_version
   get_kernel_version
   
+  # Database configuration
   print_section 'database configuration' 
   get_char_mode
   get_ldap_status
@@ -621,14 +813,16 @@ function main()
   
   # Manager node status and health
   print_section 'manager node status' 
-  #get_manger_uptimes
+  get_manger_uptime
   get_manager_drive_wear
+  get_net_interface_smry
   
   # Database metrics
   print_section 'database metrics'
   get_catalog_size
   get_database_smry
-  #get_worker_space_used
+  get_char_cols_smry
+  get_worker_ssd_smry
   #get_data_skew
     
   # Backup Chain, Snapshot, and Replication status
@@ -639,20 +833,28 @@ function main()
   
   # Catalog health checks
   print_section 'catalog health checks'
-  check_extended_ascii
+ #check_extended_ascii
   get_txn_wraparound_state
   
   #  Database custom settings
   print_section 'database custom settings'
   get_pg_custom_settings
 
+  # YRS (User rowstore)
+  print_section 'user rowstore'
+  get_yrs_file_type_smry
+  
+  # Worker state
+  print_section 'worker state'
+  get_worker_ssd_state_smry
   
   # Done
+  rm -f delete.me
   print_section 'DONE' 
-  mkdir -p ${outdir} > /dev/null
-  [[ $? -ne 0 ]] && die "Failed to create out directory ${outdir}. Exiting." 1
+  print_property 'zipping_directory'   "${outdir}"  
   mv *.out ${outdir}/
   mv *.out.*gz ${outdir}/  2>/dev/null
+ #mv char_cols ${outdir}/
   tar -czf ${outdir}.tgz ${outdir}
   print_property 'generated_zip_file' "${outdir}.tgz"
   echo ""
@@ -663,5 +865,9 @@ function main()
 # BODY
 ###############################################################################
 
+echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+mkdir -p ${outdir} > /dev/null || die "Failed to create out directory ${outdir}. Exiting." 1
+  
 main | tee ${outfile}
+echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 echo ""
