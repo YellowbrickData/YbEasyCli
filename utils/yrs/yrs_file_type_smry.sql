@@ -24,6 +24,7 @@
 ** 
 ** 
 ** Revision History
+** . 2026.03.09 (rek) - Fix for unflushed vs flushed rows.
 ** . 2026.02.10 (rek) - Added types CTE and LEFT JOIN
 ** . 2024.11.25 (rek) - Initial version
 */
@@ -49,6 +50,7 @@ WITH yrs_file_types AS
        , MIN( lowest_txid )          AS min_txid
        , MAX( highest_txid )         AS max_txid
       FROM yb_yrs_data_files()       AS yrsdf
+      WHERE flush_txid = 0
       GROUP BY 1, 2
    )
 , flushed_data_files AS
@@ -62,6 +64,7 @@ WITH yrs_file_types AS
        , MIN( lowest_txid )          AS min_txid
        , MAX( highest_txid )         AS max_txid
       FROM yb_yrs_data_files()       AS yrsdf
+      WHERE flush_txid != 0      
       GROUP BY 1, 2
    )   
  , commit_files AS
