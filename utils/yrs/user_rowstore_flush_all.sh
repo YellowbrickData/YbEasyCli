@@ -1,15 +1,15 @@
 # user_rowstore_flush.sh
-# 
+#
 # Flush user rowstore tables collecting rowstore stats before and after.
 #
 # Prerequisites:
 # . Must be run as a superuser
 # . If not run from the manager node the YBHOST, YBUSER, and YBPASWORD
 #   env variables need to be set.
-# 
+#
 # Revision History:
 # 2026.02.05 (rek) - Add yb_yrs_delete_unused_files after flush.
-# 2026.02.05 (rek) - Major refactoring to support 
+# 2026.02.05 (rek) - Major refactoring to support
 #                    . output dirs
 #                    . addl yrs queries
 #                    . flush of system tables
@@ -43,7 +43,7 @@ readonly prop_name_width=28
 ###############################################################################
 
 
-function die() 
+function die()
 #------------------------------------------------------------------------------
 # Print a message to stderr and then exit the script
 #
@@ -52,8 +52,8 @@ function die()
 #------------------------------------------------------------------------------
 {	# This expects 1 or 2 args only where the second is the return code.
 
-   local _ret_cod=${2:-1} 
-   
+   local _ret_cod=${2:-1}
+
    echo -e "$1"  1>&2
    echo ""
    exit ${_ret_code}
@@ -64,7 +64,7 @@ function print_section_hdr()
 #------------------------------------------------------------------------------
 # Print property "section" heading name, upper case, in brackets enclosed between
 #   dotted lines.
-# Args: 
+# Args:
 #   $1 _section - The section name
 # Uses:
 #   prop_name_width - global readonly variable for width of prop/section name field.
@@ -84,7 +84,7 @@ function print_section_hdr()
 function print_property()
 #------------------------------------------------------------------------------
 # Print formatted property name and its value. (Replaces spaces in name with '_').
-# Args: 
+# Args:
 #   $1 _prop - The property name
 #   $2 _val  - The property value
 #   TODO: $3 _limit - (optl) Warning threshold as a numeric value.
@@ -108,9 +108,9 @@ function print_property()
 
 function run_yrs_queries()
 #------------------------------------------------------------------------------
-# Run the yrs state SQL queries. 
+# Run the yrs state SQL queries.
 #   . yrs_file_type_smry.sql - yrs flushed, unflushed, and commmit file summary.
-# Args: 
+# Args:
 #   none
 # Outputs:
 #   Each of the yrs queries to stdout.
@@ -169,3 +169,8 @@ function main()
 
 mkdir -p ${outdir} > /dev/null || die "Failed to create out directory ${outdir}. Exiting." 1
 main | tee ${outfile}
+
+if grep -Fwq ERROR "${outfile}" ; then
+  echo -e "--- \033[0;91mErrors\033[0m found in ${outfile} ---"
+  grep -Fw ERROR "${outfile}"
+fi
