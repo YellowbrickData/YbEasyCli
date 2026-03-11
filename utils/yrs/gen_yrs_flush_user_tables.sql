@@ -21,9 +21,9 @@
 
 -- generate 4 files so each can be run in a separate thread
 \set num_groups 4
+\set orderby 'd.name, s.name, t.name'
 
-SELECT
-   '\c ' || NVL(d.name,'yellowbrick') || ';' || CHR(10)
+SELECT CASE row_number() OVER (ORDER BY :orderby) WHEN 1 THEN '\c ' || NVL(d.name,'yellowbrick') || CHR(10) || '\i set_gucs.sql' || CHR(10) || '\timing on' || CHR(10) ELSE '' END
    || '\echo Thread ' || :grouping || ': ' || REPEAT('.',32) || 'Flushing: ' || quote_ident(s.name) || '.' || quote_ident(t.name) || CHR(10)
    || 'yflush ' || quote_ident(s.name) || '.' || quote_ident(t.name) || ';' || CHR(10)
 FROM yb_yrs_tables()   AS y
@@ -34,5 +34,5 @@ WHERE y.unflushed_bytes > 0
   AND (y.table_id::INT8 %:num_groups) = (:grouping - 1)
   AND y.table_id >= 16383 
 GROUP BY y.table_id, d.name, s.name, t.name   
-ORDER BY d.name, s.name, t.name
+ORDER BY :orderby
 ;
