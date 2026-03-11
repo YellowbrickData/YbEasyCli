@@ -8,13 +8,13 @@
 #   env variables need to be set.
 # 
 # Revision History:
-# 2026.02.05 (rek) Major refactoring to support 
-#                  . output dirs
-#                  . addl yrs queries
-#                  . flush of system tables
-#
-# 2026.01.22 (rek) updated script names and output dir.
-# 2024.09.03 (rek) Initial version.
+# 2026.02.05 (rek) - Add yb_yrs_delete_unused_files after flush.
+# 2026.02.05 (rek) - Major refactoring to support 
+#                    . output dirs
+#                    . addl yrs queries
+#                    . flush of system tables
+# 2026.01.22 (rek) - updated script names and output dir.
+# 2024.09.03 (rek) - Initial version.
 #
 # TODO:
 # . add option to only run queries vs queries+flush.
@@ -24,7 +24,7 @@
 # READONLY VARIABLES
 ###############################################################################
 
-readonly script_version='2026.02.05.2110'
+readonly script_version='2026.02.13.12000'
 readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly script_file_name="$(echo $(basename $0))"
 readonly script_name="$(echo $(basename $0) | cut -f1 -d'.' )"
@@ -141,16 +141,19 @@ function main()
   print_property "${script_file_name} version" "${script_version}"
   print_property "script_dir" "${script_dir}"
   print_property "outdir" "${outdir}"
-  
+
   print_section_hdr "yrs reports before yflush"
   run_yrs_queries
 
   print_section_hdr "Flush yrs user tables"
-  ./yrs_flush_tables.sh "user" "${outdir}"                                                  
-  
+  ./yrs_flush_tables.sh "user" "${outdir}"
+
   print_section_hdr "Flush yrs sys tables"
-  ./yrs_flush_tables.sh "sys"  "${outdir}"                                             
-  
+  ./yrs_flush_tables.sh "sys"  "${outdir}"
+
+  print_section_hdr "Trim yrs files"
+  ${ybsql_cmd} -c "SELECT yb_yrs_delete_unused_files()"
+
   print_section_hdr "yrs reports after yflush"
   run_yrs_queries
 
