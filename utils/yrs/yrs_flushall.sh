@@ -1,13 +1,18 @@
 # user_rowstore_flush.sh
 #
 # Flush user rowstore tables collecting rowstore stats before and after.
+# 
 #
 # Prerequisites:
 # . Must be run as a superuser
 # . If not run from the manager node the YBHOST, YBUSER, and YBPASWORD
-#   env variables need to be set.
+#   env variables need to be set. These can be set on invocation. i.e.:
+#      YBHOST=yb70i1 ./user_rowstore_flush_all.sh
 #
 # Revision History:
+# 2026.03.13 (rek) - Updates for when running from apliance manager node.
+#                    Output dir changed to ../output/script_name_"$( date +"%Y%m%d_%H%M" ) 
+# 2026.03.09 (EM)  - Error checks and notification for ybsql
 # 2026.02.05 (rek) - Add yb_yrs_delete_unused_files after flush.
 # 2026.02.05 (rek) - Major refactoring to support
 #                    . output dirs
@@ -18,22 +23,28 @@
 #
 # TODO:
 # . add option to only run queries vs queries+flush.
+# . Refactor for global vars set by common scripts
+# . Add README|usage()
 
+###############################################################################
+# EXTERNAL COMMON FUNCTIONS
+###############################################################################
+source ../common/connection_fns.sh
 
 ###############################################################################
 # READONLY VARIABLES
 ###############################################################################
 
-readonly script_version='2026.02.13.12000'
+readonly script_version='2026.03.13.12000'
 readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly script_file_name="$(echo $(basename $0))"
 readonly script_name="$(echo $(basename $0) | cut -f1 -d'.' )"
 readonly ybd_path="/mnt/ybdata/ybd/"
 readonly ybsql_cmd="ybsql -X -d yellowbrick "
 readonly ybsql_qat="${ybsql_cmd} -XqAt  -P footer=off "
-readonly outdir="./output/"$( date +"%Y%m%d_%H%M" )
+readonly outdir="../output/${script_name}_"$( date +"%Y%m%d_%H%M" )
 readonly outfile="${outdir}/${script_name}.out"
-readonly hr='~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+readonly hr='___________________________________________________________________'
 readonly hr2='=================================================================='
 readonly prop_name_width=28
 
@@ -141,6 +152,11 @@ function main()
   print_property "${script_file_name} version" "${script_version}"
   print_property "script_dir" "${script_dir}"
   print_property "outdir" "${outdir}"
+
+  validate_connection -X -d yellowbrick
+  rc=$?
+  sleep 1
+  [[ ${rc} -eq 0 ]] || die "FATAL: Failed to connect to Yellowbrick instance." 1
 
   print_section_hdr "yrs reports before yflush"
   run_yrs_queries
