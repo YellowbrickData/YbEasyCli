@@ -10,6 +10,7 @@
 #      YBHOST=yb70i1 ./user_rowstore_flush_all.sh
 #
 # Revision History:
+# 2026.03.13 (rek) - Add handling for CN where yflush needs to run on the system cluster.
 # 2026.03.13 (rek) - Updates for when running from apliance manager node.
 #                    Output dir changed to ../output/script_name_"$( date +"%Y%m%d_%H%M" ) 
 # 2026.03.09 (EM)  - Error checks and notification for ybsql
@@ -35,7 +36,7 @@ source ../common/connection_fns.sh
 # READONLY VARIABLES
 ###############################################################################
 
-readonly script_version='2026.03.13.12000'
+readonly script_version='2026.04.02.12000'
 readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly script_file_name="$(echo $(basename $0))"
 readonly script_name="$(echo $(basename $0) | cut -f1 -d'.' )"
@@ -146,27 +147,56 @@ function run_yrs_queries()
 
 function main()
 {
+  local rc=-1
+  local yb_ver_num=0
+  local is_cn="f"
+  local default_cluster="none"
+  local system_cluster="none"
+  
   print_section_hdr "script"
   print_property "script_file_name" "${script_file_name}"
   print_property "start_time" $( date +"%Y.%m.%d_%H%M" )
   print_property "${script_file_name} version" "${script_version}"
   print_property "script_dir" "${script_dir}"
   print_property "outdir" "${outdir}"
-
-  validate_connection -X -d yellowbrick
+ 
+  # Do validation and get needed properties from cluster
+  do_connect -X -d yellowbrick
   rc=$?
   sleep 1
   [[ ${rc} -eq 0 ]] || die "FATAL: Failed to connect to Yellowbrick instance." 1
+  print_property "connection" "success"
+  
+  yb_ver_num="$(get_yb_ver_num -X )"
+  [[ $? -eq 0 ]] || die "FATAL: Failed to get Yellowbrick server version number." 1
+  print_property "yb_ver_num" "${yb_ver_num}"
 
+  # Only CN and YB appliances > Ver 7 have default and system cluster
+  if [[ ${yb_ver_num} -ge 70000 ]]; then
+  
+    system_cluster="$(get_system_cluster -X)"
+    [[ $? -eq 0 ]] || die "FATAL: Failed to get system_cluster." 1
+    export YBCLUSTER="${system_cluster}"
+    
+    default_cluster="$(get_default_cluster -X)"
+    [[ $? -eq 0 ]] || die "FATAL: Failed to get default cluster." 1
+    
+    is_cn="$(is_cn -X )"
+    [[ $? -eq 0 ]] || die "FATAL: Failed to get is_cn." 1
+  fi
+  
+  print_property "system_cluster" "${system_cluster}"
+  print_property "default_cluster" "${default_cluster}"  
+  print_property "is_cn" "${is_cn}"
+  
+  # Do the actual flushes
   print_section_hdr "yrs reports before yflush"
   run_yrs_queries
 
   print_section_hdr "Flush yrs user tables"
   ./yrs_flush_tables.sh "user" "${outdir}"
-
   print_section_hdr "Flush yrs sys tables"
   ./yrs_flush_tables.sh "sys"  "${outdir}"
-
   print_section_hdr "Trim yrs files"
   ${ybsql_cmd} -c "SELECT yb_yrs_delete_unused_files()"
 

@@ -43,11 +43,18 @@ WITH a AS (
 		, row_number() OVER (ORDER BY total_size DESC) AS rn
 	FROM z__yellowbrick_table_sizes
 )
-SELECT rn, table_schema, table_name, total_size_mb, index_size_mb, toast_size_mb FROM a WHERE rn <= :top
+SELECT rn, table_schema, table_name, total_size_mb, index_size_mb, toast_size_mb 
+FROM a 
+WHERE rn <= :top
+
 UNION ALL
-SELECT :top+1, '-- remaining '||max(rn)-:top, '', sum(total_size_mb), sum(index_size_mb), sum(toast_size_mb) FROM a WHERE rn > :top
+SELECT :top+1, '-- remaining '||max(rn)-:top, '', sum(total_size_mb), sum(index_size_mb), sum(toast_size_mb) 
+FROM a 
+WHERE rn > :top
+
 UNION ALL
-SELECT :top+2, '-- overall', '', sum(total_size_mb), sum(index_size_mb), sum(toast_size_mb) FROM a
+SELECT :top+2, '-- overall', '', sum(total_size_mb), sum(index_size_mb), sum(toast_size_mb) 
+FROM a
 ORDER BY rn;
 
 \o global_catalog_:ts.hr.out.txt
@@ -64,8 +71,8 @@ ORDER BY total_size DESC;
 
 -- NOTE: The limit is hardcoded as there's no way to get PGDATA XFS quota size for on-prem or /mnt/ybdata mount size for CN from inside PG
 SELECT 200 AS pg_catalog_quota_gb
-	, (SELECT round(sum(total_size)/1024^3,2) FROM z__yellowbrick_table_sizes) AS global_usage_gb
-	, (SELECT round(sum(database_size)/1024^3,2) FROM z__tmp_user_db_sizes) AS base_usage_gb
-	, global_usage_gb + base_usage_gb AS catalog_total_usage_gb
-	, round(catalog_total_usage_gb/pg_catalog_quota_gb*100,2) AS percent_used
+	, (SELECT round(sum(total_size)/1024^3,2)    FROM z__yellowbrick_table_sizes) AS global_usage_gb
+	, (SELECT round(sum(database_size)/1024^3,2) FROM z__tmp_user_db_sizes)       AS base_usage_gb
+	, global_usage_gb + base_usage_gb                                             AS catalog_total_usage_gb
+	, round(catalog_total_usage_gb/pg_catalog_quota_gb*100,2)                     AS percent_used
 ;

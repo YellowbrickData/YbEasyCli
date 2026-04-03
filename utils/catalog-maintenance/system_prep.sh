@@ -1,4 +1,6 @@
 #!/bin/bash
+#
+#
 export YBDATABASE=yellowbrick
 if [ "$1" == "pre" ] ; then
 	echo "-- Doing pre-maintenance steps"
@@ -17,6 +19,8 @@ else
 	echo "Usage: $(basename $0) [pre|post]"
 	exit
 fi
+
+
 ybsql -Xqte<<SQL
 ${AUTOVACUUM};
 SELECT pg_reload_conf();
@@ -24,3 +28,18 @@ SELECT pg_reload_conf();
 \c
 SHOW autovacuum;
 SQL
+
+
+# The system table showing the active WLM profile changes in YB 7 
+yb_ver_num="$(ybsql -XAqt -c 'SHOW yb_server_version_num')"
+
+# yb_server_version_num is of the form VMMmm. i.e. 7.4.2 -> 70402
+# YB 7.4 introduces legacy tables for pre 7.4 session and authentication log data
+if [[ ${yb_ver_num} -lt 70000 ]]; then 
+  profile_sql="SELECT name FROM sys.wlm_active_profile WHERE active = TRUE"
+else
+  profile_sql="SELECT profile_name FROM sys.wlm_active_profile"
+fi
+
+active_profile="$(ybsql -XAqt -c "${profile_sql}")"
+echo "ACTIVE WLM PROFILE IS NOW '${active_profile}'"
