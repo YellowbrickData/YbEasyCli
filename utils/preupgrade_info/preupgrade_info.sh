@@ -17,6 +17,10 @@
 #   Run from the manager node as ybdadmin user.
 #
 # Revision History:
+# . 2026.03.06 11:00 (rek) - Add phonehome_status
+#                            Add -X to ybsql_cmd
+#                            Fixes to temp table and long running txn functions.
+#                            Move output directory to common utils output directory.
 # . 2026.02.13 11:00 (rek) - Add get_net_interface_smry
 # . 2026.02.11 12:15 (rek) - Separate yb_version and yb_server_version.
 # . 2026.02.05 12:15 (rek) - Use "server_version" for yb version.
@@ -60,15 +64,15 @@
 # READONLY VARIABLES
 ###############################################################################
 
-readonly script_version='2026.02.13.1100'
+readonly script_version='2026.03.06.1100'
 readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly script_file_name="$(echo $(basename $0))"
 readonly script_name="$(echo $(basename $0) | cut -f1 -d'.' )"
 readonly pg_hba_path="/mnt/ybdata/ybd/postgresql/build/db/data/pg_hba.conf"
 readonly prop_name_width=28
 readonly min_horizon_age=30
-readonly ybsql_cmd="ybsql -d yellowbrick -P footer=off "
-readonly ybsql_qat="${ybsql_cmd} -qAtX "
+readonly ybsql_cmd="ybsql -X -P footer=off -d yellowbrick "
+readonly ybsql_qat="${ybsql_cmd} -qAt "
 readonly outdir="./output/${script_name}_"$( date +"%Y%m%d_%H%M" )
 readonly outfile="${outdir}/${script_name}.out"
 readonly log_level=0
@@ -430,11 +434,23 @@ function get_protegrity_status()
   print_property 'protegrity_status' "${_protegrity_status}"
 }
 
+
 function get_encryption_status()
 #------------------------------------------------------------------------------
 {
   local _encryption_status="$( grep -c 'Encryption.*Ready' ybcli_status_system.out )"
   print_property 'encryption_status' "${_encryption_status}"
+}
+
+
+function get_phonehome_status()
+#------------------------------------------------------------------------------
+{
+  local _status_line="$( grep 'System registered' ybcli_status_system.out )"
+  # Arcane bash to strip the leading chars up to and including the first ':' char
+  local _phonehome_status="${_status_line#*: }"
+  
+  print_property 'phonehome_status' "${_phonehome_status}"
 }
 
 
@@ -549,14 +565,6 @@ function get_net_interface_smry()
 # DATABASE_METRICS
 #-------------------------------------------------------------------------------
 
-function get_catalog_size()
-#------------------------------------------------------------------------------
-{
-  local _catalog_size="$( grep 'Catalog' ybcli_status_storage.out | cut -d ':' -f 2 )"
-  print_property 'catalog_size' "${_catalog_size}"  
-}
-
-
 function get_database_smry()
 #------------------------------------------------------------------------------
 # Print out database summary statistics genrated from sys.database.
@@ -579,6 +587,49 @@ function get_database_smry()
   done < sys_database_smry.sql.out
 }
 
+
+function get_temp_table_smry()
+#------------------------------------------------------------------------------
+{
+  local temp_table_smry_sql="SELECT COUNT(*) as num_temp_tables, max(date_trunc('secs',now() - creation_time)) AS max_age, avg(date_trunc('secs',now() - creation_time)) AS avg_age   
+  FROM sys.table   
+  WHERE is_temp = TRUE"
+  
+  ${ybsql_cmd} -c "${temp_table_smry_sql}" > temp_table_smry_sql.out
+  while IFS= read -r line
+  do
+    [[ -n "${line}" ]] && print_property 'temp_table_smry' "${line}"
+  done < temp_table_smry_sql.out
+}
+
+
+function get_long_session_smry()
+#------------------------------------------------------------------------------
+{ # Note implemented
+  local long_session_smry_sql="SELECT *
+     FROM sys.session
+     WHERE TRUE"
+  local long_session_smry="$( ${ybsql_qat} -c '${long_session_smry_sql}')"
+  print_property 'long_session_smry'  "${long_session_smry}"
+}
+
+function get_long_txn_smry()
+#------------------------------------------------------------------------------
+{
+  local long_txn_smry="SELECT
+	  datname
+	, usename
+	, state
+	, date_trunc('seconds', backend_start)          AS backend_start
+	, date_trunc('seconds', now() - backend_start)  AS backend_age
+	, date_trunc('seconds', now() - xact_start)     AS txn_age
+	, date_trunc('seconds', now() - state_change)   AS state_changed
+	, date_trunc('seconds', now() - last_statement) AS last_stmt_age
+FROM pg_stat_activity
+WHERE xact_start < now() - interval '1 MINUTE';"
+  local temp_table_smry="$( ${ybsql_qat} -c "${long_txn_smry}")"
+  print_property 'sessions_gt_1hr_smry'  "${temp_table_smry}"
+}
 
 function get_worker_ssd_smry()
 #------------------------------------------------------------------------------
@@ -658,40 +709,16 @@ function get_replicated_dbs()
 
 
 #-------------------------------------------------------------------------------
-# DATABASE_CUSTOM_SETTINGS
-#-------------------------------------------------------------------------------
-
-function get_pg_custom_settings()
-#------------------------------------------------------------------------------
-# Print out system settings from postgresql.auto.conf file and pg_settings view.
-# Args: 
-#   none
-# Inputs:
-#   none
-# Outputs:
-#   pg_custom_sys_setting AND pg_custom_user_setting
-#------------------------------------------------------------------------------
-{
-  sudo cat /mnt/ybdata/ybd/postgresql/build/db/data/postgresql.auto.conf \
-  | grep -v -P '^#' > pg_custom_sys_settings.out
-  
-  while IFS= read -r line
-  do
-    print_property 'pg_custom_sys_setting' "${line}"
-  done < pg_custom_sys_settings.out
-
-  print_property 'pg_custom_user_settings' '(running) '
-  while IFS= read -r line
-  do
-    print_property 'pg_custom_user_setting' "${line}"
-  done < pg_custom_user_settings.sql.out
-  
-}
-
-
-#-------------------------------------------------------------------------------
 # CATALOG_HEALTH_CHECKS
 #-------------------------------------------------------------------------------
+
+
+function get_catalog_size()
+#------------------------------------------------------------------------------
+{
+  local _catalog_size="$( grep 'Catalog' ybcli_status_storage.out | cut -d ':' -f 2 )"
+  print_property 'catalog_size' "${_catalog_size}"  
+}
 
 function check_extended_ascii()
 #------------------------------------------------------------------------------
@@ -731,6 +758,38 @@ function get_txn_wraparound_state()
   
   _unhealthy_dbs=$(grep 'NOT healthy' ${_outfile} | wc -l )
   print_property 'txn_wraparound_unhealthy_dbs' "${_unhealthy_dbs}"  
+}
+
+
+#-------------------------------------------------------------------------------
+# DATABASE_CUSTOM_SETTINGS
+#-------------------------------------------------------------------------------
+
+function get_pg_custom_settings()
+#------------------------------------------------------------------------------
+# Print out system settings from postgresql.auto.conf file and pg_settings view.
+# Args: 
+#   none
+# Inputs:
+#   none
+# Outputs:
+#   pg_custom_sys_setting AND pg_custom_user_setting
+#------------------------------------------------------------------------------
+{
+  sudo cat /mnt/ybdata/ybd/postgresql/build/db/data/postgresql.auto.conf \
+  | grep -v -P '^#' > pg_custom_sys_settings.out
+  
+  while IFS= read -r line
+  do
+    print_property 'pg_custom_sys_setting' "${line}"
+  done < pg_custom_sys_settings.out
+
+  print_property 'pg_custom_user_settings' '(running) '
+  while IFS= read -r line
+  do
+    print_property 'pg_custom_user_setting' "${line}"
+  done < pg_custom_user_settings.sql.out
+  
 }
 
 
@@ -809,6 +868,7 @@ function main()
   get_kerberos_status
   get_protegrity_status
   get_encryption_status
+  get_phonehome_status
   get_heartbeat_status
   
   # Manager node status and health
@@ -819,7 +879,9 @@ function main()
   
   # Database metrics
   print_section 'database metrics'
-  get_catalog_size
+  get_temp_table_smry
+  get_long_txn_smry
+ #get_session_smry
   get_database_smry
   get_char_cols_smry
   get_worker_ssd_smry
@@ -833,8 +895,9 @@ function main()
   
   # Catalog health checks
   print_section 'catalog health checks'
- #check_extended_ascii
+  get_catalog_size
   get_txn_wraparound_state
+  check_extended_ascii
   
   #  Database custom settings
   print_section 'database custom settings'
