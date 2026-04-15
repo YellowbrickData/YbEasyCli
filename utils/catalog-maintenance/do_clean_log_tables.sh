@@ -13,6 +13,7 @@
 #                              Default: 1
 #
 # Revision History:
+# . 2026.04.14 - Fix for LOGTABLES_74  table names.
 # . 2026.03.17 - . Added help, nocopy, anad report options
 #                . Arguments are no longer positional
 #                . Only use start_time for _log_session* as endtime may be null.
@@ -30,7 +31,7 @@ readonly SCRIPT_NAME=$(basename $0| cut -d '.' -f 1 )  # Script file name withou
 readonly TS=$(date +%Y%m%d-%H%M%S)
 
 readonly LOGTABLES_COMMON="session authentication"
-readonly LOGTABLES_74="${LOGTABLES_COMMON} authentication_pre_74 session_pre_74"
+readonly LOGTABLES_74="${LOGTABLES_COMMON} authentication_pre74 session_pre74"
 
 opt_days_retention=90
 
