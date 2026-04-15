@@ -17,6 +17,10 @@
 #   Run from the manager node as ybdadmin user.
 #
 # Revision History:
+# . 2026.04.15 13:00 (rek) - Added cmp uptime check.
+#                            Added error notification to dump_ybsql(). 
+#                            Added explicit cd to script directory.
+#                            Make output dir path real instead of relative.
 # . 2026.03.06 11:00 (rek) - Add phonehome_status
 #                            Add -X to ybsql_cmd
 #                            Fixes to temp table and long running txn functions.
@@ -47,7 +51,10 @@
 # . 2025.03.12 11:40 (rek) - Initial script_version
 #
 # TODO:
+# . Fix preupgrade_info zip path
+# . Fix txn_wraparound_check to handle dbs with spaces and $ chars.
 # . Explicitly flag when diff sized worker storage.
+# . Add ybcli error notification.
 # . Add database uptime
 # . Add worker mem & chassis info.
 # . Add compression ratio and disk storage to database metrics.
@@ -64,16 +71,17 @@
 # READONLY VARIABLES
 ###############################################################################
 
-readonly script_version='2026.03.06.1100'
+readonly script_version='2026.04.15.1300'
 readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly script_file_name="$(echo $(basename $0))"
 readonly script_name="$(echo $(basename $0) | cut -f1 -d'.' )"
+readonly cwd="$(pwd)"
 readonly pg_hba_path="/mnt/ybdata/ybd/postgresql/build/db/data/pg_hba.conf"
 readonly prop_name_width=28
 readonly min_horizon_age=30
 readonly ybsql_cmd="ybsql -X -P footer=off -d yellowbrick "
 readonly ybsql_qat="${ybsql_cmd} -qAt "
-readonly outdir="./output/${script_name}_"$( date +"%Y%m%d_%H%M" )
+readonly outdir="$( realpath ${script_dir}/../output/${script_name}_$( date +"%Y%m%d_%H%M" ) )"
 readonly outfile="${outdir}/${script_name}.out"
 readonly log_level=0
 
@@ -100,6 +108,20 @@ function die()
    echo -e "$1"  1>&2
    echo ""
    exit ${_ret_code}
+}
+
+
+function cd_to_script_dir() 
+#------------------------------------------------------------------------------
+# `cd` to the script directory and print a message to stderr
+#
+# $1 - The message to print
+# $2 - Optional exit code; default 1
+#------------------------------------------------------------------------------
+{
+  echo "This script must be run from the script directory. "
+  echo "Changing the current dir from '${cwd}' to '${script_dir}' ."
+    cd "${script_dir}" || die "Error: failed to cd to ${script_dir}"
 }
 
 
@@ -219,6 +241,7 @@ function dump_ybcli_cmd()
 {
   local _cmd="$1"
   local _outfile='ybcli_'"$( echo ${_cmd} | tr ' ' '_' )".out
+  local _outfile_prefix="$(echo ${_outfile} | cut -f1 -d'.' )"
 
   info_message "Writing 'ybcli -c ${_cmd}' to '${_outfile}'"
   ybcli -c ${_cmd} > ${_outfile}
@@ -233,19 +256,15 @@ function dump_ybcli_all()
 # Args: 
 #   none
 # Outputs:
-#   Generates the files
-#   . ybcli_config_bmc_local.out
-#   . ybcli_config_bmc_remote.out
-#   . ybcli_health_network.out
-#   . ybcli_health_storage.out
-#   . ybcli_status_storage.out
-#   . ybcli_status_system.out
+#   Generates the a .out file for every ybcli command. i.e.
+#     `ybcli health network` -> ybcli_health_network.out
 #------------------------------------------------------------------------------
 { 
   info_message "Dumping ybcli output to file. This will take multiple minutes"
   print_property 'ybcli_dumps' '(running) '
   dump_ybcli_cmd 'config network bmc local get'
   dump_ybcli_cmd 'config network bmc remote get'
+  dump_ybcli_cmd 'health cmp'
   dump_ybcli_cmd 'health network'
   dump_ybcli_cmd 'health storage'
   dump_ybcli_cmd 'status storage'
@@ -277,7 +296,11 @@ function dump_ybsql()
   info_message "Writing '${ybsql_cmd} ${_opts} -f ${_sql_file}' to '${_outfile}'"
   print_property_append "${_fname}" "!"
   ${ybsql_cmd} ${_opts} -f ${_sql_file}  > ${_outfile}
-  print_property_append ".out"
+  if [[ $? -ne 0 ]]; then
+    print_property_append "ERROR:${_fname}"
+  else
+    print_property_append ".out"
+  fi
 }
 
 
@@ -480,6 +503,36 @@ function get_manger_uptime()
 {
   local _mgr_uptime="$( grep 'Uptime' ybcli_manager_status_all.out | awk -F ' : ' '{print $2}' | paste - - )"
   print_property 'mgr_uptime' "${_mgr_uptime}"
+}
+
+
+function get_cmp_uptime()
+#------------------------------------------------------------------------------
+# Print CMP uptime
+# Args: 
+#   none
+# Inputs:
+#   ybcli_health_cmp.out file must already have been created.
+# Outputs:
+#   The uptime for all CMPs on all chassis plus CMP alerts.
+#------------------------------------------------------------------------------
+{
+  local _output_line=""
+  local _prop_line_prefix='cmp_uptime'
+           
+  while IFS= read -r line
+  do 
+      _output_line=$( echo "${line}" \
+        | grep -P '^C' \
+        | awk '{days_str=($20 == "" ? "" : ", "(int($20 / (60 * 60 * 24)) " days")); \
+            print $1, $2, $3 $4, $19 days_str;\
+           }' \
+        );
+      if [[ ! "${_output_line}" == "" ]]; then
+        print_property "${_prop_line_prefix}" "${_output_line}"
+        _prop_line_prefix='.'
+      fi
+      done < ybcli_health_cmp.out
 }
 
 
@@ -742,15 +795,17 @@ function get_txn_wraparound_state()
   local _healthy_dbs=-1
   local _unhealthy_dbs=-1
   local _outfile=db_txn_id_wraparound_check.out
+  local _esc_db=""
 
   print_property 'txn_wraparound_check' '(running) '
-  dbs=$(ybsql -qAt -d yellowbrick -c "SELECT name FROM sys.database WHERE name != 'yellowbrick' ORDER BY name")
+  dbs=$(ybsql -qAt -d yellowbrick -c "SELECT quote_ident(name) FROM sys.database WHERE name != 'yellowbrick' ORDER BY name")
 
   echo "" > ${_outfile}
   for db in ${dbs}
   do 
+    printf -v esc_db "%q" ${db}
     print_property_append '.'
-    ybsql -d "${db}" -f db_txn_id_wraparound_check.sql >> ${_outfile}
+    ybsql -d ${esc_db} -f db_txn_id_wraparound_check.sql >> ${_outfile}
   done
 
   _healthy_dbs=$(grep 'IS healthy' ${_outfile} | wc -l )
@@ -838,6 +893,9 @@ function main()
   # Must be run from the manager node as ybdadmin user.
   sudo ls -1 ${pg_hba_path} > /dev/null
   [[ $? -ne 0 ]] && die '"pg_hba.conf" not found. Must be run from the manager node as "ybdadmin".' 1
+  
+  # Must be run from the directory containing the script
+  [[ ! ${script_dir} == ${cwd} ]] && cd_to_script_dir
 
   print_section "${script_name}"
   print_property "start_time" $( date +"%Y.%m.%d_%H%M" )
@@ -874,6 +932,7 @@ function main()
   # Manager node status and health
   print_section 'manager node status' 
   get_manger_uptime
+  get_cmp_uptime  
   get_manager_drive_wear
   get_net_interface_smry
   
