@@ -1,4 +1,6 @@
--- db_txn_id_wraparound_check.sql
+-- txn_id_wraparound_smry.sql
+--
+-- Purpose: Check for databases that are close to transaction ID wraparound.
 --
 -- 2025.03.21
 

@@ -13,6 +13,7 @@
 #                              Default: 1
 #
 # Revision History:
+# . 2026.07.20 - Minor in-line comment updates.
 # . 2026.04.14 - Fix for LOGTABLES_74  table names.
 # . 2026.03.17 - . Added help, nocopy, anad report options
 #                . Arguments are no longer positional
@@ -22,6 +23,7 @@
 # TODO:
 # . output to specific directory.
 # . add noreport option.
+# . add error return code
 
 ###############################################################################
 # GLOBAL VARIABLES
@@ -30,6 +32,7 @@ readonly SCRIPT_FILENAME=$(basename $0)                # Script file name
 readonly SCRIPT_NAME=$(basename $0| cut -d '.' -f 1 )  # Script file name without ext
 readonly TS=$(date +%Y%m%d-%H%M%S)
 
+# names are prefixed with 'sys._log_' when acutally used.
 readonly LOGTABLES_COMMON="session authentication"
 readonly LOGTABLES_74="${LOGTABLES_COMMON} authentication_pre74 session_pre74"
 
@@ -64,7 +67,7 @@ function usage()
     echo "" 
     echo "Usage:  ${SCRIPT_FILENAME} -?|r|[-Cd]"  
     echo "" 
-    echo "Delete ." 
+    echo "Report on and/or delete historical log session and authentication data." 
     echo "" 
     echo "   [ -C | --nocopy                 ] Do not save a copy of the data to be deleted." 
     echo "   [ -d | --days_retention numDays ] Days of data to retain. DEFAULT: 90." 
@@ -72,6 +75,7 @@ function usage()
     echo "   [ ?  | --help | --usage         ] display this help message and exit"
     echo ""    
     echo "Examples:"    
+    echo "   $SCRIPT_FILENAME "
     echo "   $SCRIPT_FILENAME --report"    
     echo "   $SCRIPT_FILENAME --nocopy --days_retention 60 "        
     echo ""        
@@ -147,8 +151,8 @@ yb_ver_num="$(ybsql -XAqt -c 'SHOW yb_server_version_num')"
 [[ $? -ne 0 ]] \
   && die "FATAL: Failed to connect to YB, exiting." -1
 
-# yb_server_version_num is of the form VMMmm. i.e. 7.4.2 -> 70402
-# YB 7.4 introduces legacy tables for pre 7..4 session and authentication log data
+# yb_server_version_num is of the form Mmmrr. i.e. 7.4.2 -> 70402
+# YB 7.4 introduces legacy tables for pre 7.4 session and authentication log data
 if [[ ${yb_ver_num} -lt 70400 ]]; then 
   logtables="${LOGTABLES_COMMON}"
 else

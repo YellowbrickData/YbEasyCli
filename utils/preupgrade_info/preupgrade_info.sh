@@ -17,6 +17,8 @@
 #   Run from the manager node as ybdadmin user.
 #
 # Revision History:
+# . 2026.07.23 11:00 (rek) - Multiple minor bug fixes in functions: die(), emit(), dump_ybsql(), dump_ybcli_cmd().
+#                            Added get_long_session_smry and get_long_txn_smry.
 # . 2026.04.15 13:00 (rek) - Added cmp uptime check.
 #                            Added error notification to dump_ybsql(). 
 #                            Added explicit cd to script directory.
@@ -30,11 +32,11 @@
 # . 2026.02.05 12:15 (rek) - Use "server_version" for yb version.
 #                            Fixed manager uptime.
 #                            Fixed remote manager NVME wear.
-# . 2026.02.03 21:10 (rek) - Added yrs_file_type_smry
-#                            Added worker section with worker_ssd_state_smry
+# . 2026.02.03 21:10 (rek) - Added yrs_file_type_smry.
+#                            Added worker section with worker_ssd_state_smry.
 #                            Minor refactoring to move functions and addl comments. (IN PROCESS)
 #                            Added CHAR column checks (IN PROCESS).
-#                            Can now use SQL files from other dirs
+#                            Can now use SQL files from other dirs.
 # . 2026.01.20 10:30 (rek) - Output now goes to separate output directory.
 # . 2026.01.18 11:05 (rek) - Added manager uptime check.
 #                            Updated check_extended_ascii.sh utf8 regex.
@@ -48,7 +50,7 @@
 # . 2025.03.28 10:40 (rek) - Additional refactoring.
 #                            Auto generation of zip file.
 # . 2025.03.19 21:40 (rek) - Refactor to write ybcli output to file.
-# . 2025.03.12 11:40 (rek) - Initial script_version
+# . 2025.03.12 11:40 (rek) - Initial script_version.
 #
 # TODO:
 # . Fix preupgrade_info zip path
@@ -103,11 +105,11 @@ function die()
 #------------------------------------------------------------------------------
 {	# This expects 1 or 2 args only where the second is the return code.
 
-   local _ret_cod=${2:-1} 
-   
+   local _ret_cod=${2:-1}
+
    echo -e "$1"  1>&2
    echo ""
-   exit ${_ret_code}
+   exit ${_ret_cod}
 }
 
 
@@ -182,7 +184,7 @@ function print_property()
 
   printf "\n"
   printf "%-${prop_name_width}.${prop_name_width}s" "${_prop//$_pad_char/ }" | tr ' ' "${_pad_char}"
-  printf ': '"${_val}"
+  printf ': %s' "${_val}"
 }
 
 function print_property_append()
@@ -201,8 +203,8 @@ function print_property_append()
   local _val="$1"
   local _delim="${2:-; }"
 
-  printf "${_val}"
-  [[ ${_delim} != "!" ]] && printf "${_delim}"
+  printf '%s' "${_val}"
+  [[ ${_delim} != "!" ]] && printf '%s' "${_delim}"
 
 }
 
@@ -641,6 +643,58 @@ function get_database_smry()
 }
 
 
+function get_udf_smry_and_dtl()
+#------------------------------------------------------------------------------
+{
+  local _outfile=udf_smry_by_db.out
+  local _smry_outfile=udf_smry_by_db.smry.out
+  local _details_outfile=udf_details.out
+  local _dbs=""
+  local readonly _func_sql="WITH udfs AS
+(
+   SELECT current_database() AS db_name 
+        , n.nspname          AS schema_name
+        , p.proname          AS function_name
+        , l.lanname          AS language
+   FROM pg_proc      AS p
+   JOIN pg_language  AS l ON p.prolang = l.oid
+   JOIN pg_namespace AS n ON p.pronamespace = n.oid
+   WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'sys')
+     AND l.lanname IN ('c', 'plpgsql', 'sql', 'ybcpp')
+)
+SELECT db_name
+     , SUM(CASE WHEN language = 'c'       THEN 1 ELSE 0 END) AS c
+     , SUM(CASE WHEN language = 'ybcpp'   THEN 1 ELSE 0 END) AS ybcpp
+     , SUM(CASE WHEN language = 'plpgsql' THEN 1 ELSE 0 END) AS plpgsql
+     , SUM(CASE WHEN language = 'sql'     THEN 1 ELSE 0 END) AS sql
+FROM udfs
+GROUP BY db_name;
+"
+  local readonly _func_sql_headers="SELECT 'db_name' AS db_name, 'c' AS c, 'ybcpp' AS ybcpp, 'plpgsql' AS plpgsql, 'sql' AS sql;"
+
+  echo /dev/null > ${_outfile}
+  echo /dev/null > ${_details_outfile}
+  ${ybsql_qat} -d yellowbrick -c "${_func_sql_headers}" >> ${_outfile}
+
+  print_property 'udf_smry_by_db' '(running) '
+  _dbs=$(ybsql -qAt -d yellowbrick -c "SELECT name FROM sys.database WHERE name != 'yellowbrick' ORDER BY name")
+
+  for _db in ${_dbs}
+  do
+    print_property_append '.'
+    ${ybsql_qat} -d "${_db}" -c "${_func_sql}" >> ${_outfile}
+    ${ybsql_cmd} -d "${_db}" -f db_udf_detail.sql >> ${_details_outfile}  
+  done
+
+  awk -f ../common/pipe_table.awk ${_outfile} > ${_smry_outfile}
+
+  while IFS= read -r line
+  do
+    [[ -n "${line}" ]] && print_property 'udf_smry_by_db' "${line}"
+  done < ${_smry_outfile}
+}
+
+
 function get_temp_table_smry()
 #------------------------------------------------------------------------------
 {
@@ -662,14 +716,18 @@ function get_long_session_smry()
   local long_session_smry_sql="SELECT *
      FROM sys.session
      WHERE TRUE"
-  local long_session_smry="$( ${ybsql_qat} -c '${long_session_smry_sql}')"
-  print_property 'long_session_smry'  "${long_session_smry}"
+
+  ${ybsql_cmd} -c "${long_session_smry_sql}" > long_session_smry_sql.out
+  while IFS= read -r line
+  do
+    [[ -n "${line}" ]] && print_property 'long_session_smry' "${line}"
+  done < long_session_smry_sql.out
 }
 
 function get_long_txn_smry()
 #------------------------------------------------------------------------------
 {
-  local long_txn_smry="SELECT
+  local long_txn_smry_sql="SELECT
 	  datname
 	, usename
 	, state
@@ -680,8 +738,12 @@ function get_long_txn_smry()
 	, date_trunc('seconds', now() - last_statement) AS last_stmt_age
 FROM pg_stat_activity
 WHERE xact_start < now() - interval '1 MINUTE';"
-  local temp_table_smry="$( ${ybsql_qat} -c "${long_txn_smry}")"
-  print_property 'sessions_gt_1hr_smry'  "${temp_table_smry}"
+
+  ${ybsql_cmd} -c "${long_txn_smry_sql}" > long_txn_smry_sql.out
+  while IFS= read -r line
+  do
+    [[ -n "${line}" ]] && print_property 'long_txn_smry' "${line}"
+  done < long_txn_smry_sql.out
 }
 
 function get_worker_ssd_smry()
@@ -773,6 +835,7 @@ function get_catalog_size()
   print_property 'catalog_size' "${_catalog_size}"  
 }
 
+
 function check_extended_ascii()
 #------------------------------------------------------------------------------
 {
@@ -795,17 +858,16 @@ function get_txn_wraparound_state()
   local _healthy_dbs=-1
   local _unhealthy_dbs=-1
   local _outfile=db_txn_id_wraparound_check.out
-  local _esc_db=""
+  local _dbs=""
 
   print_property 'txn_wraparound_check' '(running) '
-  dbs=$(ybsql -qAt -d yellowbrick -c "SELECT quote_ident(name) FROM sys.database WHERE name != 'yellowbrick' ORDER BY name")
+  _dbs=$(ybsql -qAt -d yellowbrick -c "SELECT name FROM sys.database WHERE name != 'yellowbrick' ORDER BY name")
 
-  echo "" > ${_outfile}
-  for db in ${dbs}
-  do 
-    printf -v esc_db "%q" ${db}
+  echo /dev/null > ${_outfile}
+  for _db in ${_dbs}
+  do
     print_property_append '.'
-    ybsql -d ${esc_db} -f db_txn_id_wraparound_check.sql >> ${_outfile}
+    ${ybsql_qat} -d "${_db}" -f db_txn_id_wraparound_check.sql >> ${_outfile}
   done
 
   _healthy_dbs=$(grep 'IS healthy' ${_outfile} | wc -l )
@@ -943,6 +1005,7 @@ function main()
  #get_session_smry
   get_database_smry
   get_char_cols_smry
+  get_udf_smry_and_dtl
   get_worker_ssd_smry
   #get_data_skew
     
@@ -972,12 +1035,14 @@ function main()
   
   # Done
   rm -f delete.me
-  print_section 'DONE' 
-  print_property 'zipping_directory'   "${outdir}"  
-  mv *.out ${outdir}/
+  print_section 'DONE'
+  print_property 'zipping_directory'   "${outdir}"
+  shopt -s nullglob
+  mv *.out ${outdir}/ 2>/dev/null
   mv *.out.*gz ${outdir}/  2>/dev/null
+  shopt -u nullglob
  #mv char_cols ${outdir}/
-  tar -czf ${outdir}.tgz ${outdir}
+  tar -czf "${outdir}.tgz" -C "$(dirname -- "${outdir}")" "$(basename -- "${outdir}")"
   print_property 'generated_zip_file' "${outdir}.tgz"
   echo ""
 }

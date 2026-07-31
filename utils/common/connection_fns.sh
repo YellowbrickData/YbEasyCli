@@ -1,6 +1,7 @@
 # connection_fns.sh
 #
 # Functions:
+# . show_yb_env()
 # . do_connect()
 # . is_appliance()
 # . is_manager()
@@ -13,16 +14,54 @@
 # . get_yb_ver_num()
 #
 # Revision History:
+# 2026.07.17 - Implement is_appliance() as the inverse of is_cn(); both now
+#              check yb_ver_num first and short-circuit for versions <7.
+# 2026.07.17 - Add show_yb_env() to print YBHOST/YBUSER/YBDATABASE and a
+#              fully-masked YBPASSWORD.
 # 2026.03.09 - Add additional functions for yrs CN functionality.
 # 2026.03.09 - Initial version
 #
+# NOTE: is_appliance() and is_cn() do not check for Yellowbrick Community
+# Edition.
+#
 # ???
-#. Do we want to use -X if not manager node becuase connection props might be 
+#. Do we want to use -X if not manager node becuase connection props might be
 #  set in ".ybsqlrc"
 
 ###############################################################################
 # CONNECTION FUNCTIONS
 ###############################################################################
+
+
+function show_yb_env()
+#------------------------------------------------------------------------------
+# Print the current YBHOST, YBUSER, and YBDATABASE environment variable
+# values. If YBPASSWORD is set, its value is fully masked (one '*' per
+# character) rather than displayed in the clear.
+#
+# Args:
+#   none
+# Outputs:
+#   YBHOST, YBUSER, YBDATABASE values, and a masked YBPASSWORD (if set).
+# Return Code:
+#   0
+# Affects:
+#   none
+#------------------------------------------------------------------------------
+{
+  local pwd_display="UNSET"
+
+  if [[ -n ${YBPASSWORD} ]]; then
+    pwd_display=$(printf '%*s' "${#YBPASSWORD}" '' | tr ' ' '*')
+  fi
+
+  echo "YBHOST    =${YBHOST:-UNSET}"
+  echo "YBUSER    =${YBUSER:-UNSET}"
+  echo "YBDATABASE=${YBDATABASE:-UNSET}"
+  echo "YBPASSWORD=${pwd_display}"
+
+  return 0
+}
 
 
 function do_connect()
@@ -73,19 +112,40 @@ function do_connect()
 
 function is_appliance()
 #------------------------------------------------------------------------------
-# Is this running on an appliance manager node.
+# Is the cluster we are connecting to a Yellowbrick appliance (as opposed to
+# CloudNative). This is the inverse of is_cn(). Checks yb_ver_num first: for
+# versions <7 there is no CloudNative, so this returns "t" without querying.
 #
-# Args: 
-#   none
-# Returns:
-#   0 if success, 1 if error
+# Args:
+#   $* (optl) - Optional args to pass to ybsql
 # Outputs:
-#   "yes" or "no"
+#   "t" or "f"
+# Return Code:
+#   0 if success, 1 if error
 # Affects:
 #   none
 #------------------------------------------------------------------------------
 {
-  echo "not implemented"
+  local rc=0
+  local is_appliance_conn="unknown"
+  local yb_ver_num
+
+  yb_ver_num=$(get_yb_ver_num $@)
+  rc=$?
+  [[ ${rc} -ne 0 ]] && return ${rc}
+
+  if (( yb_ver_num < 70000 )); then
+    echo "t"
+    return 0
+  fi
+
+  # Returns 't' for TRUE and 'f' for FALSE
+  is_appliance_conn=$(ybsql $@ -d yellowbrick -qAt -c "SELECT (hardware_instance_type_id = '10000000-0000-0000-0000-000000000001') AS is_appliance FROM sys.cluster  WHERE is_system_cluster =TRUE" )
+  rc=$?
+
+  echo ${is_appliance_conn}
+
+  return ${rc}
 }
 
 
@@ -144,7 +204,9 @@ function is_mgr_connection()
 
 function is_cn()
 #------------------------------------------------------------------------------
-# Is the cluster we are connecting to an CloudNative instance.
+# Is the cluster we are connecting to an CloudNative instance. This is the
+# inverse of is_appliance(). Checks yb_ver_num first: for versions <7 there
+# is no CloudNative, so this returns "f" without querying.
 #
 # Args:
 #   $* (optl) - Optional args to pass to ybsql
@@ -158,6 +220,16 @@ function is_cn()
 {
   local rc=0
   local is_cn_conn="unknown"
+  local yb_ver_num
+
+  yb_ver_num=$(get_yb_ver_num $@)
+  rc=$?
+  [[ ${rc} -ne 0 ]] && return ${rc}
+
+  if (( yb_ver_num < 70000 )); then
+    echo "f"
+    return 0
+  fi
 
   # Returns 't' for TRUE and 'f' for FALSE
   is_cn_conn=$(ybsql $@ -d yellowbrick -qAt -c "SELECT (hardware_instance_type_id != '10000000-0000-0000-0000-000000000001') AS is_cn FROM sys.cluster  WHERE is_system_cluster =TRUE" )

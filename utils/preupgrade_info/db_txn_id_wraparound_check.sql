@@ -1,5 +1,7 @@
 -- db_txn_id_wraparound_check.sql
 --
+-- Purpose: Check for databases that are close to transaction ID wraparound.
+--
 -- 2025.03.21
 
 -- How close the currnt db is to the wraparound limit.
