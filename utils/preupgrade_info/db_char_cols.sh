@@ -107,5 +107,5 @@ done
 
 echo ""
 echo "DONE. Databases=${num_dbs}, Files=${num_files}, Output Files are:"
-ls -1 -d ./${outdir}/*
+ls -1 -d "${outdir}"/*
 echo ""
