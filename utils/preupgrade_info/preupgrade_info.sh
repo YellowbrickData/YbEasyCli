@@ -8,6 +8,10 @@
 # Inputs:
 #   none
 #
+# Prerequisites:
+# . Must be run on a manager node. It calls ybcli and OS functions.
+# . Must be run from the directory containing this script.
+#
 # Outputs:
 # . Console output is tee'd to ouput file
 # . Many checks create output files in the background.
@@ -17,8 +21,12 @@
 #   Run from the manager node as ybdadmin user.
 #
 # Revision History:
-# . 2026.07.23 11:00 (rek) - Multiple minor bug fixes in functions: die(), emit(), dump_ybsql(), dump_ybcli_cmd().
+# . 2026.08.18 19:00 (rek) - Added get_ca_cert_expiry()
+#                            Fixed db_char_cols.sh 'char_cols/*: No such file' error 
+# . 2026.07.23 11:00 (rek) - Multiple minor bug fixes in functions: die(), emit()
+#                              , dump_ybsql(), dump_ybcli_cmd().
 #                            Added get_long_session_smry and get_long_txn_smry.
+#                            Added get_udf_smry_and_dtl
 # . 2026.04.15 13:00 (rek) - Added cmp uptime check.
 #                            Added error notification to dump_ybsql(). 
 #                            Added explicit cd to script directory.
@@ -73,7 +81,7 @@
 # READONLY VARIABLES
 ###############################################################################
 
-readonly script_version='2026.04.15.1300'
+readonly script_version='2026.08.18.1915'
 readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly script_file_name="$(echo $(basename $0))"
 readonly script_name="$(echo $(basename $0) | cut -f1 -d'.' )"
@@ -186,6 +194,7 @@ function print_property()
   printf "%-${prop_name_width}.${prop_name_width}s" "${_prop//$_pad_char/ }" | tr ' ' "${_pad_char}"
   printf ': %s' "${_val}"
 }
+
 
 function print_property_append()
 #------------------------------------------------------------------------------
@@ -532,12 +541,44 @@ function get_cmp_uptime()
         );
       if [[ ! "${_output_line}" == "" ]]; then
         print_property "${_prop_line_prefix}" "${_output_line}"
-        _prop_line_prefix='.'
+        #_prop_line_prefix='.'
       fi
       done < ybcli_health_cmp.out
 }
 
 
+function get_ca_cert_expiry()
+#------------------------------------------------------------------------------
+# Print time until YB CA cert expires. This is used by replication and replication
+#   will fail when the cert expires.
+# Args: 
+#   none
+# Inputs:
+#   none
+# Outputs:
+#   CA cert expiration date and number of days until expires
+#------------------------------------------------------------------------------
+{
+  local _expiry
+  local _expiry_epoch
+  local _now_epoch
+  local _days_left
+  local _status="OK"
+
+  _expiry=$(ybsql -d yellowbrick -XAqtc 'SHOW SSL CA' | openssl x509 -noout -enddate | cut -d= -f2)
+  _expiry_epoch=$(date -d "$_expiry" +%s)
+  _now_epoch=$(date +%s)
+  _days_left=$(( (_expiry_epoch - _now_epoch) / 86400 ))
+
+  if [ "$_days_left" -lt 0 ]; then
+      _status="EXPIRED"
+  fi
+
+  print_property 'ca_cert_days_left'    "${_days_left} ${_status}"
+  print_property 'ca_cert_expires_on'   "${_expiry}"
+}
+ 
+ 
 function get_manager_drive_wear()
 #------------------------------------------------------------------------------
 # Print life used for local and remote manager node SSDs and NVMEs. 
@@ -665,24 +706,25 @@ function get_udf_smry_and_dtl()
 SELECT db_name
      , SUM(CASE WHEN language = 'c'       THEN 1 ELSE 0 END) AS c
      , SUM(CASE WHEN language = 'ybcpp'   THEN 1 ELSE 0 END) AS ybcpp
-     , SUM(CASE WHEN language = 'plpgsql' THEN 1 ELSE 0 END) AS plpgsql
      , SUM(CASE WHEN language = 'sql'     THEN 1 ELSE 0 END) AS sql
+     , SUM(CASE WHEN language = 'plpgsql' THEN 1 ELSE 0 END) AS plpgsql
 FROM udfs
 GROUP BY db_name;
 "
-  local readonly _func_sql_headers="SELECT 'db_name' AS db_name, 'c' AS c, 'ybcpp' AS ybcpp, 'plpgsql' AS plpgsql, 'sql' AS sql;"
+  local readonly _func_sql_headers="SELECT 'db_name' AS db_name, 'c' AS c, 'ybcpp' AS ybcpp, 'sql' AS sql , 'plpgsql' AS plpgsql;"
 
-  echo /dev/null > ${_outfile}
-  echo /dev/null > ${_details_outfile}
+  echo -n "" > ${_outfile}
+  echo -n "" > ${_details_outfile}
   ${ybsql_qat} -d yellowbrick -c "${_func_sql_headers}" >> ${_outfile}
 
   print_property 'udf_smry_by_db' '(running) '
   _dbs=$(ybsql -qAt -d yellowbrick -c "SELECT name FROM sys.database WHERE name != 'yellowbrick' ORDER BY name")
+  print_property_append "(${_outfile})(${_details_outfile})"
 
   for _db in ${_dbs}
   do
     print_property_append '.'
-    ${ybsql_qat} -d "${_db}" -c "${_func_sql}" >> ${_outfile}
+    ${ybsql_qat} -d "${_db}" -c "${_func_sql}"    >> ${_outfile}
     ${ybsql_cmd} -d "${_db}" -f db_udf_detail.sql >> ${_details_outfile}  
   done
 
@@ -842,6 +884,7 @@ function check_extended_ascii()
   local _utf8_extd_ascii_db_fails=-1
   local _shared_extd_ascii_db_fails=-1
   
+  print_property 'utf8_extd_ascii' '(running)' 
   ./check_extended_ascii.sh > check_utf8_extended_ascii.out
   _utf8_extd_ascii_db_fails=$?
   print_property 'utf8_extd_ascii_db_fails' "${_utf8_extd_ascii_db_fails}"  
@@ -995,6 +1038,7 @@ function main()
   print_section 'manager node status' 
   get_manger_uptime
   get_cmp_uptime  
+  get_ca_cert_expiry
   get_manager_drive_wear
   get_net_interface_smry
   
