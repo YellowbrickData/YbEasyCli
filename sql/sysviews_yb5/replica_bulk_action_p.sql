@@ -14,6 +14,8 @@
 **   Yellowbrick Data Corporation shall have no liability whatsoever.
 **
 ** Revision History:
+** . 2026.08.13 - Filter _replicas on r.name; replica_name is a select list
+**                alias and is not in scope in the WHERE clause.
 */
 
 /* ****************************************************************************
@@ -86,7 +88,7 @@ BEGIN
         FOREACH v_replica IN ARRAY string_to_array(_replicas, '|') LOOP
             v_replica_in_list := v_replica_in_list || quote_literal(TRIM(v_replica)) || ',';
         END LOOP;
-        v_replica_in_list := 'replica_name IN (' || RTRIM(v_replica_in_list, ',') || ')';
+        v_replica_in_list := 'r.name IN (' || RTRIM(v_replica_in_list, ',') || ')';
         v_status = 'TRUE';
     ELSE
         v_replica_in_list := 'TRUE';
