@@ -1,0 +1,440 @@
+# ybcntree — print a Yellowbrick instance tree for a kubeconfig context.
+#
+# Usage:
+#   ybcntree [-d|--debug] [--no-auto] [--context name] [namespace]
+#   . ybcntree.bsh [-d|--debug] [--no-auto] [--context name] [namespace]
+#   bash ybcntree.bsh [-d|--debug] [--no-auto] [--context name] [namespace]
+#
+# With more than one kubeconfig context and no --context, prompts for a
+# context first (local kubeconfig only; does not change current-context).
+# A single context is used automatically unless --no-auto. All kubectl
+# calls use --context for this run.
+#
+# Argument is the Kubernetes namespace of the YBInstance, not the instance
+# name or cluster name. Example: instance "ts-sandbox" lives in "yb-ts-sandbox",
+# so use:  ybcntree yb-ts-sandbox
+#
+# With no namespace, lists YBInstances in the chosen context. A single
+# instance is used automatically unless --no-auto; otherwise prompts.
+#
+# -d / --debug     timestamped collection messages on stderr
+# --no-auto        always show context and instance pickers (even if only one)
+#
+# Requires kubectl in PATH. Uses ybsql in the ybinst pod for compute-cluster
+# details when that pod is reachable.
+ybcntree() {
+  local debug=0 no_auto=0 ns="" ctx=""
+  dbg() {
+    (( debug )) || return 0
+    printf '%s  %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >&2
+  }
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -d|--debug) debug=1; shift ;;
+      --no-auto) no_auto=1; shift ;;
+      -c|--context)
+        if [[ -z "${2:-}" || "$2" == -* ]]; then
+          echo "ybcntree: --context requires a name" >&2
+          return 1
+        fi
+        ctx="$2"
+        shift 2
+        ;;
+      --context=*)
+        ctx="${1#*=}"
+        shift
+        ;;
+      -h|--help)
+        echo "usage: ybcntree [-d|--debug] [--no-auto] [--context name] [namespace]" >&2
+        return 0
+        ;;
+      -*)
+        echo "ybcntree: unknown option: $1" >&2
+        echo "usage: ybcntree [-d|--debug] [--no-auto] [--context name] [namespace]" >&2
+        return 1
+        ;;
+      *)
+        ns="$1"
+        shift
+        ;;
+    esac
+  done
+
+  dbg "starting ybcntree"
+
+  if ! command -v kubectl >/dev/null 2>&1; then
+    echo "ybcntree: kubectl not found in PATH" >&2
+    return 1
+  fi
+
+  local ctxs=() ctxclusters=() ctx_labels=() i choice found=0
+  dbg "listing kubeconfig contexts"
+  while IFS=$'\t' read -r cname ccluster; do
+    [[ -n "$cname" ]] || continue
+    ctxs+=("$cname")
+    ctxclusters+=("$ccluster")
+  done < <(kubectl config view -o jsonpath='{range .contexts[*]}{.name}{"\t"}{.context.cluster}{"\n"}{end}' 2>/dev/null)
+  if (( ${#ctxs[@]} == 0 )); then
+    echo "ybcntree: no contexts in kubeconfig" >&2
+    return 1
+  fi
+  if [[ -n "$ctx" ]]; then
+    for i in "${!ctxs[@]}"; do
+      if [[ "${ctxs[i]}" == "$ctx" ]]; then
+        found=1
+        break
+      fi
+    done
+    if (( ! found )); then
+      echo "ybcntree: context not in kubeconfig: $ctx" >&2
+      return 1
+    fi
+  elif (( ${#ctxs[@]} == 1 && ! no_auto )); then
+    ctx="${ctxs[0]}"
+    dbg "auto-selected context $ctx"
+  else
+    for i in "${!ctxs[@]}"; do
+      if [[ "${ctxs[i]}" == "${ctxclusters[i]}" || -z "${ctxclusters[i]}" ]]; then
+        ctx_labels+=("${ctxs[i]}")
+      else
+        ctx_labels+=("${ctxs[i]} (${ctxclusters[i]})")
+      fi
+    done
+    echo "Select context:" >&2
+    PS3="Context: "
+    select choice in "${ctx_labels[@]}"; do
+      if [[ -n "$choice" ]]; then
+        ctx="${ctxs[REPLY-1]}"
+        break
+      fi
+      echo "Invalid selection" >&2
+    done
+    [[ -n "$ctx" ]] || return 1
+  fi
+  dbg "kubectl context: $ctx"
+
+  kget() {
+    local -a run=(kubectl --context="$ctx" --request-timeout=8s)
+    if command -v timeout >/dev/null 2>&1; then
+      run=(timeout --foreground -k 2 15 "${run[@]}")
+    fi
+    if (( debug )); then
+      "${run[@]}" "$@"
+    else
+      "${run[@]}" "$@" 2>/dev/null
+    fi
+  }
+  kexec() {
+    if (( debug )); then
+      kubectl --context="$ctx" "$@"
+    else
+      kubectl --context="$ctx" "$@" 2>/dev/null
+    fi
+  }
+
+  if [[ -z "$ns" ]]; then
+    local names=() nsps=() i choice labels=() list_out list_rc=0
+    dbg "listing YBInstances in all namespaces (15s timeout)"
+    list_out=$(kget get ybinstance -A --no-headers -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.namespace}{"\n"}{end}')
+    list_rc=$?
+    if (( list_rc != 0 )); then
+      echo "ybcntree: cannot reach Kubernetes API for context $ctx (exit $list_rc)" >&2
+      dbg "finished ybcntree"
+      return 1
+    fi
+    while IFS=$'\t' read -r name nsp; do
+      [[ -n "$name" ]] || continue
+      names+=("$name")
+      nsps+=("$nsp")
+    done <<< "$list_out"
+    if (( ${#names[@]} == 0 )); then
+      echo "ybcntree: no YBInstance found in context $ctx" >&2
+      echo "usage: ybcntree [-d|--debug] [--no-auto] [--context name] [namespace]" >&2
+      return 1
+    fi
+    if (( ${#names[@]} == 1 && ! no_auto )); then
+      ns="${nsps[0]}"
+      dbg "auto-selected instance ${names[0]} (namespace $ns)"
+    else
+      for i in "${!names[@]}"; do
+        if [[ "${names[i]}" == "${nsps[i]}" ]]; then
+          labels+=("${names[i]}")
+        else
+          labels+=("${names[i]} (${nsps[i]})")
+        fi
+      done
+      echo "Select instance:" >&2
+      PS3="Instance: "
+      select choice in "${labels[@]}"; do
+        if [[ -n "$choice" ]]; then
+          ns="${nsps[REPLY-1]}"
+          break
+        fi
+        echo "Invalid selection" >&2
+      done
+      [[ -n "$ns" ]] || return 1
+    fi
+  fi
+
+  local cluster inst_out inst_pod sql_out hw_info sts_out
+  dbg "collecting Kubernetes cluster name from kubeconfig"
+  cluster=$(kubectl --context="$ctx" config view --minify -o jsonpath='{.contexts[0].context.cluster}')
+  echo "Kubernetes: $cluster | Namespace: $ns"
+
+  dbg "collecting YBInstance in namespace $ns"
+  inst_out=$(kget get ybinstance -n "$ns" --no-headers \
+    -o custom-columns='NAME:.metadata.name,STATE:.status.currentState,VER:.status.currentVersion,LAST:.status.instanceTaskLast.operation,CHANGED:.status.stateChangeTimestamp')
+  if [[ -z "${inst_out//[$' \t\n']/}" ]]; then
+    echo "Instance: (none)"
+  else
+    echo "$inst_out" | awk '
+    function age(ts,   cmd, start, now, s) {
+      if (ts !~ /^[0-9]/) return "Not Running"
+      gsub(/Z$/, "", ts)
+      cmd = "date -u -d \"" ts "\" +%s"
+      if ((cmd | getline start) <= 0) { close(cmd); return "Not Running" }
+      close(cmd)
+      "date -u +%s" | getline now; close("date -u +%s")
+      s = now - start
+      if (s >= 86400) return int(s/86400) "d" int((s%86400)/3600) "h"
+      if (s >= 3600) return int(s/3600) "h" int((s%3600)/60) "m"
+      return int(s/60) "m"
+    }
+    {
+      for (i = 1; i <= NF; i++) if ($i == "<none>") $i = "?"
+      print "Instance: " $1 "  [State: " $2 " | Version: " $3 " | Last op: " $4 " " age($5) " ago]"
+    }'
+  fi
+  echo
+
+  dbg "collecting worker StatefulSet hardware labels"
+  hw_info=$(kget get sts -n "$ns" -l yellowbrick.io/type=ybwork \
+    -o jsonpath='{range .items[*]}{.metadata.labels.yellowbrick\.io/cluster_id}{"\t"}{.metadata.labels.yellowbrick\.io/hw_instance_type_provider_name}{"\n"}{end}')
+
+  dbg "collecting ybinst pod name"
+  inst_pod=$(kget get pods -n "$ns" -l yellowbrick.io/type=ybinst -o jsonpath='{.items[0].metadata.name}')
+  sql_out=""
+  qidle_out=""
+  if [[ -n "$inst_pod" ]]; then
+    dbg "collecting compute clusters via ybsql on $inst_pod (sys.cluster, log_cluster_event)"
+    sql_out=$(kexec exec -n "$ns" "$inst_pod" -c ybinst-pg -- \
+      env PGAPPNAME=ybcntree ybsql -d yellowbrick -At -F '|' -c \
+      "SELECT c.cluster_name, c.state, COALESCE(c.nodes,0), COALESCE(c.ready_workers,0), COALESCE(c.auto_suspend,0), c.auto_resume, COALESCE(c.hardware_instance_name,''), c.is_default_cluster, c.is_system_cluster, c.cluster_id, COALESCE(c.default_wlm_profile_name,''), EXTRACT(EPOCH FROM (now() - r.last_resume))::int, EXTRACT(EPOCH FROM (now() - s.last_suspend))::int FROM sys.cluster c LEFT JOIN (SELECT cluster_name, MAX(event_time) AS last_resume FROM sys.log_cluster_event WHERE event_action = 'resumed' GROUP BY cluster_name) r ON r.cluster_name = c.cluster_name LEFT JOIN (SELECT cluster_name, MAX(event_time) AS last_suspend FROM sys.log_cluster_event WHERE event_action = 'suspended' GROUP BY cluster_name) s ON s.cluster_name = c.cluster_name ORDER BY c.cluster_name")
+    if echo "$sql_out" | awk -F'|' '$2 == "RUNNING" { found = 1 } END { exit !found }'; then
+      dbg "collecting compute-cluster idle via ybsql on $inst_pod (sys._log_query, sys.query)"
+      qidle_out=$(kexec exec -n "$ns" "$inst_pod" -c ybinst-pg -- \
+        env PGAPPNAME=ybcntree ybsql -d yellowbrick -At -F '|' -c \
+        "SELECT cluster_name, MIN(idle_s) FROM (SELECT cluster_name, EXTRACT(EPOCH FROM (now() - MAX(COALESCE(done_time, submit_time))))::int AS idle_s FROM sys._log_query WHERE COALESCE(application_name,'') NOT IN ('ybcntree','yb-lime') AND COALESCE(username,'') NOT LIKE 'sys_%' GROUP BY cluster_name UNION ALL SELECT cluster_name, 0 FROM sys.query WHERE COALESCE(application_name,'') NOT IN ('ybcntree','yb-lime') AND COALESCE(username,'') NOT LIKE 'sys_%') x GROUP BY cluster_name")
+    else
+      dbg "skipping idle query (no RUNNING compute cluster)"
+    fi
+  else
+    dbg "skipping ybsql (no ybinst pod)"
+  fi
+
+  echo "Compute Clusters:"
+  if [[ -n "${sql_out//[$' \t\n']/}" ]]; then
+    echo "$sql_out" | awk -F'|' -v hwinfo="$hw_info" -v idleinfo="$qidle_out" '
+    BEGIN {
+      n = split(hwinfo, lines, "\n")
+      for (i = 1; i <= n; i++) {
+        split(lines[i], a, "\t")
+        if (a[1] != "") hwmap[a[1]] = a[2]
+      }
+      n = split(idleinfo, lines, "\n")
+      for (i = 1; i <= n; i++) {
+        split(lines[i], a, "|")
+        if (a[1] != "" && a[2] != "") qidle[a[1]] = a[2]
+      }
+    }
+    function dur(s) {
+      if (s == "" || s == "?") return "?"
+      s = int(s)
+      if (s < 0) s = 0
+      if (s >= 86400) return int(s/86400) "d" int((s%86400)/3600) "h"
+      if (s >= 3600) return int(s/3600) "h" int((s%3600)/60) "m"
+      if (s >= 60) return int(s/60) "m"
+      return s "s"
+    }
+    function pad(s, w) {
+      s = s ""
+      while (length(s) < w) s = s " "
+      return s
+    }
+    NF < 10 { next }
+    {
+      hw = hwmap[$10]
+      if (hw == "") hw = $7
+      else if ($7 != "" && hw != $7) hw = hw " (" $7 ")"
+      if (hw == "") hw = "?"
+      if ($5 == "" || $5 == "0") {
+        sus = "disabled"
+      } else if ($2 == "RUNNING") {
+        idle = $12
+        if ($1 in qidle && (idle == "" || qidle[$1] + 0 < idle + 0)) idle = qidle[$1]
+        sus = (idle != "") ? int(idle) "/" $5 "s" : $5 "s"
+      } else {
+        sus = $5 "s"
+      }
+      ar = ($6 ~ /^[tT1]/) ? "true" : "false"
+      roles = ""
+      if ($8 ~ /^[tT1]/) roles = "default"
+      if ($9 ~ /^[tT1]/) roles = (roles ? roles ", " : "") "system"
+      i = ++nc
+      cname[i] = $1
+      col[i, 1] = $2
+      col[i, 2] = "Nodes: " $4 "/" $3
+      col[i, 3] = "HW: " hw
+      col[i, 4] = "Auto Suspend: " sus
+      col[i, 5] = "Auto Resume: " ar
+      col[i, 6] = ($2 == "SUSPENDED" && $13 != "") ? "Suspended: " dur($13) " ago" : ""
+      col[i, 7] = ($11 != "") ? "WLM: " $11 : ""
+      col[i, 8] = roles
+      nf = 8
+      if (length($1) > maxn) maxn = length($1)
+    }
+    END {
+      while (nf > 0) {
+        any = 0
+        for (i = 1; i <= nc; i++) if (col[i, nf] != "") any = 1
+        if (any) break
+        nf--
+      }
+      for (j = 1; j <= nf; j++)
+        for (i = 1; i <= nc; i++)
+          if (length(col[i, j]) > w[j]) w[j] = length(col[i, j])
+      for (i = 1; i <= nc; i++) {
+        out = " \\-- " pad(cname[i], maxn) "  ["
+        for (j = 1; j <= nf; j++) {
+          if (j > 1) out = out " | "
+          out = out pad(col[i, j], w[j])
+        }
+        print out "]"
+      }
+    }'
+  else
+    dbg "collecting worker StatefulSets (SQL unavailable)"
+    sts_out=$(kget get sts -n "$ns" -l yellowbrick.io/type=ybwork \
+      -o jsonpath='{range .items[*]}{.metadata.annotations.yellowbrick\.io/cluster_name}{"\t"}{.spec.replicas}{"\t"}{.status.readyReplicas}{"\t"}{.metadata.labels.yellowbrick\.io/hw_instance_type_provider_name}{"\t"}{.metadata.labels.yellowbrick\.io/hw_instance_type_instance_name}{"\n"}{end}')
+    if [[ -z "${sts_out//[$' \t\n']/}" ]]; then
+      echo " \\-- (none)"
+    else
+      echo "$sts_out" | awk -F'\t' '
+      function pad(s, w) {
+        s = s ""
+        while (length(s) < w) s = s " "
+        return s
+      }
+      {
+        name = $1; if (name == "") name = $5
+        rep = $2 + 0; ready = $3 + 0
+        state = (rep > 0) ? "RUNNING" : "SUSPENDED"
+        hw = $4
+        if ($5 != "" && $4 != "" && $4 != $5) hw = $4 " (" $5 ")"
+        else if (hw == "") hw = $5
+        if (hw == "") hw = "?"
+        i = ++nc
+        cname[i] = name
+        col[i, 1] = state
+        col[i, 2] = "Nodes: " ready "/" rep
+        col[i, 3] = "HW: " hw
+        nf = 3
+        if (length(name) > maxn) maxn = length(name)
+      }
+      END {
+        for (j = 1; j <= nf; j++)
+          for (i = 1; i <= nc; i++)
+            if (length(col[i, j]) > w[j]) w[j] = length(col[i, j])
+        for (i = 1; i <= nc; i++) {
+          out = " \\-- " pad(cname[i], maxn) "  ["
+          for (j = 1; j <= nf; j++) {
+            if (j > 1) out = out " | "
+            out = out pad(col[i, j], w[j])
+          }
+          print out "]"
+        }
+      }'
+    fi
+  fi
+  echo
+
+  dbg "collecting Kubernetes node labels"
+  dbg "collecting pods in namespace $ns"
+  kget get pods -n "$ns" --no-headers \
+    -o custom-columns='NODE:.spec.nodeName,POD:.metadata.name,STATUS:.status.phase,STARTED:.status.containerStatuses[0].state.running.startedAt,TYPE:.metadata.labels.yellowbrick\.io/type,APP:.metadata.labels.app\.kubernetes\.io/name,CONTAINERS:.spec.containers[*].name,CLUSTER:.metadata.annotations.yellowbrick\.io/cluster_name' | \
+  awk '
+  function age(ts,   cmd, start, now, s) {
+    if (ts !~ /^[0-9]/) return "Not Running"
+    gsub(/Z$/, "", ts)
+    cmd = "date -u -d \"" ts "\" +%s"
+    if ((cmd | getline start) <= 0) { close(cmd); return "Not Running" }
+    close(cmd)
+    "date -u +%s" | getline now; close("date -u +%s")
+    s = now - start
+    if (s >= 86400) return int(s/86400) "d" int((s%86400)/3600) "h"
+    if (s >= 3600) return int(s/3600) "h" int((s%3600)/60) "m"
+    return int(s/60) "m"
+  }
+  function pad(s, w) {
+    s = s ""
+    while (length(s) < w) s = s " "
+    return s
+  }
+  FNR == NR {
+    split($0, a, "\t")
+    if (a[1] != "") {
+      nt[a[1]] = (a[2] != "" ? a[2] : a[4])
+      nh[a[1]] = a[3]
+    }
+    next
+  }
+  {
+    node = ($1 == "<none>" || $1 == "") ? "<unscheduled>" : $1
+    if (!(node in seen)) { seen[node] = 1; nodelist[++nn] = node }
+    i = ++np[node]
+    pod[node, i] = $2
+    status[node, i] = $3
+    started[node, i] = $4
+    typ = ($5 != "<none>" && $5 != "") ? $5 : $6
+    if (typ == "<none>") typ = ""
+    type[node, i] = typ
+    containers[node, i] = $7
+    if ($8 != "<none>" && $8 != "") nclus[node] = "Cluster: " $8
+  }
+  END {
+    print "Nodes:"
+    if (nn == 0) { print " \\-- (no pods)"; exit }
+    for (n = 1; n <= nn; n++) {
+      node = nodelist[n]
+      if (length(node) > maxnode) maxnode = length(node)
+      if (length(nt[node]) > maxnt) maxnt = length(nt[node])
+      if (length(nh[node]) > maxnh) maxnh = length(nh[node])
+      if (length(nclus[node]) > maxnc) maxnc = length(nclus[node])
+      for (p = 1; p <= np[node]; p++) {
+        if (length(pod[node, p]) > maxpod) maxpod = length(pod[node, p])
+        if (length(type[node, p]) > maxtype) maxtype = length(type[node, p])
+        pstat[node, p] = "Status: " status[node, p]
+        pfor[node, p] = "Running For: " age(started[node, p])
+        if (length(pstat[node, p]) > maxst) maxst = length(pstat[node, p])
+        if (length(pfor[node, p]) > maxfor) maxfor = length(pfor[node, p])
+      }
+    }
+    for (n = 1; n <= nn; n++) {
+      node = nodelist[n]
+      extra = pad(nt[node], maxnt) " | " pad(nh[node], maxnh)
+      if (maxnc > 0) extra = extra " | " pad(nclus[node], maxnc)
+      print " \\-- Node: " pad(node, maxnode) "  [" extra "]"
+      for (p = 1; p <= np[node]; p++) {
+        tbit = pad(type[node, p], maxtype) " | " pad(pstat[node, p], maxst) " | " pad(pfor[node, p], maxfor)
+        print "      \\-- Pod: " pad(pod[node, p], maxpod) "  [" tbit "]"
+        nc = split(containers[node, p], c, ",")
+        for (k = 1; k <= nc; k++) print "           +-- Container: " c[k]
+      }
+    }
+  }' <(kget get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.labels.cluster\.yellowbrick\.io/node_type}{"\t"}{.metadata.labels.node\.kubernetes\.io/instance-type}{"\t"}{.metadata.labels.eks\.amazonaws.com/nodegroup}{"\n"}{end}') -
+  dbg "finished ybcntree"
+  echo
+}
+
+ybcntree "$@"
