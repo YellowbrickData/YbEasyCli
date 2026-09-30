@@ -94,6 +94,8 @@ Notes
   the WKT size threshold.
 - Area differences between originals and the sum of parts are reported to help
   assess numeric/representation effects.
+- With --execute, destination DDL and DML run in one transaction. If any
+  statement fails, that transaction is rolled back.
 """
 import os
 import sqlite3
@@ -179,7 +181,8 @@ class YBSplitPolygon(Util):
         - destination arguments:
           --dest-table: base table name. A companion "_split" table is used for
             part rows.
-          --execute: if provided, execute INSERTs; otherwise print SQL.
+          --execute: if provided, run destination DDL and DML in one transaction
+            that is rolled back on error; otherwise print SQL.
           --insert-batch-size: number of rows per batch insert when executing.
         """
         source_grp = self.args_handler.args_parser.add_argument_group(
@@ -208,7 +211,8 @@ class YBSplitPolygon(Util):
                  'Two tables will be created/populated: <dest-table> and <dest-table>_split.')
         dest_grp.add_argument(
             '--execute', action="store_true",
-            help='Execute the INSERT statements on the destination DB. If the destination tables do not exist, they will be created. '
+            help='Run destination DDL and DML in a single transaction. If any statement fails, the transaction is rolled back. '
+                 'If the destination tables do not exist, they will be created. '
                  'Default is to print the INSERT statements to stdout.')
         dest_grp.add_argument(
             '--insert-batch-size', type=int, default=1,
@@ -356,6 +360,50 @@ class YBSplitPolygon(Util):
 
         return consolidated_wkts
 
+    @staticmethod
+    def _split_insert_sql(dest_table_split_name, value_tuples):
+        """Build one INSERT for a batch of split-polygon rows."""
+        return (
+            "INSERT INTO %s (id, chunk_id, area, wkt_length, wkb_length, geometry) VALUES %s;"
+            % (dest_table_split_name, ',\n'.join(value_tuples)))
+
+    @staticmethod
+    def _queue_txn_sql(txn_statements, sql):
+        """Append one statement to the load transaction."""
+        statement = sql.strip()
+        if statement:
+            if not statement.endswith(';'):
+                statement += ';'
+            txn_statements.append(statement)
+
+    def _execute_txn_sql(self, txn_statements):
+        """
+        Run queued DDL and DML in one ybsql session.
+
+        ybsql_query sets ON_ERROR_STOP, so a failed statement stops the script
+        before COMMIT. Closing that session rolls the open transaction back.
+        """
+        if not txn_statements:
+            return
+
+        script = (
+            "BEGIN;\n"
+            "SET enable_geospatial = on;\n"
+            + "\n".join(txn_statements)
+            + "\nCOMMIT;"
+        )
+        print(
+            "Executing %d SQL statement(s) in a single transaction..."
+            % len(txn_statements))
+        cmd_result = self.db_conn.ybsql_query(
+            script, options='-A -q -t -v ON_ERROR_STOP=1 -X')
+        if cmd_result.stderr != '' or cmd_result.exit_code != 0:
+            print(
+                "Error encountered. The load transaction was not committed, "
+                "so all DDL and DML from this run were rolled back.")
+            cmd_result.on_error_exit()
+        print("Transaction committed.")
+
     def execute(self):
         """
         Execute the end-to-end workflow: read, split, consolidate, compute areas,
@@ -363,15 +411,18 @@ class YBSplitPolygon(Util):
 
         Steps
         1) Connect to the source SQLite database (optionally loading SpatiaLite).
-        2) Prepare destination table names (<dest>, <dest>_split); create them
-           if --execute is provided and they do not exist.
+        2) Prepare destination table names (<dest>, <dest>_split). When
+           --execute is set, queue CREATE TABLE for any that do not exist.
         3) For each (id, wkt) row from --source-query:
            - Parse original geometry and compute geodesic area (WGS84).
            - Split the geometry to respect --max-polygon-len.
            - Consolidate small parts where possible.
-           - Insert one row into <dest> with metadata and chunk count.
-           - Insert one row per part into <dest>_split with GEOGRAPHY values.
-        4) When not in --execute mode, print SQL instead of executing.
+           - Queue or print one row into <dest> with metadata and chunk count.
+           - Queue or print one row per part into <dest>_split with GEOGRAPHY values.
+        4) When --execute is set, run the queued DDL and DML in a single
+           transaction. A statement error stops execution before COMMIT, and
+           the database rolls the transaction back.
+           When --execute is not set, print SQL instead of executing.
 
         Side effects
         - Emits progress and summary information to stdout, including aggregate
@@ -436,17 +487,21 @@ class YBSplitPolygon(Util):
 
             # List to hold values for batch inserts
             split_values_batch = []
+            # DDL and DML for this run. Executed together so a failure rolls all of it back.
+            txn_statements = []
 
             if args.execute:
-                # Check for and create tables if --execute is specified
-                print(f"Execution mode enabled. Checking/creating destination tables...")
+                # Check for and queue table creation if --execute is specified.
+                # Existence checks stay outside the load transaction: a missing
+                # table is expected, and those probes are not DDL or DML.
+                print(f"Execution mode enabled. Checking destination tables...")
                 
                 # Check for the main metadata table by trying to query it.
                 check_sql = f"SELECT 1 FROM {dest_table_original_name} LIMIT 1;"
                 cmd_result = self.db_conn.ybsql_query(check_sql)
                 # On Windows, exit_code can be 0 even if ybsql fails. Check stderr for 'ERROR:' as well.
                 if (cmd_result.exit_code != 0 or 'ERROR:' in cmd_result.stderr) and 'does not exist' in cmd_result.stderr:
-                    print(f"Table '{dest_table_original_name}' not found, creating it.")
+                    print(f"Table '{dest_table_original_name}' not found. CREATE TABLE will run in the load transaction.")
                     create_original_table_sql = f"""
                         CREATE TABLE {dest_table_original_name} (
                             id VARCHAR(256) PRIMARY KEY,
@@ -456,7 +511,7 @@ class YBSplitPolygon(Util):
                             chunk_ct BIGINT
                         );
                     """
-                    self.db_conn.ybsql_query(create_original_table_sql).on_error_exit()
+                    self._queue_txn_sql(txn_statements, create_original_table_sql)
                 else:
                     if cmd_result.exit_code == 0:
                         print(f"Table '{dest_table_original_name}' already exists.")
@@ -468,9 +523,9 @@ class YBSplitPolygon(Util):
                 cmd_result = self.db_conn.ybsql_query(check_sql)
                 # On Windows, exit_code can be 0 even if ybsql fails. Check stderr for 'ERROR:' as well.
                 if (cmd_result.exit_code != 0 or 'ERROR:' in cmd_result.stderr) and 'does not exist' in cmd_result.stderr:
-                    print(f"Table '{dest_table_split_name}' not found, creating it.")
+                    print(f"Table '{dest_table_split_name}' not found. CREATE TABLE will run in the load transaction.")
                     create_split_table_sql = f"""
-                        SET enable_geospatial = on; CREATE TABLE {dest_table_split_name} (
+                        CREATE TABLE {dest_table_split_name} (
                             id VARCHAR(256),
                             chunk_id BIGINT,
                             area DOUBLE PRECISION,
@@ -479,7 +534,7 @@ class YBSplitPolygon(Util):
                             geometry GEOGRAPHY
                         );
                     """
-                    self.db_conn.ybsql_query(create_split_table_sql).on_error_exit()
+                    self._queue_txn_sql(txn_statements, create_split_table_sql)
                 else:
                     if cmd_result.exit_code == 0:
                         print(f"Table '{dest_table_split_name}' already exists.")
@@ -518,7 +573,7 @@ class YBSplitPolygon(Util):
                     VALUES ('{safe_char_id}', {original_area}, {len(wkt_string)}, {len(original_geom.wkb)}, {len(split_parts)});
                 """
                 if args.execute:
-                    self.db_conn.ybsql_query(insert_original_sql).on_error_exit()
+                    self._queue_txn_sql(txn_statements, insert_original_sql)
                 else:
                     print(insert_original_sql)
 
@@ -538,22 +593,22 @@ class YBSplitPolygon(Util):
                         split_wkb_len = 'NULL'
 
                     safe_wkt = part_wkt.replace("'", "''")
-                    insert_split_sql = f"""
-                        SET enable_geospatial = on; INSERT INTO {dest_table_split_name} (id, chunk_id, area, wkt_length, wkb_length, geometry) VALUES 
-                    """
+                    value_tuple = f"('{safe_char_id}', {chunk_id_counter}, {split_area}, {len(part_wkt)}, {split_wkb_len}, ST_GeogFromText('{safe_wkt}'))"
                     if args.execute:
-                        # Batch INSERTs for execution mode
-                        value_tuple = f"('{safe_char_id}', {chunk_id_counter}, {split_area}, {len(part_wkt)}, {split_wkb_len}, ST_GeogFromText('{safe_wkt}'))"
+                        # Batch INSERTs, then run them with the rest of the load transaction.
                         split_values_batch.append(value_tuple)
 
                         if len(split_values_batch) >= args.insert_batch_size:
-                            print(f"  -> Inserting batch of {len(split_values_batch)} rows...")
-                            batch_sql = insert_split_sql + ',\n'.join(split_values_batch) + ';'
-                            self.db_conn.ybsql_query(batch_sql).on_error_exit()
+                            print(f"  -> Queuing batch of {len(split_values_batch)} rows...")
+                            self._queue_txn_sql(
+                                txn_statements,
+                                self._split_insert_sql(dest_table_split_name, split_values_batch))
                             split_values_batch = [] # Reset batch
                     else:
                         # Print single INSERTs for non-execution mode
-                        single_insert = insert_split_sql + f"('{safe_char_id}', {chunk_id_counter}, {split_area}, {len(part_wkt)}, {split_wkb_len}, ST_GeogFromText('{safe_wkt}'));"
+                        single_insert = (
+                            "SET enable_geospatial = on; "
+                            + self._split_insert_sql(dest_table_split_name, [value_tuple]))
                         print(single_insert)
 
                 print(f"  -> Generated {len(split_parts)} parts. Area diff: {original_area - current_split_area_sum:.4f}")
@@ -562,11 +617,15 @@ class YBSplitPolygon(Util):
                 total_original_area += original_area
                 total_split_area_sum += current_split_area_sum
 
-            # Insert any remaining rows in the final batch
+            # Queue any remaining rows, then run every DDL and DML statement together.
             if args.execute and split_values_batch:
-                print(f"  -> Inserting final batch of {len(split_values_batch)} rows...")
-                batch_sql = f"INSERT INTO {dest_table_split_name} (id, chunk_id, area, wkt_length, wkb_length, geometry) VALUES " + ',\n'.join(split_values_batch) + ';'
-                self.db_conn.ybsql_query(batch_sql).on_error_exit()
+                print(f"  -> Queuing final batch of {len(split_values_batch)} rows...")
+                self._queue_txn_sql(
+                    txn_statements,
+                    self._split_insert_sql(dest_table_split_name, split_values_batch))
+
+            if args.execute:
+                self._execute_txn_sql(txn_statements)
 
             overall_area_diff = total_original_area - total_split_area_sum
             percentage_diff = (overall_area_diff / total_original_area * 100) if total_original_area > 0 else 0.0
