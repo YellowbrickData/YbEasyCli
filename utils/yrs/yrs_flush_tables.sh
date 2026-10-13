@@ -26,7 +26,7 @@
 # . Include mkdir and ybsql error handling
 # . Die if mkdir of outdir fails
 
-readonly script_version='2026.03.17.1910'
+readonly script_version='2026.10.13.1110'
 readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly script_file_name="$(echo $(basename $0))"
 readonly script_name="$(echo $(basename $0) | cut -f1 -d'.' )"
@@ -50,13 +50,13 @@ readonly outdir="${2:-${dfltdir}}"
 mkdir -p ${outdir} > /dev/null
 
 # set_gucs.sql is used by the generated flush sql scripts and is assumed to be in the same dir
-cp set_gucs.sql ${outdir}/
+cp $script_dir/set_gucs.sql ${outdir}/
 
 #echo "------------------------------------------------------------------------------"
 # Generate four files of yflush statements to be executed in separate threads
 for i in {1..4}
 do
-  gen_sql_file="gen_"${sql_file_prefix}".sql"
+  gen_sql_file="$script_dir/gen_"${sql_file_prefix}".sql"
   out_sql_file="${outdir}/${sql_file_prefix}_${i}.sql"
   #echo "[$(date '+%Y-%m-%d %T')] (${i}) Generating ${out_sql_file} from ${gen_sql_file}"
   ${ybsql_cmd} -v "grouping=${i}" -f "${gen_sql_file}" -o "${out_sql_file}"

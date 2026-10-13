@@ -24,14 +24,15 @@
 ** 
 ** 
 ** Revision History
+** . 2026.10.13 (eugene) - removed "delete.me" file
 ** . 2026.03.09 (rek) - Fix for unflushed vs flushed rows.
 ** . 2026.02.10 (rek) - Added types CTE and LEFT JOIN
 ** . 2024.11.25 (rek) - Initial version
 */
 
-\o delete.me
+\set QUIET on
 SET work_mem TO 1000000;
-\o
+\set QUIET off
 
 WITH yrs_file_types AS 
 ( SELECT           'unflushed_data_files' AS type

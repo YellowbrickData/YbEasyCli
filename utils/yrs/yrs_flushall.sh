@@ -10,6 +10,10 @@
 #      YBHOST=yb70i1 ./user_rowstore_flush_all.sh
 #
 # Revision History:
+# 2026.10.13 (eugene) Minor changes:
+#                  * Add --timeout parameter to prevent YRS queries from becoming stuck/blocked for a long time.
+#                  * Add --outdir parameter to put all log files into.
+#                  * Make sure the script can be run from any directtory.
 # 2026.09.22 (rek) - . Add -R|--no_report and -t|--trim options
 #                      NOTE: default is now to not automatically trim unused yrs files after the flush.
 #                    . validate yrs_flush_tables.sh found and executable
@@ -30,28 +34,27 @@
 # . Refactor for global vars set by common scripts
 #
 
-###############################################################################
-# EXTERNAL COMMON FUNCTIONS
-###############################################################################
-source ../common/connection_fns.sh
+OUTROOT=../output
 
 ###############################################################################
 # READONLY VARIABLES
 ###############################################################################
 
-readonly script_version='2026.09.22.1100'
+readonly script_version='2026.10.13.1110'
 readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly script_file_name="$(echo $(basename $0))"
 readonly script_name="$(echo $(basename $0) | cut -f1 -d'.' )"
 readonly ybd_path="/mnt/ybdata/ybd/"
 readonly ybsql_cmd="ybsql -X -d yellowbrick "
 readonly ybsql_qat="${ybsql_cmd} -XqAt  -P footer=off "
-readonly outdir="../output/${script_name}_"$( date +"%Y%m%d_%H%M" )
-readonly outfile="${outdir}/${script_name}.out"
 readonly hr='___________________________________________________________________'
 readonly hr2='=================================================================='
 readonly prop_name_width=28
 
+###############################################################################
+# EXTERNAL COMMON FUNCTIONS
+###############################################################################
+source "$script_dir/../common/connection_fns.sh"
 
 ###############################################################################
 # FUNCTIONS
@@ -134,6 +137,8 @@ function usage()
     echo "   [ -r | --report_only    ] Only display the YRS reports. Does not flush the YRS."
     echo "   [ -R | --no_report      ] Do not display the YRS reports after the flush."
     echo "   [ -t | --trim           ] Trim (delete) unused YRS files after the flush."
+    echo "   [ -i | --timeout        ] Set SQL statements timeout (in seconds)."
+    echo "   [ -o | --outdir         ] Set output directory for log files."
     echo "   [ ?  | --help | --usage ] display this help message and exit"
     echo ""
     echo "Examples:"
@@ -173,6 +178,17 @@ function get_opts()
 			-t|--trim)
 				opt_trim='t'
 				;;
+			-o|--outdir)
+				OUTROOT=$2
+				shift
+				;;
+			-i|--timeout)
+				if [[ $# -lt 2 || ! $2 =~ ^[0-9]+$ ]]; then
+					die "FATAL: --timeout requires a numeric value." 1
+				fi
+				export YBOPTIONS="-c statement_timeout=${2}s"
+				shift
+				;;
 			-?|--help|--usage)
 				usage
 				exit 0;
@@ -199,13 +215,13 @@ function run_yrs_queries()
 #------------------------------------------------------------------------------
 {
   print_property 'yrs_query' 'yrs_file_smry.sql'
-  ${ybsql_cmd} -f yrs_file_smry.sql
+  ${ybsql_cmd} -f "$script_dir/yrs_file_smry.sql"
   print_property 'yrs_query' 'yrs_status_smry.sql'
-  ${ybsql_cmd} -f yrs_status_smry.sql
+  ${ybsql_cmd} -f "$script_dir/yrs_status_smry.sql"
   print_property 'yrs_query' 'yrs_file_type_smry.sql'
-  ${ybsql_cmd} -f yrs_file_type_smry.sql
+  ${ybsql_cmd} -f "$script_dir/yrs_file_type_smry.sql"
   print_property 'yrs_query' "yrs_tables.sql output to ${outdir}/yrs_tables.sql.out"
-  ${ybsql_cmd} -f yrs_tables.sql -o "${outdir}/yrs_tables.sql.out"
+  ${ybsql_cmd} -f "$script_dir/yrs_tables.sql" -o "${outdir}/yrs_tables.sql.out"
 }
 
 
@@ -251,7 +267,7 @@ function main()
     default_cluster="$(get_default_cluster -X)"
     [[ $? -eq 0 ]] || die "FATAL: Failed to get default cluster." 1
 
-    is_cn="$(is_cn -X )"
+    is_cn="$(is_cn -X)"
     [[ $? -eq 0 ]] || die "FATAL: Failed to get is_cn." 1
   fi
 
@@ -269,9 +285,9 @@ function main()
   if [[ -z ${opt_report_only} ]]; then
 
     print_section_hdr "Flush yrs user tables"
-    ./yrs_flush_tables.sh "user" "${outdir}"
+    "$script_dir/yrs_flush_tables.sh" "user" "${outdir}"
     print_section_hdr "Flush yrs sys tables"
-    ./yrs_flush_tables.sh "sys"  "${outdir}"
+    "$script_dir/yrs_flush_tables.sh" "sys"  "${outdir}"
 
     if [[ -n ${opt_trim} ]]; then
       print_section_hdr "Trim yrs files"
@@ -295,6 +311,10 @@ function main()
 ###############################################################################
 
 get_opts "$@"
+
+readonly outdir="$OUTROOT/${script_name}_"$( date +"%Y%m%d_%H%M" )
+readonly outfile="${outdir}/${script_name}.out"
+
 mkdir -p ${outdir} > /dev/null || die "Failed to create out directory ${outdir}. Exiting." 1
 main | tee ${outfile}
 

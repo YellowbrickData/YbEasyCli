@@ -25,13 +25,14 @@
 **             ROUND((950*.8) - ttl_gb, 1)                                                
 ** 
 ** Revision History
+** . 2026.10.13 (eugene) - removed "delete.me" file
 ** . 2026.02.08 (rek) - Add dlta_txid & dlta_crnt
 ** . 2024.11.25 (rek) - Inital version
 */
 
-\o delete.me
+\set QUIET on
 SET work_mem TO 1000000;
-\o 
+\set QUIET off
 
 WITH unflushed_data_files AS
    (  SELECT

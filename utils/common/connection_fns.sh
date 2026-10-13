@@ -15,6 +15,7 @@
 # . get_yb_ver_num()
 #
 # Revision History:
+# 2026.10.13 (eugene) - removed "delete.me" file, fixed is_cn() function.
 # 2026.08.31 - Multiple edits for new functions and improvements/fixes existing ones:
 #              . Add connect_with_info() (do_connect() + get_yb_ver_num() in one call). 
 #              . Fix is_manager() to silence the "which: no ybcli in ..." message 
@@ -87,7 +88,7 @@ function do_connect()
   local rc=0
 
   # Attempt a frontend, not backend connection. In CN a backend connection may spawn a cluster resume
-  ybsql $@ -qAt -c " SELECT current_user" -o delete.me
+  ybsql $@ -qAt -c "SET application_name TO 'none'"
   rc=$?
 
   if [[ ${rc} -ne 0 ]]; then
@@ -176,7 +177,7 @@ function is_appliance()
   fi
 
   # Returns 't' for TRUE and 'f' for FALSE
-  is_appliance_conn=$(ybsql $@ -d yellowbrick -qAt -c "SELECT (hardware_instance_type_id = '10000000-0000-0000-0000-000000000001') AS is_appliance FROM sys.cluster  WHERE is_system_cluster =TRUE" )
+  is_appliance_conn=$(ybsql $@ -d yellowbrick -qAt -c "SELECT current_setting('ybd_secrets_manager') = 'vault'" )
   rc=$?
 
   echo ${is_appliance_conn}
@@ -268,7 +269,7 @@ function is_cn()
   fi
 
   # Returns 't' for TRUE and 'f' for FALSE
-  is_cn_conn=$(ybsql $@ -d yellowbrick -qAt -c "SELECT (hardware_instance_type_id != '10000000-0000-0000-0000-000000000001') AS is_cn FROM sys.cluster  WHERE is_system_cluster =TRUE" )
+  is_cn_conn=$(ybsql $@ -d yellowbrick -qAt -c "SELECT current_setting('ybd_secrets_manager') = 'k8ss'" )
   rc=$?
 
   echo ${is_cn_conn}
