@@ -129,15 +129,3 @@ ORDER BY db_name, chain_name;
 \o   
 \pset tuples_only off
 \pset format aligned
-
-
--- -----------------------------------------------------------------------------
--- Regenerate summary for all backup chain types on the cluster to a separate file for preupgrade_info.sh.
---\pset footer off
-\o backup_chains_summary.out.txt
-SELECT chain_type, Min(last_bck_age) AS min_snapshot_age, Max(last_bck_age) AS max_snapshot_age, Count(*) AS total_chains
-	, Sum(CASE WHEN last_bck_age >= :snapshot_age THEN 1 ELSE 0 END) AS chains_older_than_:snapshot_age
-FROM z__tmp_backup_chains
-GROUP BY chain_type
-ORDER BY chain_type;
-
