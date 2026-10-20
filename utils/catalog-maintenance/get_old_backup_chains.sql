@@ -21,6 +21,7 @@
 -- system privileges).
 --
 -- Revision History:
+-- 2026-10-13 (kick)   - Added additional unload of backup chain summary to separate file for preupgrade_info.
 -- 2026-09-11 (eugene) - improved the default snapshot_age calculation.
 -- 2026-07-24 (kick) - . Added override value for snapshot_age default of 30.
 --                     . Added additional in-line comments.
@@ -96,6 +97,19 @@ GROUP BY chain_type
 ORDER BY chain_type;
 
 -- -----------------------------------------------------------------------------
+-- Regenerate summary for all backup chain types on the cluster to a separate file for preupgrade_info.sh.
+--\pset footer off
+\qecho == Generating backup_chains_summary.out.txt (COPY) 
+\o backup_chains_summary.out.txt
+SELECT chain_type, Min(last_bck_age) AS min_snapshot_age, Max(last_bck_age) AS max_snapshot_age, Count(*) AS total_chains
+	, Sum(CASE WHEN last_bck_age >= :snapshot_age THEN 1 ELSE 0 END) AS chains_older_than_:snapshot_age
+FROM z__tmp_backup_chains
+GROUP BY chain_type
+ORDER BY chain_type;
+--\pset footer on
+
+-- -----------------------------------------------------------------------------
+-- Generate DROP BACKUP CHAIN statements to drop_old_backup_chains.out.sql 
 \set drop :drop
 SELECT CASE WHEN :'drop' IN ('y', ':drop') THEN '\r' ELSE '\q' END AS next_command \gset
 :next_command
@@ -112,6 +126,18 @@ SELECT CASE row_number() OVER (PARTITION BY db_name ORDER BY chain_name) WHEN 1 
 FROM z__tmp_backup_chains
 WHERE last_bck_age >= :snapshot_age
 ORDER BY db_name, chain_name;
+\o   
 \pset tuples_only off
 \pset format aligned
-\o
+
+
+-- -----------------------------------------------------------------------------
+-- Regenerate summary for all backup chain types on the cluster to a separate file for preupgrade_info.sh.
+--\pset footer off
+\o backup_chains_summary.out.txt
+SELECT chain_type, Min(last_bck_age) AS min_snapshot_age, Max(last_bck_age) AS max_snapshot_age, Count(*) AS total_chains
+	, Sum(CASE WHEN last_bck_age >= :snapshot_age THEN 1 ELSE 0 END) AS chains_older_than_:snapshot_age
+FROM z__tmp_backup_chains
+GROUP BY chain_type
+ORDER BY chain_type;
+
