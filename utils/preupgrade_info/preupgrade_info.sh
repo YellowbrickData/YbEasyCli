@@ -21,47 +21,51 @@
 #   Run from the manager node as ybdadmin user.
 #
 # Revision History:
+# . 2026.10.14 16:15 (rek)    - Fixed missing backup chain summary. Also uses new format.
+#                               Added check for views with CHAR const expressions.
+#                               Multiple cosmetic changes to output formatting including net_interface_smry
+#                               Bug fixes to encryption_status and aged_backup_chains_smry.
 # . 2026.09.11 11:17 (eugene) - Fixed output directory stuff (using mktemp now).
 #                               Backup chains report is now done with the SQL version from catalog maintenance folder.
-# . 2026.08.24 15:15 (rek) - Added get_col_encryption_status()
-# . 2026.08.18 19:00 (rek) - Added get_ca_cert_expiry()
-#                            Fixed db_char_cols.sh 'char_cols/*: No such file' error
-# . 2026.07.23 11:00 (rek) - Multiple minor bug fixes in functions: die(), emit()
-#                              , dump_ybsql(), dump_ybcli_cmd().
-#                            Added get_long_session_smry and get_long_txn_smry.
-#                            Added get_udf_smry_and_dtl
-# . 2026.04.15 13:00 (rek) - Added cmp uptime check.
-#                            Added error notification to dump_ybsql().
-#                            Added explicit cd to script directory.
-#                            Make output dir path real instead of relative.
-# . 2026.03.06 11:00 (rek) - Add phonehome_status
-#                            Add -X to ybsql_cmd
-#                            Fixes to temp table and long running txn functions.
-#                            Move output directory to common utils output directory.
-# . 2026.02.13 11:00 (rek) - Add get_net_interface_smry
-# . 2026.02.11 12:15 (rek) - Separate yb_version and yb_server_version.
-# . 2026.02.05 12:15 (rek) - Use "server_version" for yb version.
-#                            Fixed manager uptime.
-#                            Fixed remote manager NVME wear.
-# . 2026.02.03 21:10 (rek) - Added yrs_file_type_smry.
-#                            Added worker section with worker_ssd_state_smry.
-#                            Minor refactoring to move functions and addl comments. (IN PROCESS)
-#                            Added CHAR column checks (IN PROCESS).
-#                            Can now use SQL files from other dirs.
-# . 2026.01.20 10:30 (rek) - Output now goes to separate output directory.
-# . 2026.01.18 11:05 (rek) - Added manager uptime check.
-#                            Updated check_extended_ascii.sh utf8 regex.
-# . 2025.12.09 11:45 (rek) - Added orphan_snapshot_smry check.
-#                            Minor output organization refactoring.
-#                            Minor change to output for runnins sql files.
-# . 2025.10.28 19:30 (rek) - Added catalog extended ascii check check.
-#                            Added txn_wraparound_check.
-# . 2025.04.07 19:30 (rek) - Addition of print_property_append and dump status.
-#                            Added backup chain detail extract.
-# . 2025.03.28 10:40 (rek) - Additional refactoring.
-#                            Auto generation of zip file.
-# . 2025.03.19 21:40 (rek) - Refactor to write ybcli output to file.
-# . 2025.03.12 11:40 (rek) - Initial script_version.
+# . 2026.08.24 15:15 (rek)    - Added get_col_encryption_status()
+# . 2026.08.18 19:00 (rek)    - Added get_ca_cert_expiry()
+#                               Fixed db_char_cols.sh 'char_cols/*: No such file' error
+# . 2026.07.23 11:00 (rek)    - Multiple minor bug fixes in functions: die(), emit()
+#                                 , dump_ybsql(), dump_ybcli_cmd().
+#                               Added get_long_session_smry and get_long_txn_smry.
+#                               Added get_udf_smry_and_dtl
+# . 2026.04.15 13:00 (rek)    - Added cmp uptime check.
+#                               Added error notification to dump_ybsql().
+#                               Added explicit cd to script directory.
+#                               Make output dir path real instead of relative.
+# . 2026.03.06 11:00 (rek)    - Add phonehome_status
+#                               Add -X to ybsql_cmd
+#                               Fixes to temp table and long running txn functions.
+#                               Move output directory to common utils output directory.
+# . 2026.02.13 11:00 (rek)    - Add get_net_interface_smry
+# . 2026.02.11 12:15 (rek)    - Separate yb_version and yb_server_version.
+# . 2026.02.05 12:15 (rek)    - Use "server_version" for yb version.
+#                               Fixed manager uptime.
+#                               Fixed remote manager NVME wear.
+# . 2026.02.03 21:10 (rek)    - Added yrs_file_type_smry.
+#                               Added worker section with worker_ssd_state_smry.
+#                               Minor refactoring to move functions and addl comments. (IN PROCESS)
+#                               Added CHAR column checks (IN PROCESS).
+#                               Can now use SQL files from other dirs.
+# . 2026.01.20 10:30 (rek)    - Output now goes to separate output directory.
+# . 2026.01.18 11:05 (rek)    - Added manager uptime check.
+#                               Updated check_extended_ascii.sh utf8 regex.
+# . 2025.12.09 11:45 (rek)    - Added orphan_snapshot_smry check.
+#                               Minor output organization refactoring.
+#                               Minor change to output for runnins sql files.
+# . 2025.10.28 19:30 (rek)    - Added catalog extended ascii check check.
+#                               Added txn_wraparound_check.
+# . 2025.04.07 19:30 (rek)    - Addition of print_property_append and dump status.
+#                               Added backup chain detail extract.
+# . 2025.03.28 10:40 (rek)    - Additional refactoring.
+#                               Auto generation of zip file.
+# . 2025.03.19 21:40 (rek)    - Refactor to write ybcli output to file.
+# . 2025.03.12 11:40 (rek)    - Initial script_version.
 #
 # TODO:
 # . Fix preupgrade_info zip path
@@ -84,7 +88,7 @@
 # READONLY VARIABLES
 ###############################################################################
 
-readonly script_version='2026.08.18.1915'
+readonly script_version='2026.10.14.1615'
 readonly script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly script_file_name="$(echo $(basename $0))"
 readonly script_name="$(echo $(basename $0) | cut -f1 -d'.' )"
@@ -335,12 +339,6 @@ function dump_ybsql_all()
 
   dump_ybsql sys_database_smry.sql       '-x -t'
 
-  local backup_chains_sql=$(realpath ../catalog-maintenance/get_old_backup_chains.sql)
-  pushd .
-  cd $outdir # need to do that as the backup chain report SQL generated a file in the current directory, we need it in our final folder.
-  dump_ybsql $backup_chains_sql '-v snapshot_age=30 -v drop=n'
-  popd
-
   dump_ybsql orphan_snapshot_smry.sql
   dump_ybsql orphan_snapshots.sql
 
@@ -489,12 +487,12 @@ function get_col_encryption_status()
   local _count=0
   local _count_sql=""
   local _details_outfile=col_encr_key_details.out
-  local _detail_sql="SELECT current_database() AS database_name, * FROM sys.key"
+  local _details_sql="SELECT current_database() AS database_name, * FROM sys.key"
   local _detail_headers_sql="SELECT 'database_name', 'key_id', 'name', 'schema_id', 'owner_id', 'creation_time'"
   local _dbs=$(${ybsql_qat} -d yellowbrick -c "SELECT name FROM sys.database ORDER BY name")
 
   echo -n "" > ${_details_outfile}
-  ${ybsql_qat} -d yellowbrick -c "${_headers_sql}" >> ${_outfile}
+  ${ybsql_qat} -d yellowbrick -c "${_headers_sql}" >> ${_details_outfile}
 
   print_property 'col_encr_key_by_db' '(running) '
   print_property_append "(${_details_outfile})"
@@ -505,7 +503,7 @@ function get_col_encryption_status()
     _count_sql="SELECT COUNT(*) + ${_count} FROM sys.key"
     _count=$(${ybsql_qat} -d "${_db}" -c "${_count_sql}")
 
-    ${ybsql_qat} -d "${_db}" -c "${_detail_sql}" >> ${_details_outfile}
+    ${ybsql_qat} -d "${_db}" -c "${_details_sql}" >> ${_details_outfile}
   done
 
   if [[ ${_count} == "0" ]]; then
@@ -687,6 +685,27 @@ function get_net_interface_smry()
   | grep -P '^\w+[:] |RX errors|TX errors'  \
   | cut -d ':' -f 1 \
   | paste - - - \
+  | awk '
+      {
+        for (col = 1; col <= NF; col++) {
+          values[NR, col] = $col
+          if (length($col) > widths[col]) widths[col] = length($col)
+        }
+        fields[NR] = NF
+      }
+      END {
+        for (row = 1; row <= NR; row++) {
+          for (col = 1; col <= fields[row]; col++) {
+            value = values[row, col]
+            if (col > 1) printf "%s", (value == "RX" || value == "TX") ? "    " : " "
+            if (value ~ /^[0-9]+$/)
+              printf "%*s", widths[col], value
+            else
+              printf "%-*s", widths[col], value
+          }
+          printf "\n"
+        }
+      }' \
   >  net_interface_smry.out
 
   while IFS= read -r line
@@ -756,6 +775,7 @@ GROUP BY db_name;
   echo -n "" > ${_details_outfile}
   ${ybsql_qat} -d yellowbrick -c "${_func_sql_headers}" >> ${_outfile}
 
+  print_property '' ""
   print_property 'udf_smry_by_db' '(running) '
   _dbs=$(ybsql -qAt -d yellowbrick -c "SELECT name FROM sys.database WHERE name != 'yellowbrick' ORDER BY name")
   print_property_append "(${_outfile})(${_details_outfile})"
@@ -827,6 +847,7 @@ WHERE xact_start < now() - interval '1 MINUTE';"
   done < long_txn_smry_sql.out
 }
 
+
 function get_worker_ssd_smry()
 #------------------------------------------------------------------------------
 # Print drive storage key metrics; min size, max usage, spill, etc..
@@ -839,6 +860,7 @@ function get_worker_ssd_smry()
 #     , etc..
 #------------------------------------------------------------------------------
 {
+  print_property '' ""
   while IFS= read -r line
   do
     [[ -n "${line}" ]] && print_property 'worker_ssd_smry' "${line}"
@@ -870,6 +892,53 @@ function get_char_cols_smry()
 }
 
 
+function get_views_with_char_constants()
+#------------------------------------------------------------------------------
+{
+  local _char_const_views_sql=''
+  local _count=0
+  local _details_outfile=views_with_char_constants_details.out
+  local _dbs=$(${ybsql_qat} -d yellowbrick -c "SELECT name FROM sys.database ORDER BY name")
+
+  read -r -d '' _char_const_views_sql <<'SQL_EOF'
+WITH views_base AS
+(  SELECT
+     v.definition                                               AS definition
+   , v.database_name                                            AS database_name
+   , s.name                                                     AS schema_name
+   , v.name                                                     AS view_name
+   , quote_ident ( r.rolname )                                  AS view_owner
+   , quote_ident ( s.name ) || '.' || quote_ident ( v.name )    AS qn
+   , quote_ident ( database_name ) || '.' || quote_ident ( s.name ) || '.' || quote_ident ( v.name )
+                                                                AS fqn
+  FROM sys.view   AS v
+  JOIN sys.schema AS s USING ( database_id, schema_id )
+  JOIN pg_roles   AS r ON v.owner_id = r.oid
+  WHERE definition IS NOT NULL
+    AND v.view_id > 16383
+)
+, views AS
+(  SELECT database_name, schema_name, view_name, view_owner, fqn, definition
+   FROM views_base
+   WHERE (definition ilike '%''::character(%' OR definition ilike '%''::char(%' )
+)
+SELECT
+   database_name AS database_name
+ , schema_name   AS schema_name
+ , view_name     AS view_name
+ , view_owner    AS view_owner
+ FROM views
+ ORDER BY database_name, schema_name, view_name
+SQL_EOF
+
+  print_property 'views_with_char_constants' '(running) '
+  print_property_append "(${_details_outfile})"
+
+  ${ybsql_qat} -d "${_db}" -c "${_char_const_views_sql}" >> ${_details_outfile}
+  _count=$( wc -l < ${_details_outfile} )
+  print_property 'views_with_char_constants' "${_count}"
+}
+
 #-------------------------------------------------------------------------------
 # BAR_STATUS
 #-------------------------------------------------------------------------------
@@ -877,16 +946,27 @@ function get_char_cols_smry()
 function get_backup_chain_smry()
 #------------------------------------------------------------------------------
 {
+  local _backup_chains_sql=$(realpath ../catalog-maintenance/get_old_backup_chains.sql)
+
+  # We need the backup chain report SQL output generated we need it in our destination directory.
+  pushd . > /dev/null
+  cd ${outdir} > /dev/null
+  print_property 'backup_chain_dump' ''
+  dump_ybsql ${_backup_chains_sql} '-v snapshot_age=30 -v drop=n'
+  popd > /dev/null
+
+  print_property '' ""
   while IFS= read -r line
   do
-    [[ -n "${line}" ]] && print_property 'backup_chains_age_gt_30' "${line}"
-  done < aged_backup_chains_smry.sql.out
+    [[ -n "${line}" ]] && print_property 'aged_backup_chain_snapshots' "${line}"
+  done < "${outdir}/backup_chains_summary.out.txt"
 }
 
 
 function get_orphan_snapshot_smry()
 #------------------------------------------------------------------------------
 {
+  print_property '' ""
   while IFS= read -r line
   do
     [[ -n "${line}" ]] && print_property 'orphan_snapshot_smry' "${line}"
@@ -983,6 +1063,7 @@ function get_pg_custom_settings()
     print_property 'pg_custom_sys_setting' "${line}"
   done < pg_custom_sys_settings.out
 
+  print_property '' ""
   print_property 'pg_custom_user_settings' '(running) '
   while IFS= read -r line
   do
@@ -1089,6 +1170,7 @@ function main()
  #get_session_smry
   get_database_smry
   get_char_cols_smry
+  get_views_with_char_constants
   get_udf_smry_and_dtl
   get_worker_ssd_smry
   #get_data_skew
@@ -1137,7 +1219,7 @@ function main()
 ###############################################################################
 
 echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-[ -d $outdir ] || die "Failed to create out directory ${outdir}. Exiting." 1
+[ -d ${outdir} ] || die "Failed to create out directory ${outdir}. Exiting." 1
 
 main | tee ${outfile}
 echo '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
